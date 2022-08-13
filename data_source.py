@@ -34,6 +34,7 @@ bot_name = list(global_config.nickname)[0] if global_config.nickname else "bot"
 # 赌注
 max_bet_gold = russian_config.max_bet_gold
 race_bet_gold = russian_config.race_bet_gold
+gacha_gold = russian_config.gacha_gold
 
 # 赌注读取2
 russian_config = Config.parse_obj(nonebot.get_driver().config.dict())
@@ -1430,10 +1431,10 @@ class SingleManager:
         group_id = str(event.group_id)
         user_id = str(event.user_id)
         
-        if russian_manager.get_user_data(event)["gold"] < 500:
-            return f'10连抽卡需要500金币，你的金币：{russian_manager._player_data[group_id][user_id]["gold"]}。'
+        if russian_manager.get_user_data(event)["gold"] < gacha_gold:
+            return f'10连抽卡需要{gacha_gold}金币，你的金币：{russian_manager._player_data[group_id][user_id]["gold"]}。'
         else:
-            russian_manager._player_data[group_id][user_id]["gold"] -= 500
+            russian_manager._player_data[group_id][user_id]["gold"] -= gacha_gold
             msg = '\n'
             for i in range(10):
                 props = random.randint(1,200)

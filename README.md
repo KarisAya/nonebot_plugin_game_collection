@@ -30,7 +30,7 @@
     SECURITY_GOLD = [50, 200]             # 每日补贴可得到的金币范围
     
     MARKET_INFO_CHAIN = TRUE              # 市场信息群聊转发开关 TRUE是开启转发模式，FALSE是关闭转发模式。
-    MARKET_INFO_TYPE = "text"            # 市场信息发送形式 "image" 以图片形式发送 "text" 以文字形式发送。
+    MARKET_INFO_TYPE = "text"             # 市场信息发送形式 "image" 以图片形式发送 "text" 以文字形式发送。
 
 ## 功能介绍
 

@@ -452,19 +452,27 @@ async def _(
         pass
     msg = arg.extract_plain_text().strip()
     if msg:
+        bullet_num = 1
+        money = 200
         msg = msg.split()
-        state["at"] = get_message_at(event.json())
         if len(msg) == 1:
             msg = msg[0]
-            if is_number(msg) and not (int(msg) < 1 or int(msg) > 6):
-                state["bullet_num"] = int(msg)
+            if is_number(msg):
+                if 0 < int(msg) < 7:
+                    bullet_num = int(msg)
+                else:
+                    money = int(msg)
         else:
-            money = msg[1].strip()            
-            msg = msg[0].strip()
-            if is_number(msg) and not (int(msg) < 1 or int(msg) > 6):
-                state["bullet_num"] = int(msg)
-            if is_number(money) and 0 < int(money) <= max_bet_gold:
-                state["money"] = int(money)
+            msg[0] = msg[0].strip()  
+            msg[1] = msg[1].strip()         
+            if is_number(msg[0]) and 0 < int(msg[0]) < 7:
+                bullet_num = int(msg[0])
+            if is_number(msg[1]):
+                money = int(msg[1])
+
+        state["bullet_num"] = bullet_num
+        state["money"] = money
+        state["at"] = get_message_at(event.json())
         
 @russian.got("bullet_num")
 async def _(
@@ -472,7 +480,7 @@ async def _(
 ):
     at_ = state["at"]
     bullet_num = state["bullet_num"]
-    money = state["money"] if state.get("money") else 200
+    money = state["money"]
     user_money = russian_manager.get_user_data(event)["gold"]
     if money > max_bet_gold:
         await russian.finish(f"单次金额不能超过{max_bet_gold}", at_sender=True)
@@ -688,10 +696,16 @@ async def _(event: GroupMessageEvent):
     win_count = russian_manager.get_user_data(event)["win_count"]
     lose_count = russian_manager.get_user_data(event)["lose_count"]
     stock = russian_manager.get_user_data(event)["stock"]
+    my_stock = []
     stock_info = ""
     for x in stock.keys():
         if x != "value" and  stock[x] != 0 :
-            stock_info += f'【{x}】\n持有：{stock[x]} 株\n价值：{round(market_manager._market_data[x]["gold"] * stock[x] / 20000,2)} 金币\n'
+            my_stock.append([x,round(market_manager._market_data[x]["gold"] * stock[x] / 20000,2)])
+    else:
+        my_stock.sort(key = lambda x:x[1],reverse = True)
+        for i in range(len(my_stock)):
+            stock_info += f'【{my_stock[i][0]}】\n持有：{stock[my_stock[i][0]]} 株\n价值：{my_stock[i][1]} 金币\n'
+
     info=(
         f'【{nickname}】\n'
         "——————————————\n"+
@@ -840,7 +854,12 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
             company_name = msg[0]            
             stock = abs(int(msg[1])) if is_number(msg[1]) else 100
             msg = market_manager.Market_buy(event,company_name,stock)
-            await Market_buy.finish(msg)
+            try:
+                await Market_buy.finish(msg)
+            except:
+                output = BytesIO()
+                Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                await Market_buy.finish(MessageSegment.image(output))
 
 # 市场卖出
 @Market_sell.handle()
@@ -854,11 +873,16 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
                 quote = abs(float(msg[1]))
                 stock = abs(int(msg[2])) if is_number(msg[2]) else 100
                 msg = market_manager.Market_sell(event,company_name,quote,stock)
-                await Market_sell.finish(msg)
+                try:
+                    await Market_sell.finish(msg)
+                except:
+                    output = BytesIO()
+                    Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                    await Market_sell.finish(MessageSegment.image(output))
 
 # 市场信息
 @Market_info.handle()
-async def _(event: MessageEvent,arg: Message = CommandArg()):
+async def _(bot:Bot, event: MessageEvent,arg: Message = CommandArg()):
     company_name = arg.extract_plain_text().strip()
     if company_name:
         company_name = company_name.split()
@@ -868,10 +892,12 @@ async def _(event: MessageEvent,arg: Message = CommandArg()):
             company_name == ""
     else:
         company_name == ""
-    msg = market_manager.Market_info_(company_name)
-    output = BytesIO()
-    Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
-    await Market_info.finish(MessageSegment.image(output))
+    msg = market_manager.Market_info_(event,company_name)
+    if type(msg) == list:
+        await bot.send_group_forward_msg(group_id=event.group_id, messages = msg)
+        await Market_info.finish()
+    else:
+        await Market_info.finish(msg)
 
 # 公司信息
 @company_info.handle()

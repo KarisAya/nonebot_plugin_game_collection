@@ -31,6 +31,10 @@ security_gold = russian_config.security_gold
 # bot昵称
 bot_name = list(global_config.nickname)[0] if global_config.nickname else "bot"
 
+# 市场信息显示方式
+market_info_chain = russian_config.market_info_chain
+market_info_type = russian_config.market_info_type
+
 # 赌注
 max_bet_gold = russian_config.max_bet_gold
 race_bet_gold = russian_config.race_bet_gold
@@ -41,6 +45,7 @@ russian_config = Config.parse_obj(nonebot.get_driver().config.dict())
 
 max_bet_gold = russian_config.max_bet_gold
 race_bet_gold = russian_config.race_bet_gold
+
 
 async def rank(player_data: dict, group_id: int, type_: str) -> str:
     """
@@ -1827,7 +1832,7 @@ class MarketManager:
                 return True
         return False
 
-    def Market_info_(self,company_name:str):
+    def Market_info_(self, event, company_name:str):
         """
         市场信息
         :param company_name:公司名，为空则是总览。
@@ -1835,10 +1840,6 @@ class MarketManager:
         msg = ""
         if company_name in self.Stock_Exchange.keys():
             lst = sorted(self.Stock_Exchange[company_name].items(),key = lambda x:x[1]["quote"])
-            msg =(
-                f'【{company_name}】\n'
-                "——————————————\n"
-                )
             for i in range(len(lst) if len(lst) < 10 else 10):
                 if lst[i][1]["stock"] > 0:
                     nickname = russian_manager._player_data[lst[i][1]["group_id"]][lst[i][0]]["nickname"]
@@ -1846,29 +1847,80 @@ class MarketManager:
                         f'{nickname}\n'
                         f'单价：{lst[i][1]["quote"]} 数量：{lst[i][1]["stock"]}\n'
                         )
+            if msg:
+                msg = (f'【{company_name}】\n'"——————————————\n") + msg
+                msg = msg[:-1]
+                output = BytesIO()
+                Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                msg = MessageSegment.image(output)
         else:
             lst = []
             for x in self._market_data.keys():
                 if self._market_data[x].get("time") == None:
-                    lst.append(x)
-                    
-            for i in range(len(lst)):
+                    lst.append([x,self._market_data[x]["group_gold"]])
+            else:
+                lst.sort(key = lambda x:x[1],reverse = True)
+            
+            msg_lst = []
+            n = len(lst)
+
+            for i in range(n):
                 price = (
-                    self._market_data[lst[i]]["gold"]
-                    if self._market_data[lst[i]]["gold"] > self._market_data[lst[i]]["float_gold"]
-                    else self._market_data[lst[i]]["float_gold"]
+                    self._market_data[lst[i][0]]["gold"]
+                    if self._market_data[lst[i][0]]["gold"] > self._market_data[lst[i][0]]["float_gold"]
+                    else self._market_data[lst[i][0]]["float_gold"]
                     )
-                msg += (
-                    f'【{lst[i]}】\n'
+                msg_lst.append(
+                    f'【{lst[i][0]}】\n'
                     "——————————————\n"
-                    f'固定资产：{round(self._market_data[lst[i]]["gold"], 2)} 金币\n'
-                    f'市场流动：{int(self._market_data[lst[i]]["group_gold"])} 金币\n'
+                    f'固定资产：{round(self._market_data[lst[i][0]]["gold"], 2)} 金币\n'
+                    f'市场流动：{int(lst[i][1])} 金币\n'
                     f'发行价格：{round(price/20000,2)} 金币\n'
-                    f'结算价格：{round(self._market_data[lst[i]]["float_gold"] / 20000, 2)} 金币\n'
-                    f'剩余数量：{self._market_data[lst[i]]["stock"]} 株\n'
-                    "——————————————\n"
+                    f'结算价格：{round(self._market_data[lst[i][0]]["float_gold"] / 20000, 2)} 金币\n'
+                    f'剩余数量：{self._market_data[lst[i][0]]["stock"]} 株\n'
+                    "——————————————"
                     )
-        return msg[:-1]
+            else:
+                if  market_info_chain == False:
+                    for i in range(n):
+                        msg += msg_lst[i] + "\n"
+                    else:
+                        msg = msg[:-1]
+                        if market_info_type == "image":
+                            output = BytesIO()
+                            Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                            msg = MessageSegment.image(output)
+                        else:
+                            msg = msg.replace("——————————————", "----------")
+                else:
+                    msg = []
+                    if market_info_type == "image" :
+                        for i in range(n):
+                            output = BytesIO()
+                            Text2Image.from_text(msg_lst[i],50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                            msg.append(
+                                {
+                                    "type": "node",
+                                    "data": {
+                                        "name": f"{bot_name}",
+                                        "uin": str(event.self_id),
+                                        "content": MessageSegment.image(output)
+                                        }
+                                    }
+                                )
+                    else:
+                        for i in range(n):
+                            msg.append(
+                                {
+                                    "type": "node",
+                                    "data": {
+                                        "name": f"{bot_name}",
+                                        "uin": str(event.self_id),
+                                        "content": msg_lst[i]
+                                        }
+                                    }
+                                )
+        return msg
 
     def company_info(self,company_name:str):
         """

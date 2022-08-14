@@ -1,4 +1,4 @@
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, Message, MessageSegment, Bot
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Message, MessageSegment, Bot
 from typing import Optional, Tuple, Union, List, Dict
 from datetime import datetime
 from nonebot.log import logger
@@ -1881,7 +1881,7 @@ class MarketManager:
                     "——————————————"
                     )
             else:
-                if  market_info_chain == False:
+                if market_info_chain == False or isinstance(event, PrivateMessageEvent):
                     for i in range(n):
                         msg += msg_lst[i] + "\n"
                     else:

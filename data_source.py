@@ -1341,7 +1341,7 @@ class GameManager:
         self.save()
         return (
             f"{self._player_data[group_id][player_id]['nickname']} 向 {self._player_data[group_id][at_player_id]['nickname']} 转账{unsettled}金币\n"+
-            ("『钻石会员卡』免费" if flag > 0 else f"扣除2%手续费：{fee}，实际到账金额{unsettled - fee}")
+            ("『钻石会员卡』免手续费" if flag > 0 else f"扣除2%手续费：{fee}，实际到账金额{unsettled - fee}")
             )
 
     def Achieve_list(self,user_data):
@@ -1384,7 +1384,7 @@ class SingleManager:
         group_id = str(event.group_id)
         user_id = str(event.user_id)
         
-        if gold > russian_manager._player_data[group_id][user_id]["gold"]:
+        if gold > russian_manager.get_user_data(event)["gold"]:
             return f'你没有足够的金币，你的金币：{russian_manager._player_data[group_id][user_id]["gold"]}。'
         if russian_manager._player_data[group_id][user_id]["slot"] > 2:
             return '你的本轮次数已用光。'
@@ -1568,10 +1568,10 @@ class MarketManager:
         """
         group_id = str(event.group_id)
         user_id = str(event.user_id)
-        russian_manager._init_player_data(event)
+        my_stock = russian_manager.get_user_data(event)["stock"].get(company_name,0)
         if not company_name in self.Stock_Exchange.keys():
             return f"【{company_name}】未注册"
-        elif russian_manager._player_data[group_id][user_id]["stock"].get(company_name,0) < stock:
+        elif my_stock < stock:
             return (
                 "你的账户中没有足够的股票。\n"
                 f'{company_name}剩余：{russian_manager._player_data[group_id][user_id]["stock"][company_name]} 株'
@@ -1583,10 +1583,10 @@ class MarketManager:
             self.Stock_Exchange_data_save()
             return (
                 f"【{company_name}】\n"
-                "--------------------\n"
+                "——————————————\n"
                 f'报价：{self.Stock_Exchange[company_name][user_id]["quote"]} 金币\n'
                 f'数量：{self.Stock_Exchange[company_name][user_id]["stock"]} 株\n'
-                "--------------------\n"
+                "——————————————\n"
                 "信息已修改。"
                 )
         else:
@@ -1601,10 +1601,10 @@ class MarketManager:
             self.Stock_Exchange_data_save()
             return (
                 f"【{company_name}】\n"
-                "--------------------\n"
+                "——————————————\n"
                 f'报价：{quote} 金币\n'
                 f'数量：{stock} 株\n'
-                "--------------------\n"
+                "——————————————\n"
                 "发布成功！"
                 )
 
@@ -1616,7 +1616,7 @@ class MarketManager:
         """
         group_id = str(event.group_id)
         user_id = str(event.user_id)
-        russian_manager._init_player_data(event)
+        my_gold = russian_manager.get_user_data(event)["gold"]
         if self.Stock_Exchange.get(company_name) == None:
             return f"【{company_name}】未注册"
         else:
@@ -1651,10 +1651,10 @@ class MarketManager:
                     
                     gold += _quote * _count
 
-                if gold > russian_manager._player_data[group_id][user_id]["gold"]:
+                if gold > my_gold:
                     return (
                         "金币不足\n"
-                        f'你的金币：{russian_manager._player_data[group_id][user_id]["gold"]:}'
+                        f'你的金币：{my_gold}'
                         f"需要金币：{int(gold)}"
                         )
                 else:
@@ -1681,7 +1681,7 @@ class MarketManager:
                         self.Stock_Exchange_data_save()
                         return (
                             "交易成功！\n"
-                            "--------------------\n"
+                            "——————————————\n"
                             f"【{company_name}】\n" 
                             f"数量：{count}\n"
                             f"价格：{round(gold/count,2)}\n"
@@ -1719,7 +1719,7 @@ class MarketManager:
         """
         group_id = str(event.group_id)
         user_id = str(event.user_id)
-        russian_manager._init_player_data(event)
+        my_gold = russian_manager.get_user_data(event)["gold"]
         company = self._market_data.get(company_name)
         if company == None:
             return f"公司名：{company_name} 未注册"
@@ -1736,10 +1736,11 @@ class MarketManager:
                 else:
                     value = value * 1.002
 
-                    if value > russian_manager._player_data[group_id][user_id]["gold"]:
+                    if value > my_gold:
                         return (
                             "你的金币不足...\n"
-                            "--------------------\n"
+                            f"你的金币：{my_gold}\n"
+                            "——————————————\n"
                             f"【{company_name}】\n"
                             f"数量：{stock}\n"
                             f"单价：{round(value/stock,2)}\n"
@@ -1762,7 +1763,7 @@ class MarketManager:
 
                         return (
                             "交易成功！\n"
-                            "--------------------\n"
+                            "——————————————\n"
                             f"【{company_name}】\n" 
                             f"数量：{stock}\n"
                             f"单价：{round(value/stock,2)}\n"
@@ -1780,9 +1781,8 @@ class MarketManager:
         """ 
         group_id = str(event.group_id)
         user_id = str(event.user_id)
-        russian_manager._init_player_data(event)
+        my_stock = russian_manager.get_user_data(event)["stock"].get(company_name)
         company = self._market_data.get(company_name)
-        my_stock = russian_manager._player_data[group_id][user_id]["stock"].get(company_name)
         if company == None:
             return f"【{company_name}】未注册"
         elif my_stock == None:
@@ -1814,7 +1814,7 @@ class MarketManager:
                 russian_manager.save()
                 return (
                     "交易成功！\n"
-                    "--------------------\n"
+                    "——————————————\n"
                     f"【{company_name}】\n" 
                     f"数量：{stock}\n"
                     f"单价：{round(value/stock,2)}\n"
@@ -1973,7 +1973,7 @@ class MarketManager:
         """
         刷新持股信息
         :param group_id:账户所在群
-        param user_id:用户名
+        :param user_id:用户名
         """
         value = 0.0
         stock_data = russian_manager._player_data[group_id][user_id]["stock"]
@@ -2013,6 +2013,42 @@ class MarketManager:
             )
 
         self.market_data_save()
+
+    def intergroup_transfer(self, event, company_name, gold) -> str:
+        """
+        跨群转移金币到自己的账户
+        :param event:event
+        :param company_name:转入公司名
+        :param gold:转入金币
+        """
+        if company_name in self._market_data.keys():
+            company_id = str(self._market_data[company_name]["group_id"])
+            group_id = str(event.group_id)
+            user_id = str(event.user_id)
+            gold = abs(int(gold))
+            my_gold = russian_manager.get_user_data(event)["gold"]
+            if gold > my_gold:
+                return f"您的账户没有足够的金币，你的金币：{my_gold}"
+            if not user_id in russian_manager._player_data[company_id].keys():
+                return f"你在【{company_name}】未注册"
+            
+            flag = russian_manager._player_data[group_id][user_id]["props"].get("钻石会员卡",0)
+            if flag > 0:
+                fee = 0
+            else:
+                fee = int(gold * 0.02)
+
+            russian_manager._player_data[company_id][user_id]["gold"] += gold - fee
+            russian_manager._player_data[group_id][user_id]["gold"] -= gold
+            russian_manager.save()
+            
+            return (
+                f"向 【{company_name}】 转移 {gold}金币\n"+
+                ("『钻石会员卡』免手续费" if flag > 0 else f"扣除2%手续费：{fee}，实际到账金额{gold - fee}")
+                )
+        else:
+            return f"【{company_name}】未注册"
+
 
 
 

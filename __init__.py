@@ -91,7 +91,6 @@ async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
     uid = event.user_id
 
     gold = russian_manager.get_user_data(event)["gold"]
-    player_data = russian_manager._player_data[str(group)][str(uid)]
 
     player_name = event.sender.card if event.sender.card else event.sender.nickname
 
@@ -121,7 +120,7 @@ async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
 
         race[group].add_player(horse_name, uid, player_name)
         
-        player_data["gold"] -= race_bet_gold
+        russian_manager._player_data[str(group)][str(uid)]["gold"] -= race_bet_gold
         russian_manager.save()
 
         out_msg = (
@@ -338,6 +337,8 @@ update_intro_superuser = on_command("管理员更新公司简介",aliases={"管�
 reset_sign = on_command("reset_sign", permission=SUPERUSER, priority=5, block=True) # 重置每日签到和每日补贴
 reset_market_index = on_command("reset_market_index", permission=SUPERUSER, priority=5, block=True) # 重置市场指数
 
+intergroup_transfer = on_command("金币转移", permission=GROUP, priority=5, block=True)
+
 @sign.handle()
 async def _(event: GroupMessageEvent):
     msg, gold = russian_manager.sign(event)
@@ -361,43 +362,27 @@ async def _(event: GroupMessageEvent):
     if gold != -1:
         logger.info(f"USER {event.user_id} | GROUP {event.group_id} 获取 {gold} 金币")
 
-# 打钱
-
-async def get_unsettled(state: T_State = State()):
-    if state["unsettled"]:
-        return state
-    else:
-        return None
+# 发红包
 
 @give_gold.handle()
-async def _(
-    bot: Bot,event: GroupMessageEvent,state: T_State = State(),arg: Message = CommandArg(),
-):
+async def _(bot: Bot,event: GroupMessageEvent,arg: Message = CommandArg(),):
     msg = arg.extract_plain_text().strip()
     if msg:
         msg = msg.split()
         if len(msg) == 1:
             msg = msg[0]
             if is_number(msg):
-                state["unsettled"] = abs(int(msg))
-
-@give_gold.got("unsettled")
-async def _(
-    bot: Bot, event: GroupMessageEvent, state: T_State = Depends(get_unsettled)
-):
-    unsettled = state["unsettled"]
-    player_id = event.user_id
-    at_player_id = get_message_at(event.json())
-    if at_player_id:
-        at_player_id = at_player_id[0]
-        if unsettled > russian_manager.get_user_data(event)["gold"]:
-            await give_gold.finish("您的账户没有足够的金币", at_sender=True)
-        else:
-            await russian_manager._init_at_player_data(bot,event,at_player_id)
-            msg = russian_manager.transfer_accounts(player_id,at_player_id,event.group_id,unsettled)
-            await give_gold.finish(msg)
-    else:
-        give_gold.finish()
+                unsettled = abs(int(msg))
+                player_id = event.user_id
+                at_player_id = get_message_at(event.json())
+                if at_player_id:
+                    at_player_id = at_player_id[0]
+                    if unsettled > russian_manager.get_user_data(event)["gold"]:
+                        await give_gold.finish("您的账户没有足够的金币", at_sender=True)
+                    else:
+                        await russian_manager._init_at_player_data(bot,event,at_player_id)
+                        msg = russian_manager.transfer_accounts(player_id,at_player_id,event.group_id,unsettled)
+                        await give_gold.finish(msg)
 
 # 状态处理
 
@@ -830,7 +815,9 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
             company_name = msg[0]
             stock = abs(int(msg[1])) if is_number(msg[1]) else 100
             msg = market_manager.company_buy(event,company_name,stock)
-            await company_buy.finish(msg)
+            output = BytesIO()
+            Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+            await company_buy.finish(MessageSegment.image(output))
 
 # 债务清算
 @company_clear.handle()
@@ -842,7 +829,9 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
             company_name = msg[0]            
             stock = abs(int(msg[1])) if is_number(msg[1]) else 100
             msg = market_manager.company_clear(event,company_name,stock)
-            await company_clear.finish(msg)
+            output = BytesIO()
+            Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+            await company_clear.finish(MessageSegment.image(output))
 
 # 市场买入
 @Market_buy.handle()
@@ -854,12 +843,9 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
             company_name = msg[0]            
             stock = abs(int(msg[1])) if is_number(msg[1]) else 100
             msg = market_manager.Market_buy(event,company_name,stock)
-            try:
-                await Market_buy.finish(msg)
-            except:
-                output = BytesIO()
-                Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
-                await Market_buy.finish(MessageSegment.image(output))
+            output = BytesIO()
+            Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+            await Market_buy.finish(MessageSegment.image(output))
 
 # 市场卖出
 @Market_sell.handle()
@@ -873,12 +859,9 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
                 quote = abs(float(msg[1]))
                 stock = abs(int(msg[2])) if is_number(msg[2]) else 100
                 msg = market_manager.Market_sell(event,company_name,quote,stock)
-                try:
-                    await Market_sell.finish(msg)
-                except:
-                    output = BytesIO()
-                    Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
-                    await Market_sell.finish(MessageSegment.image(output))
+                output = BytesIO()
+                Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                await Market_sell.finish(MessageSegment.image(output))
 
 # 市场信息
 @Market_info.handle()
@@ -935,6 +918,19 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
             await update_intro.finish(f"群号：{group_id}未注册")
     else:
         await update_intro.finish()
+
+# 跨群转移金币到自己的账户
+
+@intergroup_transfer.handle()
+async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
+    msg = arg.extract_plain_text().strip().split()
+    if len(msg) == 2 and is_number(msg[1]):
+        company_name = msg[0]
+        gold = msg[1]
+        msg = market_manager.intergroup_transfer(event,company_name,gold)
+        await intergroup_transfer.finish(msg, at_sender=True)
+
+
         
 # 刷新道具时间
 @scheduler.scheduled_job("cron", hour = 4, minute = 0)
@@ -958,7 +954,7 @@ async def _():
     russian_manager.interest()
     logger.info("每日利息已发放...")
 
-# 市场指数更新
+# 市场指数更新（手动）
 @reset_market_index.handle()
 async def _():
     msg = ""

@@ -250,7 +250,7 @@ class GameManager:
                             "——————————————\n"
                             f'玩家：{self._current_player[event.group_id]["player2"]}\n'
                             "状态：\n"
-                            f'HP 20  SP 5  DEF 3\n'
+                            f'HP 25  SP 2  DEF 0\n'
                             "——————————————\n"
                             f'当前回合：{self._current_player[event.group_id]["player1"]}\n'
                             "手牌：\n"
@@ -436,10 +436,10 @@ class GameManager:
                         },
                     "status2":{
                         "hand":[],
-                        "HP":20,
+                        "HP":25,
                         "ATK":0,
-                        "DEF":3,
-                        "SP":5
+                        "DEF":0,
+                        "SP":2
                         }
                     } 
                 )

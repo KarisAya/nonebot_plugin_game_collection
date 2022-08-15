@@ -32,6 +32,7 @@ from .data_source import (
     market_manager,
     max_bet_gold,
     race_bet_gold
+
     )
 
 from .start import *
@@ -988,3 +989,23 @@ async def _():
             logger.info(f'【{market_manager._market_data[group_id]["company_name"]}】更新成功...')
 
     russian_manager.save()
+
+# 数据备份
+
+import shutil
+import os
+from .data_source import russian_path
+
+@scheduler.scheduled_job("cron",hour = "4,10,16,22")
+async def _():
+    now = time.strftime('%Y-%m-%d-%H', time.localtime(time.time()))
+    path =f"{russian_path}/data/russian"
+    try:
+        if not os.path.exists(f"{path}/backup"):
+            os.makedirs(f"{path}/backup")
+        shutil.copy(f"{path}/market_data.json",f"{path}/backup/market_data {now}.json")
+        shutil.copy(f"{path}/russian_data.json",f"{path}/backup/russian_data {now}.json")
+        shutil.copy(f"{path}/Stock_Exchange.json",f"{path}/backup/Stock_Exchange {now}.json")
+        logger.info(f'数据备份成功！')
+    except:
+        logger.info(f'数据备份失败...')

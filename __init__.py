@@ -96,7 +96,7 @@ async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
     player_name = event.sender.card if event.sender.card else event.sender.nickname
 
     if gold < race_bet_gold:
-        await RaceJoin.finish(f'报名赛马需要{race_bet_gold}金币，你的金币：{player_data["gold"]}。', at_sender=True)
+        await RaceJoin.finish(f'报名赛马需要{race_bet_gold}金币，你的金币：{gold}。', at_sender=True)
     else:
         pass
 

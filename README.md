@@ -5,7 +5,7 @@
 
 # nonebot_plugin_game_collection
 
-改自 [nonebot_plugin_russian](https://github.com/HibiKier/nonebot_plugin_russian) 合并了[nonebot_plugin_horserace](https://github.com/shinianj/nonebot_plugin_horserace)还有一些自编玩法的小游戏合集。
+改自 [nonebot_plugin_russian](https://github.com/HibiKier/nonebot_plugin_russian) 合并了 [nonebot_plugin_horserace](https://github.com/shinianj/nonebot_plugin_horserace) 还有一些自编玩法的小游戏合集。
 
 </div>
 
@@ -16,7 +16,9 @@
 ## 安装
     pip install nonebot_plugin_game_collection
 ## 使用
-    nonebot.load_plugin('nonebot_plugin_game_collection') 
+    nonebot.load_plugin('nonebot_plugin_game_collection')
+    
+    如果之前运行过[nonebot_plugin_russian](https://github.com/HibiKier/nonebot_plugin_russian)那么需要把之前的数据删掉，不然会报错。。。
 
 ## 配置
 

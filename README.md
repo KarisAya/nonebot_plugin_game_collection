@@ -18,7 +18,7 @@
 ## 使用
     nonebot.load_plugin('nonebot_plugin_game_collection')
     
-    如果之前运行过[nonebot_plugin_russian](https://github.com/HibiKier/nonebot_plugin_russian)那么需要把之前的数据删掉，不然会报错。。。
+如果之前运行过[nonebot_plugin_russian](https://github.com/HibiKier/nonebot_plugin_russian)那么需要把之前的数据删掉，不然会报错。。。
 
 ## 配置
 

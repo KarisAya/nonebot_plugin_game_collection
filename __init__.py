@@ -1003,9 +1003,14 @@ async def _():
     try:
         if not os.path.exists(f"{path}/backup"):
             os.makedirs(f"{path}/backup")
-        shutil.copy(f"{path}/market_data.json",f"{path}/backup/market_data {now}.json")
-        shutil.copy(f"{path}/russian_data.json",f"{path}/backup/russian_data {now}.json")
-        shutil.copy(f"{path}/Stock_Exchange.json",f"{path}/backup/Stock_Exchange {now}.json")
-        logger.info(f'数据备份成功！')
+        if os.path.isfile(f"{path}/market_data.json"):
+            shutil.copy(f"{path}/market_data.json",f"{path}/backup/market_data {now}.json")
+            logger.info(f'market_data.json备份成功！')
+        if os.path.isfile(f"{path}/russian_data.json"):
+            shutil.copy(f"{path}/russian_data.json",f"{path}/backup/russian_data {now}.json")
+            logger.info(f'russian_data.json备份成功！')
+        if os.path.isfile(f"{path}/Stock_Exchange.json"):
+            shutil.copy(f"{path}/Stock_Exchange.json",f"{path}/backup/Stock_Exchange {now}.json")
+            logger.info(f'Stock_Exchange.json备份成功！')
     except:
         logger.info(f'数据备份失败...')

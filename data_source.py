@@ -1017,7 +1017,7 @@ class GameManager:
                 if self._player_data[group][user_id]["gold"] > 0:
                     IN = int(self._player_data[group][user_id]["gold"] * 0.02)
                     self._player_data[group][user_id]["gold"] += IN
-                    self._player_data[group][user_id]["gold"] += IN
+                    self._player_data[group][user_id]["make_gold"] += IN
         else:
             self.save()
 

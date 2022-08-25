@@ -322,6 +322,8 @@ russian_rank = on_command(
     )
 name_list = on_command("查看路灯挂件",aliases={"查看路灯","查看挂件"},permission=GROUP, priority=5, block=True)
 
+intergroup_transfer = on_command("金币转移", permission=GROUP, priority=5, block=True)
+
 Market_public = on_command("市场注册",aliases={"公司注册","注册公司"},rule = to_me(),permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority=5, block=True)
 Market_info = on_command("市场信息",aliases={"查看市场"}, priority=5, block=True)
 company_info = on_command("公司信息",aliases={"公司资料"}, priority=5, block=True)
@@ -338,7 +340,6 @@ update_intro_superuser = on_command("管理员更新公司简介",aliases={"管�
 reset_sign = on_command("reset_sign", permission=SUPERUSER, priority=5, block=True) # 重置每日签到和每日补贴
 reset_market_index = on_command("reset_market_index", permission=SUPERUSER, priority=5, block=True) # 重置市场指数
 
-intergroup_transfer = on_command("金币转移", permission=GROUP, priority=5, block=True)
 
 @sign.handle()
 async def _(event: GroupMessageEvent):
@@ -478,11 +479,7 @@ async def _(
     if at_:
         at_ = at_[0]
         at_player_name = await bot.get_group_member_info(group_id=event.group_id, user_id=int(at_))
-        at_player_name = (
-            at_player_name["card"]
-            if at_player_name["card"]
-            else at_player_name["nickname"]
-            )
+        at_player_name = at_player_name["card"] or at_player_name["nickname"]
         msg = (
             f"{player1_name} 向 {MessageSegment.at(at_)} 发起挑战！\n"
             f"请 {at_player_name} 回复 接受挑战 or 拒绝挑战\n"
@@ -538,8 +535,8 @@ async def _(
             money = int(money)
             money = money if money else 200
             user_money = russian_manager.get_user_data(event)["gold"]
-            if money > max_bet_gold * 2:
-                await dice.finish(f"单次金额不能超过{max_bet_gold * 2}", at_sender=True)
+            if money > max_bet_gold * 5:
+                await dice.finish(f"单次金额不能超过{max_bet_gold * 5}", at_sender=True)
             if money > user_money:
                 await dice.finish("你没有足够的金币支撑这场挑战", at_sender=True)
 
@@ -548,11 +545,7 @@ async def _(
             if at_:
                 at_ = at_[0]
                 at_player_name = await bot.get_group_member_info(group_id=event.group_id, user_id=int(at_))
-                at_player_name = (
-                    at_player_name["card"]
-                    if at_player_name["card"]
-                    else at_player_name["nickname"]
-                    )
+                at_player_name = at_player_name["card"] or at_player_name["nickname"]
                 msg = (
                     f"{player1_name} 向 {MessageSegment.at(at_)} 发起挑战！\n"
                     f"请 {at_player_name} 回复 接受挑战 or 拒绝挑战\n"
@@ -592,8 +585,8 @@ async def _(
             money = int(money)
             money = money if money else 200
             user_money = russian_manager.get_user_data(event)["gold"]
-            if money > max_bet_gold * 5:
-                await poker.finish(f"单次金额不能超过{max_bet_gold * 5}", at_sender=True)
+            if money > max_bet_gold:
+                await poker.finish(f"单次金额不能超过{max_bet_gold}", at_sender=True)
             if money > user_money:
                 await poker.finish("你没有足够的金币支撑这场挑战", at_sender=True)
 
@@ -602,11 +595,7 @@ async def _(
             if at_:
                 at_ = at_[0]
                 at_player_name = await bot.get_group_member_info(group_id=event.group_id, user_id=int(at_))
-                at_player_name = (
-                    at_player_name["card"]
-                    if at_player_name["card"]
-                    else at_player_name["nickname"]
-                    )
+                at_player_name = at_player_name["card"] or at_player_name["nickname"]
                 msg = (
                     f"{player1_name} 向 {MessageSegment.at(at_)} 发起挑战！\n"
                     f"请 {at_player_name} 回复 接受挑战 or 拒绝挑战\n"
@@ -751,33 +740,23 @@ async def _(event: GroupMessageEvent):
     else:
         await name_list.finish()
 
-
-# 重置每日签到和每日补贴
+# 刷新每日签到和每日补贴
 @reset_sign.handle()
 async def _():
     russian_manager.reset_gold()
+    logger.info("签到重置成功...")
     russian_manager.reset_security()
-    logger.info("重置成功...")
+    logger.info("补贴重置成功...")
 
-# 重置每日签到
-@scheduler.scheduled_job(
-    "cron",
-    hour=0,
-    minute=0,
-)
+# 刷新每日签到，每日补贴，每日利息发放
+@scheduler.scheduled_job("cron", hour=0, minute=0)
 async def _():
     russian_manager.reset_gold()
-    logger.info("每日轮盘签到重置成功...")
-
-# 重置每日补贴
-@scheduler.scheduled_job(
-    "cron",
-    hour=0,
-    minute=0,
-)
-async def _():
+    logger.info("今日签到重置成功...")
     russian_manager.reset_security()
-    logger.info("每日补贴重置成功...")
+    logger.info("今日补贴重置成功...")
+    russian_manager.interest()
+    logger.info("今日利息已发放...")
 
 # 重置幸运花色
 '''
@@ -930,8 +909,6 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
         gold = msg[1]
         msg = market_manager.intergroup_transfer(event,company_name,gold)
         await intergroup_transfer.finish(msg, at_sender=True)
-
-
         
 # 刷新道具时间
 @scheduler.scheduled_job("cron", hour = 4, minute = 0)
@@ -941,19 +918,9 @@ async def _():
             for props in russian_manager._player_data[group_id][user_id]["props"].keys():
                 if russian_manager._player_data[group_id][user_id]["props"][props] > 0 and props!="钻石":
                     russian_manager._player_data[group_id][user_id]["props"][props] -= 1
-
-    logger.info("道具时间已刷新...")
-    russian_manager.save()
-
-# 每日利息发放
-@scheduler.scheduled_job(
-    "cron",
-    hour=0,
-    minute=0,
-)
-async def _():
-    russian_manager.interest()
-    logger.info("每日利息已发放...")
+    else:
+        logger.info("道具时间已刷新...")
+        russian_manager.save()
 
 # 市场指数更新（手动）
 @reset_market_index.handle()
@@ -987,8 +954,8 @@ async def _():
         if group_id in market_manager._market_data.keys():
             market_manager.company_update(group_id)
             logger.info(f'【{market_manager._market_data[group_id]["company_name"]}】更新成功...')
-
-    russian_manager.save()
+    else:
+        russian_manager.save()
 
 # 数据备份
 

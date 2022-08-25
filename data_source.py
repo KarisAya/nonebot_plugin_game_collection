@@ -193,12 +193,11 @@ class GameManager:
         :param event: event
         """
         self._init_player_data(event)
-        try:
-            if self._current_player[event.group_id][1] == 0:
-                return None
-        except KeyError:
+        if not self._current_player.get(event.group_id):
             return None
-        if (
+        elif self._current_player[event.group_id][1] == 0:
+            return None
+        elif (
             self._current_player[event.group_id][1] == event.user_id or self._current_player[event.group_id][2] != 0 or 
             self._current_player[event.group_id]["at"] != 0 and self._current_player[event.group_id]["at"] != event.user_id
             ):
@@ -218,9 +217,9 @@ class GameManager:
                     return None
 
                 if self._player_data[str(event.group_id)][str(event.user_id)]["gold"] < money:
-                    return "你的金币不足以接受这场对决！"
+                    return Message(MessageSegment.at(event.user_id) + "你的金币不足以接受这场对决！")
                 else:
-                    player2_name = event.sender.card if event.sender.card else event.sender.nickname
+                    player2_name = event.sender.card or event.sender.nickname
                     self._current_player[event.group_id][2] = event.user_id
                     self._current_player[event.group_id]["player2"] = player2_name
                     self._current_player[event.group_id]["time"] = time.time()
@@ -268,12 +267,11 @@ class GameManager:
         :param event: event
         """
         self._init_player_data(event)
-        try:
-            if self._current_player[event.group_id][1] == 0:
-                return None
-        except KeyError:
+        if not self._current_player.get(event.group_id):
             return None
-        if self._current_player[event.group_id]["at"] == event.user_id:
+        elif self._current_player[event.group_id][1] == 0:
+            return None
+        elif self._current_player[event.group_id]["at"] == event.user_id:
             self._current_player[event.group_id] = {}
             return "拒绝成功，对决已结束。"
         else:
@@ -285,12 +283,16 @@ class GameManager:
         :param event: event
         """
         self._init_player_data(event)
-        if (
+        if not self._current_player.get(event.group_id):
+            return None
+        elif self._current_player[event.group_id][1] == 0:
+            return None
+        elif (
             self._current_player[event.group_id][1] != 0 and
             self._current_player[event.group_id][2] != 0 and
             time.time() - self._current_player[event.group_id]["time"] > 30
             ):
-            if self._current_player[event.group_id]["game"] == "russian":
+            if self._current_player[event.group_id]["game"] in ("russian","poker"):
                 win_name = (
                     self._current_player[event.group_id]["player1"]
                     if self._current_player[event.group_id][2] == self._current_player[event.group_id]["next"]
@@ -310,7 +312,12 @@ class GameManager:
         结束游戏
         :param event: event
         """
-        if (
+        self._init_player_data(event)
+        if not self._current_player.get(event.group_id):
+            return None
+        elif self._current_player[event.group_id][1] == 0:
+            return None
+        elif (
             self._current_player[event.group_id]["game"] == "dice" and
             event.user_id == self._current_player[event.group_id]["lose"] and
             event.user_id == self._current_player[event.group_id]["next"]
@@ -402,7 +409,7 @@ class GameManager:
                     "dice_array1":random_dice(),
                     "dice_array2":random_dice(),
                     "win":event.user_id,
-                    "win_name":"player1_name",
+                    "win_name":player1_name,
                     "lose":0,
                     "lose_name":"",
                     } 
@@ -856,8 +863,7 @@ class GameManager:
                 if (
                     self._current_player[event.group_id]["status1"]["HP"] < 1 
                     or self._current_player[event.group_id]["status2"]["HP"]  < 1
-                    or self._current_player[event.group_id]["status1"]["HP"]  > 40
-                    or self._current_player[event.group_id]["status2"]["HP"]  > 40
+                    or st2["HP"]  > 40
                     or [0,0] in hand
                     ):
                     next_name = "游戏结束"
@@ -891,6 +897,8 @@ class GameManager:
                 self._current_player[event.group_id]["act"] = 1
                 if next_name == "游戏结束":
                     self._current_player[event.group_id]["act"] = 0
+                    if st2["HP"]  > 40:
+                        st2["HP"] += 100
                     await asyncio.sleep(0.5)
                     await self.end_game(bot, event)
             else:
@@ -982,21 +990,23 @@ class GameManager:
 
     def reset_gold(self):
         """
-        重置签到
+        刷新签到
         """
         for group in self._player_data.keys():
             for user_id in self._player_data[group].keys():
                 self._player_data[group][user_id]["is_sign"] = False
-        self.save()
+        else:
+            self.save()
 
     def reset_security(self):
         """
-        重置补贴
+        刷新补贴
         """
         for group in self._player_data.keys():
             for user_id in self._player_data[group].keys():
                 self._player_data[group][user_id]["security"] = 0
-        self.save()
+        else:
+            self.save()
 
     def interest(self):
         """
@@ -1005,8 +1015,11 @@ class GameManager:
         for group in self._player_data.keys():
             for user_id in self._player_data[group].keys():
                 if self._player_data[group][user_id]["gold"] > 0:
-                    self._player_data[group][user_id]["gold"] = int(self._player_data[group][user_id]["gold"] * 1.02)
-        self.save()
+                    IN = int(self._player_data[group][user_id]["gold"] * 0.02)
+                    self._player_data[group][user_id]["gold"] += IN
+                    self._player_data[group][user_id]["gold"] += IN
+        else:
+            self.save()
 
     def save(self):
         """
@@ -1022,7 +1035,7 @@ class GameManager:
         """
         user_id = str(event.user_id)
         group_id = str(event.group_id)
-        nickname = event.sender.card if event.sender.card else event.sender.nickname
+        nickname = event.sender.card or event.sender.nickname
         if group_id not in self._player_data.keys():
             self._player_data[group_id] = {}
         if user_id not in self._player_data[group_id].keys():
@@ -1079,21 +1092,19 @@ class GameManager:
         elif self._current_player[event.group_id]["game"] == "poker":
             if self._current_player[event.group_id]["status1"]["HP"] > self._current_player[event.group_id]["status2"]["HP"]:
                 win_user_id = self._current_player[event.group_id][1]
-                win_name = player1_name
                 lose_user_id = self._current_player[event.group_id][2]
+                win_name = player1_name
                 lose_name = player2_name
             else:
                 win_user_id = self._current_player[event.group_id][2]
-                win_name = player2_name
                 lose_user_id = self._current_player[event.group_id][1]
+                win_name = player2_name
                 lose_name = player1_name
         else:
             pass
 
         flag = self._player_data[str(event.group_id)][str(win_user_id)]["props"].get("钻石会员卡",0)
-
         gold = self._current_player[event.group_id]["money"]
-
         if flag > 0:
             rand = -1
             fee = 0
@@ -1284,7 +1295,7 @@ class GameManager:
         user_id = str(at_player_id)
         group_id = str(event.group_id)
         at_player_data = await bot.get_group_member_info(group_id=event.group_id, user_id=at_player_id)
-        nickname = at_player_data["card"] if at_player_data["card"] else at_player_data["nickname"]
+        nickname = at_player_data["card"] or at_player_data["nickname"]
         if group_id not in self._player_data.keys():
             self._player_data[group_id] = {}
             self.save()
@@ -1465,10 +1476,18 @@ class SingleManager:
                     if russian_manager._player_data[group_id][user_id]["props"]["20%额外奖励"] < 7:
                         russian_manager._player_data[group_id][user_id]["props"]["20%额外奖励"] += 1
                     msg += "『20%额外奖励』 ☆☆☆☆☆\n"
+                elif props in range(51,56):
+                    msg += "『进口空气』 ☆☆☆☆☆\n"
+                elif props in range(56,61):
+                    msg += "『特级空气』 ☆☆☆☆☆\n"
+                elif props in range(61,81):
+                    msg += "『优质空气』 ☆☆☆\n"
                 elif props == 100:
                     russian_manager._player_data[group_id][user_id]["props"].setdefault("钻石",0)
                     russian_manager._player_data[group_id][user_id]["props"]["钻石"] += 1
                     msg += "『钻石』 ☆☆☆☆☆☆\n"
+                elif props == 200:
+                    msg += "『纯净空气』 ☆☆☆☆☆☆\n"
                 else:
                     msg += "『空气』 ☆\n"
                     pass
@@ -1863,63 +1882,65 @@ class MarketManager:
             
             msg_lst = []
             n = len(lst)
-
-            for i in range(n):
-                price = (
-                    self._market_data[lst[i][0]]["gold"]
-                    if self._market_data[lst[i][0]]["gold"] > self._market_data[lst[i][0]]["float_gold"]
-                    else self._market_data[lst[i][0]]["float_gold"]
-                    )
-                msg_lst.append(
-                    f'【{lst[i][0]}】\n'
-                    "——————————————\n"
-                    f'固定资产：{round(self._market_data[lst[i][0]]["gold"], 2)} 金币\n'
-                    f'市场流动：{int(lst[i][1])} 金币\n'
-                    f'发行价格：{round(price/20000,2)} 金币\n'
-                    f'结算价格：{round(self._market_data[lst[i][0]]["float_gold"] / 20000, 2)} 金币\n'
-                    f'剩余数量：{self._market_data[lst[i][0]]["stock"]} 株\n'
-                    "——————————————"
-                    )
-            else:
-                if market_info_chain == False or isinstance(event, PrivateMessageEvent):
-                    for i in range(n):
-                        msg += msg_lst[i] + "\n"
-                    else:
-                        msg = msg[:-1]
-                        if market_info_type == "image":
-                            output = BytesIO()
-                            Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
-                            msg = MessageSegment.image(output)
-                        else:
-                            msg = msg.replace("——————————————", "----------")
+            if n:
+                for i in range(n):
+                    price = (
+                        self._market_data[lst[i][0]]["gold"]
+                        if self._market_data[lst[i][0]]["gold"] > self._market_data[lst[i][0]]["float_gold"]
+                        else self._market_data[lst[i][0]]["float_gold"]
+                        )
+                    msg_lst.append(
+                        f'【{lst[i][0]}】\n'
+                        "——————————————\n"
+                        f'固定资产：{round(self._market_data[lst[i][0]]["gold"], 2)} 金币\n'
+                        f'市场流动：{int(lst[i][1])} 金币\n'
+                        f'发行价格：{round(price/20000,2)} 金币\n'
+                        f'结算价格：{round(self._market_data[lst[i][0]]["float_gold"] / 20000, 2)} 金币\n'
+                        f'剩余数量：{self._market_data[lst[i][0]]["stock"]} 株\n'
+                        "——————————————"
+                        )
                 else:
-                    msg = []
-                    if market_info_type == "image" :
+                    if market_info_chain == False or isinstance(event, PrivateMessageEvent):
                         for i in range(n):
-                            output = BytesIO()
-                            Text2Image.from_text(msg_lst[i],50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
-                            msg.append(
-                                {
-                                    "type": "node",
-                                    "data": {
-                                        "name": f"{bot_name}",
-                                        "uin": str(event.self_id),
-                                        "content": MessageSegment.image(output)
-                                        }
-                                    }
-                                )
+                            msg += msg_lst[i] + "\n"
+                        else:
+                            msg = msg[:-1]
+                            if market_info_type == "image":
+                                output = BytesIO()
+                                Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                                msg = MessageSegment.image(output)
+                            else:
+                                msg = msg.replace("——————————————", "----------")
                     else:
-                        for i in range(n):
-                            msg.append(
-                                {
-                                    "type": "node",
-                                    "data": {
-                                        "name": f"{bot_name}",
-                                        "uin": str(event.self_id),
-                                        "content": msg_lst[i]
+                        msg = []
+                        if market_info_type == "image" :
+                            for i in range(n):
+                                output = BytesIO()
+                                Text2Image.from_text(msg_lst[i],50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                                msg.append(
+                                    {
+                                        "type": "node",
+                                        "data": {
+                                            "name": f"{bot_name}",
+                                            "uin": str(event.self_id),
+                                            "content": MessageSegment.image(output)
+                                            }
                                         }
-                                    }
-                                )
+                                    )
+                        else:
+                            for i in range(n):
+                                msg.append(
+                                    {
+                                        "type": "node",
+                                        "data": {
+                                            "name": f"{bot_name}",
+                                            "uin": str(event.self_id),
+                                            "content": msg_lst[i]
+                                            }
+                                        }
+                                    )
+            else:
+                msg = ''
         return msg
 
     def company_info(self,company_name:str):

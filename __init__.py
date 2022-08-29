@@ -31,8 +31,8 @@ from .data_source import (
     single_manager,
     market_manager,
     max_bet_gold,
-    race_bet_gold
-
+    race_bet_gold,
+    russian_path
     )
 
 from .start import *
@@ -40,6 +40,10 @@ from .race_group import race_group
 from .setting import  *
 
 scheduler = require("nonebot_plugin_apscheduler").scheduler
+
+data_file = russian_path / "data" / "russian"
+if not data_file.exists():
+    data_file.mkdir(exist_ok=True, parents=True)
 
 #开场加载
 
@@ -326,6 +330,7 @@ intergroup_transfer = on_command("金币转移", permission=GROUP, priority=5, b
 
 Market_public = on_command("市场注册",aliases={"公司注册","注册公司"},rule = to_me(),permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority=5, block=True)
 Market_info = on_command("市场信息",aliases={"查看市场"}, priority=5, block=True)
+Market_info_pro = on_command("市场行情",aliases={"市场走势","详细市场信息"}, permission=GROUP, priority=5, block=True)
 company_info = on_command("公司信息",aliases={"公司资料"}, priority=5, block=True)
 
 Market_buy = on_command("买入",aliases={"购买","购入"},permission=GROUP, priority=5, block=True)
@@ -855,12 +860,22 @@ async def _(bot:Bot, event: MessageEvent,arg: Message = CommandArg()):
             company_name == ""
     else:
         company_name == ""
-    msg = market_manager.Market_info_(event,company_name)
+    msg = market_manager.Market_info(event,company_name)
     if type(msg) == list:
         await bot.send_group_forward_msg(group_id=event.group_id, messages = msg)
         await Market_info.finish()
     else:
         await Market_info.finish(msg)
+
+# 市场走势
+@Market_info_pro.handle()
+async def _(bot:Bot, event: GroupMessageEvent):
+    msg = market_manager.Market_info_pro(event)
+    if msg:
+        await bot.send_group_forward_msg(group_id=event.group_id, messages = msg)
+        await Market_info_pro.finish()
+    else:
+        await Market_info_pro.finish()
 
 # 公司信息
 @company_info.handle()
@@ -956,6 +971,8 @@ async def _():
             logger.info(f'【{market_manager._market_data[group_id]["company_name"]}】更新成功...')
     else:
         russian_manager.save()
+        market_manager.market_data_save()
+        market_manager.market_history_save()
 
 # 数据备份
 

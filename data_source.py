@@ -11,12 +11,11 @@ import random
 import time
 import os
 from .config import Config
-
+from .utils import market_fig, market_candlestick
 try:
     import ujson as json
 except ModuleNotFoundError:
     import json
-
 
 global_config = nonebot.get_driver().config
 russian_config = Config.parse_obj(global_config.dict())
@@ -45,7 +44,6 @@ russian_config = Config.parse_obj(nonebot.get_driver().config.dict())
 
 max_bet_gold = russian_config.max_bet_gold
 race_bet_gold = russian_config.race_bet_gold
-
 
 async def rank(player_data: dict, group_id: int, type_: str) -> str:
     """
@@ -145,7 +143,6 @@ class GameManager:
         self._current_player = {}
         file = russian_path / "data" / "russian" / "russian_data.json"
         self.file = file
-        file.parent.mkdir(exist_ok=True, parents=True)
         if not file.exists():
             old_file = Path(os.path.dirname(__file__)) / "russian_data.json"
             if old_file.exists():
@@ -1506,12 +1503,9 @@ class MarketManager:
 
     def __init__(self):
         self._market_data = {}
-        # 市场指数
-        self.market_index = {}
-
+        self.market_index = {}  # 市场指数
         file = russian_path / "data" / "russian" / "market_data.json"
-        self.file = file
-        file.parent.mkdir(exist_ok=True, parents=True)
+        self.market_index_file = file
         if not file.exists():
             old_file = Path(os.path.dirname(__file__)) / "market_data.json"
             if old_file.exists():
@@ -1521,10 +1515,8 @@ class MarketManager:
                 self._market_data = json.load(f)
 
         self.Stock_Exchange = {}
-
         file = russian_path / "data" / "russian" / "Stock_Exchange.json"
         self.Stock_Exchange_file = file
-        file.parent.mkdir(exist_ok=True, parents=True)
         if not file.exists():
             old_file = Path(os.path.dirname(__file__)) / "Stock_Exchange.json"
             if old_file.exists():
@@ -1532,6 +1524,17 @@ class MarketManager:
         if file.exists():
             with open(file, "r", encoding="utf8") as f:
                 self.Stock_Exchange = json.load(f)
+
+        self.market_history = {}
+        file = russian_path / "data" / "russian" / "market_history.json"
+        self.market_history_file = file
+        if not file.exists():
+            old_file = Path(os.path.dirname(__file__)) / "market_history.json"
+            if old_file.exists():
+                os.rename(old_file, file)
+        if file.exists():
+            with open(file, "r", encoding="utf8") as f:
+                self.market_history = json.load(f)
 
     def _init_market_data(self, event: GroupMessageEvent,company_name: str):
         """
@@ -1567,15 +1570,22 @@ class MarketManager:
         """
         保存市场数据
         """
-        with open(self.file, "w", encoding="utf8") as f:
+        with open(self.market_index_file, "w", encoding="utf8") as f:
             json.dump(self._market_data, f, ensure_ascii=False, indent=4)
 
-    def Stock_Exchange_data_save(self):
+    def Stock_Exchange_save(self):
         """
         保存交易数据
         """
         with open(self.Stock_Exchange_file, "w", encoding="utf8") as f:
             json.dump(self.Stock_Exchange, f, ensure_ascii=False, indent=4)
+
+    def market_history_save(self):
+        """
+        保存市场历史数据
+        """
+        with open(self.market_history_file, "w", encoding="utf8") as f:
+            json.dump(self.market_history, f, ensure_ascii=False, indent=4)
 
     def Market_sell(self, event: GroupMessageEvent, company_name: str, quote:float, stock:int) -> str:
         """
@@ -1599,7 +1609,7 @@ class MarketManager:
             self.Stock_Exchange[company_name][user_id]["quote"] = quote
             self.Stock_Exchange[company_name][user_id]["stock"] = stock
             self.Stock_Exchange[company_name][user_id]["group_id"] = group_id
-            self.Stock_Exchange_data_save()
+            self.Stock_Exchange_save()
             return (
                 f"【{company_name}】\n"
                 "——————————————\n"
@@ -1617,7 +1627,7 @@ class MarketManager:
                     "group_id":group_id
                     }
                 )
-            self.Stock_Exchange_data_save()
+            self.Stock_Exchange_save()
             return (
                 f"【{company_name}】\n"
                 "——————————————\n"
@@ -1697,7 +1707,7 @@ class MarketManager:
                         count += TL[lst[i][0]][1]
                     else:
                         russian_manager.save()
-                        self.Stock_Exchange_data_save()
+                        self.Stock_Exchange_save()
                         return (
                             "交易成功！\n"
                             "——————————————\n"
@@ -1726,7 +1736,7 @@ class MarketManager:
                 self._market_data[company_name]["float_gold"] = gold * 0.5
                 self.market_data_save()
                 self.Stock_Exchange.setdefault(company_name,{})
-                self.Stock_Exchange_data_save()
+                self.Stock_Exchange_save()
                 return f'{company_name}发行成功，发行价格为每股{round((self._market_data[company_name]["gold"]/20000),2)}金币'
 
     def company_buy(self,event: GroupMessageEvent, company_name:str ,stock:int) -> str:
@@ -1750,11 +1760,9 @@ class MarketManager:
                 for i in range(stock):
                     tmp = _gold/ 20000
                     tmp = 0.1 if tmp < 0.1 else tmp
-                    _gold += tmp
+                    _gold += tmp * 0.65
                     value += tmp
                 else:
-                    value = value * 1.002
-
                     if value > my_gold:
                         return (
                             "你的金币不足...\n"
@@ -1775,11 +1783,10 @@ class MarketManager:
                         gold = self._market_data[company_name]["gold"]
                         group_gold = self._market_data[company_name]["group_gold"]
                         float_gold = self._market_data[company_name]["float_gold"]
-                        self._market_data[company_name]["float_gold"] = float_gold * 0.5 + group_gold * 0.1 + gold * 0.3
+                        self._market_data[company_name]["float_gold"] = float_gold * 0.4 + group_gold * 0.15 + gold * 0.3
                         russian_manager._player_data[group_id][user_id]["stock"]["value"] = self.value_update(group_id,user_id)
                         self.market_data_save()
                         russian_manager.save()
-
                         return (
                             "交易成功！\n"
                             "——————————————\n"
@@ -1815,19 +1822,18 @@ class MarketManager:
             _gold = company["float_gold"]
             for i in range(stock):
                 tmp = float(_gold/ 20000)
-                _gold -= tmp
+                _gold -= tmp * 0.65
                 value += tmp
             else:
-                value = value * 0.998
                 self._market_data[company_name]["stock"] += stock
                 russian_manager._player_data[group_id][user_id]["stock"][company_name] -= stock
                 self._market_data[company_name]["gold"] -= value
-                russian_manager._player_data[group_id][user_id]["gold"] += int(value)
+                russian_manager._player_data[group_id][user_id]["gold"] += int(value * 0.998)
                 self._market_data[company_name]["group_gold"] = float(russian_manager.total_gold(str(self._market_data[company_name]["group_id"]),1000))
                 gold = self._market_data[company_name]["gold"]
                 group_gold = self._market_data[company_name]["group_gold"]
                 float_gold = self._market_data[company_name]["float_gold"]
-                self._market_data[company_name]["float_gold"] = float_gold * 0.5 + group_gold * 0.1 + gold * 0.3
+                self._market_data[company_name]["float_gold"] = float_gold * 0.4 + group_gold * 0.15 + gold * 0.3
                 russian_manager._player_data[group_id][user_id]["stock"]["value"] = self.value_update(group_id,user_id)
                 self.market_data_save()
                 russian_manager.save()
@@ -1837,7 +1843,7 @@ class MarketManager:
                     f"【{company_name}】\n" 
                     f"数量：{stock}\n"
                     f"单价：{round(value/stock,2)}\n"
-                    f"总计：{int(value)}"
+                    f"总计：{int(value * 0.998)}"
                     )
 
     def cheak_market(self,company_name:str,user_id:str) -> bool:
@@ -1851,7 +1857,7 @@ class MarketManager:
                 return True
         return False
 
-    def Market_info_(self, event, company_name:str):
+    def Market_info(self, event, company_name:str):
         """
         市场信息
         :param company_name:公司名，为空则是总览。
@@ -1941,7 +1947,77 @@ class MarketManager:
                                     )
             else:
                 msg = ''
-        return msg
+        return msg + marketfig(self.market_history[company_name],company_name)
+
+    def Market_info_pro(self, event):
+        """
+        详细市场信息
+        """
+        lst = []
+        for x in self._market_data.keys():
+            if self._market_data[x].get("time") == None:
+                lst.append([x,self._market_data[x]["group_gold"]])
+        else:
+            lst.sort(key = lambda x:x[1],reverse = True)
+
+        n = len(lst)            
+        msg_lst = []
+        fig1 = []
+        fig2 = []
+        if n:
+            for i in range(n):
+                price = (
+                    self._market_data[lst[i][0]]["gold"]
+                    if self._market_data[lst[i][0]]["gold"] > self._market_data[lst[i][0]]["float_gold"]
+                    else self._market_data[lst[i][0]]["float_gold"]
+                    )
+                msg_lst.append(
+                    f'【{lst[i][0]}】\n'
+                    "——————————————\n"
+                    f'固定资产：{round(self._market_data[lst[i][0]]["gold"], 2)} 金币\n'
+                    f'市场流动：{int(lst[i][1])} 金币\n'
+                    f'发行价格：{round(price/20000,2)} 金币\n'
+                    f'结算价格：{round(self._market_data[lst[i][0]]["float_gold"] / 20000, 2)} 金币\n'
+                    f'剩余数量：{self._market_data[lst[i][0]]["stock"]} 株\n'
+                    "——————————————"
+                    )
+                fig1.append(market_fig(self.market_history[lst[i][0]],lst[i][0]))
+                fig2.append(market_candlestick(self.market_history[lst[i][0]],lst[i][0]))
+            else:
+                msg = []
+                for i in range(n):
+                    msg.append(
+                        {
+                            "type": "node",
+                            "data": {
+                                "name": f"{bot_name}",
+                                "uin": str(event.self_id),
+                                "content": msg_lst[i]
+                                }
+                            }
+                        )
+                    msg.append(
+                        {
+                            "type": "node",
+                            "data": {
+                                "name": f"{bot_name}",
+                                "uin": str(event.self_id),
+                                "content": MessageSegment.image(fig1[i])
+                                }
+                            }
+                        )
+                    msg.append(
+                        {
+                            "type": "node",
+                            "data": {
+                                "name": f"{bot_name}",
+                                "uin": str(event.self_id),
+                                "content": MessageSegment.image(fig2[i])
+                                }
+                            }
+                        )
+                else:
+                    return msg
 
     def company_info(self,company_name:str):
         """
@@ -2033,7 +2109,14 @@ class MarketManager:
             + gold * 0.3 # 固定资产
             )
 
-        self.market_data_save()
+        # 记录历史价格
+        buy = self._market_data[company_name]["gold"] / 20000
+        sell = self._market_data[company_name]["float_gold"] / 20000
+
+        self.market_history.setdefault(company_name,[])
+        self.market_history[company_name].append([time.time(),buy,sell])
+        while len(self.market_history[company_name]) > 2100:
+            del self.market_history[company_name][0]
 
     def intergroup_transfer(self, event, company_name, gold) -> str:
         """
@@ -2057,7 +2140,7 @@ class MarketManager:
             if flag > 0:
                 fee = 0
             else:
-                fee = int(gold * 0.02)
+                fee = int(gold * 0.01)
 
             russian_manager._player_data[company_id][user_id]["gold"] += gold - fee
             russian_manager._player_data[group_id][user_id]["gold"] -= gold
@@ -2065,7 +2148,7 @@ class MarketManager:
             
             return (
                 f"向 【{company_name}】 转移 {gold}金币\n"+
-                ("『钻石会员卡』免手续费" if flag > 0 else f"扣除2%手续费：{fee}，实际到账金额{gold - fee}")
+                ("『钻石会员卡』免手续费" if flag > 0 else f"扣除1％手续费：{fee}，实际到账金额{gold - fee}")
                 )
         else:
             return f"【{company_name}】未注册"

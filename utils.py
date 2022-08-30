@@ -134,7 +134,7 @@ async def market_candlestick(figsize: Tuple[int,int],datalenth: int, market_hist
     candlestick_ohlc(ax, dataList, width = 0.4, colorup = 'red', colordown = 'limegreen', alpha = 1)
     N = len(dataList)
     plt.xlim((-1,N))
-    plt.xticks(range(n), xtime, rotation = 30)
+    plt.xticks(range(N), xtime, rotation = 30)
     plt.subplots_adjust(left=0.03, right=0.97, top=0.9, bottom=0.1)
     plt.title(title, fontproperties=font)
     plt.grid(True, linestyle='--', alpha=0.3)

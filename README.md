@@ -21,13 +21,7 @@ mplfinance K线图
 
 ## 安装
 
-__方法1（推荐）__
-
     pip install nonebot_plugin_game_collection
-    
-__方法2__
-
-    git clone https://github.com/KarisAya/nonebot_plugin_game_collection.git
 
 ## 使用
     nonebot.load_plugin('nonebot_plugin_game_collection')

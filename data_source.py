@@ -1962,6 +1962,7 @@ class MarketManager:
 
         n = len(lst)
         if n:
+            msg = []
             for i in range(n):
                 price = (
                     self._market_data[lst[i][0]]["gold"]

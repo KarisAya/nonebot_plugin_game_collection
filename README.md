@@ -27,7 +27,7 @@ __方法1（推荐）__
     
 __方法2__
 
-    git clone git@github.com:KarisAya/nonebot_plugin_game_collection.git
+    git clone https://github.com/KarisAya/nonebot_plugin_game_collection.git
 
 ## 使用
     nonebot.load_plugin('nonebot_plugin_game_collection')

@@ -101,7 +101,7 @@ def market_candlestick(market_history:list,title:str) -> BytesIO:
 
     dataList = []
     xtime = []
-    avg_buy = []
+    min_buy = []
     avg_sell = []
     for i in range(len(_sell)):
 

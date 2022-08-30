@@ -20,7 +20,15 @@ matplotlib 数据可视化
 mplfinance K线图
 
 ## 安装
+
+__方法1（推荐）__
+
     pip install nonebot_plugin_game_collection
+    
+__方法2__
+
+    git clone git@github.com:KarisAya/nonebot_plugin_game_collection.git
+
 ## 使用
     nonebot.load_plugin('nonebot_plugin_game_collection')
     
@@ -195,6 +203,7 @@ ACE技能：摇一个6面骰子，把打出的ACE牌点替换成摇出的点数�
 
     【市场信息/查看市场】   # 查看市场上所有公司的官方结算价格。
     【市场信息/查看市场 [公司名称]】  # 查看市场上出售 [公司名称] 股份的报价。
+    【市场行情】  # 查看市场行情。
     【公司信息/公司资料 [公司名称]】  # 查看公司的详细信息
     【发行购买 [公司名称] [N]】 # 以发行价格从 [公司名称] 购买 [N] 股本公司股份。
     【官方结算 [公司名称] [N]】 # 以结算价格向 [公司名称] 卖出 [N] 股本公司股份。

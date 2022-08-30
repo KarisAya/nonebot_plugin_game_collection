@@ -1946,12 +1946,12 @@ class MarketManager:
                                         }
                                     )
             else:
-                msg = ''
-        return msg + marketfig(self.market_history[company_name],company_name)
+                msg = "市场不存在..."
+        return msg
 
     def Market_info_pro(self, event):
         """
-        详细市场信息
+        市场详细信息
         """
         lst = []
         for x in self._market_data.keys():
@@ -1960,10 +1960,7 @@ class MarketManager:
         else:
             lst.sort(key = lambda x:x[1],reverse = True)
 
-        n = len(lst)            
-        msg_lst = []
-        fig1 = []
-        fig2 = []
+        n = len(lst)
         if n:
             for i in range(n):
                 price = (
@@ -1971,53 +1968,49 @@ class MarketManager:
                     if self._market_data[lst[i][0]]["gold"] > self._market_data[lst[i][0]]["float_gold"]
                     else self._market_data[lst[i][0]]["float_gold"]
                     )
-                msg_lst.append(
-                    f'【{lst[i][0]}】\n'
-                    "——————————————\n"
-                    f'固定资产：{round(self._market_data[lst[i][0]]["gold"], 2)} 金币\n'
-                    f'市场流动：{int(lst[i][1])} 金币\n'
-                    f'发行价格：{round(price/20000,2)} 金币\n'
-                    f'结算价格：{round(self._market_data[lst[i][0]]["float_gold"] / 20000, 2)} 金币\n'
-                    f'剩余数量：{self._market_data[lst[i][0]]["stock"]} 株\n'
-                    "——————————————"
+                msg.append(
+                    {
+                        "type": "node",
+                        "data": {
+                            "name": f"{bot_name}",
+                            "uin": str(event.self_id),
+                            "content": (
+                                f'【{lst[i][0]}】\n'
+                                "——————————————\n"
+                                f'固定资产：{round(self._market_data[lst[i][0]]["gold"], 2)} 金币\n'
+                                f'市场流动：{int(lst[i][1])} 金币\n'
+                                f'发行价格：{round(price/20000,2)} 金币\n'
+                                f'结算价格：{round(self._market_data[lst[i][0]]["float_gold"] / 20000, 2)} 金币\n'
+                                f'剩余数量：{self._market_data[lst[i][0]]["stock"]} 株\n'
+                                "——————————————"
+                                ) 
+                            }
+                        }
                     )
-                fig1.append(market_fig(self.market_history[lst[i][0]],lst[i][0]))
-                fig2.append(market_candlestick(self.market_history[lst[i][0]],lst[i][0]))
+                msg.append(
+                    {
+                        "type": "node",
+                        "data": {
+                            "name": f"{bot_name}",
+                            "uin": str(event.self_id),
+                            "content": MessageSegment.image(market_fig(self.market_history[lst[i][0]],lst[i][0]))
+                            }
+                        }
+                    )
+                msg.append(
+                    {
+                        "type": "node",
+                        "data": {
+                            "name": f"{bot_name}",
+                            "uin": str(event.self_id),
+                            "content": MessageSegment.image(market_candlestick(self.market_history[lst[i][0]],lst[i][0]))
+                            }
+                        }
+                    )
             else:
-                msg = []
-                for i in range(n):
-                    msg.append(
-                        {
-                            "type": "node",
-                            "data": {
-                                "name": f"{bot_name}",
-                                "uin": str(event.self_id),
-                                "content": msg_lst[i]
-                                }
-                            }
-                        )
-                    msg.append(
-                        {
-                            "type": "node",
-                            "data": {
-                                "name": f"{bot_name}",
-                                "uin": str(event.self_id),
-                                "content": MessageSegment.image(fig1[i])
-                                }
-                            }
-                        )
-                    msg.append(
-                        {
-                            "type": "node",
-                            "data": {
-                                "name": f"{bot_name}",
-                                "uin": str(event.self_id),
-                                "content": MessageSegment.image(fig2[i])
-                                }
-                            }
-                        )
-                else:
-                    return msg
+                return msg
+        else:
+            return "市场不存在..."
 
     def company_info(self,company_name:str):
         """
@@ -2152,7 +2145,6 @@ class MarketManager:
                 )
         else:
             return f"【{company_name}】未注册"
-
 
 
 

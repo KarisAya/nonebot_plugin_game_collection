@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties 
 from mplfinance.original_flavor import candlestick_ohlc
 
+import os
+
 try:
     import ujson as json
 except ModuleNotFoundError:
@@ -35,7 +37,7 @@ def is_number(s) -> bool:
         pass
     return False
 
-font = FontProperties(fname=r"c:\windows\fonts\simsun.ttc", size=30)
+font = FontProperties(fname = os.path.dirname(__file__) + '/events/fonts/simsun.ttc', size=30)
 
 def market_fig(market_history:list,title:str) -> BytesIO:
     """
@@ -44,7 +46,7 @@ def market_fig(market_history:list,title:str) -> BytesIO:
     buy = []
     sell = []
     T = []
-    for i in range(len(market_history) if len(market_history) < 300 else 300):
+    for i in range(len(market_history) if len(market_history) < 200 else 200):
         T.append(datetime.fromtimestamp(market_history[-i-1][0]).strftime("%H:%M"))
         buy.append(market_history[-i-1][1])
         sell.append(market_history[-i-1][2])
@@ -53,9 +55,9 @@ def market_fig(market_history:list,title:str) -> BytesIO:
         buy.reverse()
         sell.reverse()
 
-    plt.figure(figsize=(21, 9), dpi = 50)
+    plt.figure(figsize=(16, 9), dpi = 100)
     plt.plot(T, buy, c = 'darkblue', linestyle = '-')
-    plt.plot(T, sell, c = 'black', linestyle = '-.')
+    plt.plot(T, sell, c = 'black', linestyle = '-')
     plt.xticks(rotation=30)
     plt.title(title, fontproperties=font)
     plt.grid(True, linestyle='-', alpha=0.3)
@@ -110,12 +112,12 @@ def market_candlestick(market_history:list,title:str) -> BytesIO:
 
         dataList.append((i,O,H,L,C))
         xtime.append(_T[i][0])
-        avg_buy.append(sum(_buy[i])/len(_buy[i]))
+        min_buy.append(min(_buy[i]))
         avg_sell.append(sum(_sell[i])/len(_sell[i]))
 
     fig, ax = plt.subplots(figsize = (16,9),dpi = 100)
     plt.xticks(range(len(dataList)),xtime,rotation=30)
-    plt.plot(xtime, avg_buy, c = 'darkblue', linestyle = '-')
+    plt.plot(xtime, min_buy, c = 'darkblue', linestyle = '-')
     plt.plot(xtime, avg_sell, c = 'black', linestyle = '-')
     candlestick_ohlc(ax, dataList, width = 0.4, colorup = 'red', colordown = 'limegreen', alpha = 1)
     plt.title(title, fontproperties=font)

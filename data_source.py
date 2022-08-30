@@ -11,7 +11,7 @@ import random
 import time
 import os
 from .config import Config
-from .utils import market_fig, market_candlestick
+from .utils import market_linechart, market_candlestick
 try:
     import ujson as json
 except ModuleNotFoundError:
@@ -1885,7 +1885,7 @@ class MarketManager:
                     lst.append([x,self._market_data[x]["group_gold"]])
             else:
                 lst.sort(key = lambda x:x[1],reverse = True)
-            
+
             msg_lst = []
             n = len(lst)
             if n:
@@ -1949,7 +1949,7 @@ class MarketManager:
                 msg = "市场不存在..."
         return msg
 
-    def Market_info_pro(self, event):
+    async def Market_info_pro(self, event):
         """
         市场详细信息
         """
@@ -1994,7 +1994,7 @@ class MarketManager:
                         "data": {
                             "name": f"{bot_name}",
                             "uin": str(event.self_id),
-                            "content": MessageSegment.image(market_fig(self.market_history[lst[i][0]],lst[i][0]))
+                            "content": MessageSegment.image(await market_linechart((32,9), self.market_history[lst[i][0]], lst[i][0]))
                             }
                         }
                     )
@@ -2004,7 +2004,7 @@ class MarketManager:
                         "data": {
                             "name": f"{bot_name}",
                             "uin": str(event.self_id),
-                            "content": MessageSegment.image(market_candlestick(self.market_history[lst[i][0]],lst[i][0]))
+                            "content": MessageSegment.image(await market_candlestick((32,9), 6, self.market_history[lst[i][0]], lst[i][0]))
                             }
                         }
                     )

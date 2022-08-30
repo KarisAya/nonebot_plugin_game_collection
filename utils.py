@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties 
 from mplfinance.original_flavor import candlestick_ohlc
 
+from typing import Tuple
+
 import os
 
 try:
@@ -37,34 +39,6 @@ def is_number(s) -> bool:
         pass
     return False
 
-font = FontProperties(fname = os.path.dirname(__file__) + '/events/fonts/simsun.ttc', size=30)
-
-def market_fig(market_history:list,title:str) -> BytesIO:
-    """
-    生成股价折线图
-    """
-    buy = []
-    sell = []
-    T = []
-    for i in range(len(market_history) if len(market_history) < 200 else 200):
-        T.append(datetime.fromtimestamp(market_history[-i-1][0]).strftime("%H:%M"))
-        buy.append(market_history[-i-1][1])
-        sell.append(market_history[-i-1][2])
-    else:
-        T.reverse()
-        buy.reverse()
-        sell.reverse()
-
-    plt.figure(figsize=(16, 9), dpi = 100)
-    plt.plot(T, buy, c = 'darkblue', linestyle = '-')
-    plt.plot(T, sell, c = 'black', linestyle = '-')
-    plt.xticks(rotation=30)
-    plt.title(title, fontproperties=font)
-    plt.grid(True, linestyle='-', alpha=0.3)
-    output = BytesIO()
-    plt.savefig(output)
-    return output
-
 def list_split(data:list,lenth:int) -> list:
     new_list = []
     old_list = list(data)
@@ -79,14 +53,20 @@ def list_split(data:list,lenth:int) -> list:
     else:
         return new_list
 
-def market_candlestick(market_history:list,title:str) -> BytesIO:
+font = FontProperties(fname = os.path.dirname(__file__) + '/events/fonts/simsun.ttc', size=30)
+
+async def market_linechart(figsize: Tuple[int,int], market_history:list, title:str) -> BytesIO:
     """
-    生成股价K线图(4天)
+    生成股价折线图（120）
+    :param figsize: 图片尺寸
+    :param market_history: 历史数据
+    :param title: 标题
     """
+    N = len(market_history) if len(market_history) < 120 else 120
     buy = []
     sell = []
     T = []
-    for i in range(len(market_history) if len(market_history) < 1200 else 1200):
+    for i in range(N):
         T.append(datetime.fromtimestamp(market_history[-i-1][0]).strftime("%H:%M"))
         buy.append(market_history[-i-1][1])
         sell.append(market_history[-i-1][2])
@@ -95,9 +75,42 @@ def market_candlestick(market_history:list,title:str) -> BytesIO:
         buy.reverse()
         sell.reverse()
 
-    _T = list_split(T,6)
-    _buy = list_split(buy,6)
-    _sell = list_split(sell,6)
+    plt.figure(figsize = figsize, dpi = 100)
+    plt.plot(T, buy, c = 'darkblue', linestyle = '-')
+    plt.plot(T, sell, c = 'black', linestyle = '-')
+    plt.xlim((-1,N))
+    plt.xticks(rotation = 45)
+    plt.subplots_adjust(left=0.03, right=0.97, top=0.9, bottom=0.1)
+    plt.title(title, fontproperties = font)
+    plt.grid(True, linestyle='-', alpha=0.3)
+    output = BytesIO()
+    plt.savefig(output)
+    return output
+
+async def market_candlestick(figsize: Tuple[int,int],datalenth: int, market_history:list, title:str) -> BytesIO:
+    """
+    生成股价K线图(60)
+    :param figsize: 图片尺寸
+    :param datalenth: OHLC采样长度
+    :param market_history: 历史数据
+    :param title: 标题
+    """
+    N = len(market_history) if len(market_history) < 60 * datalenth else 60 * datalenth
+    buy = []
+    sell = []
+    T = []
+    for i in range(N):
+        T.append(datetime.fromtimestamp(market_history[-i-1][0]).strftime("%H:%M"))
+        buy.append(market_history[-i-1][1])
+        sell.append(market_history[-i-1][2])
+    else:
+        T.reverse()
+        buy.reverse()
+        sell.reverse()
+
+    _T = list_split(T,datalenth)
+    _buy = list_split(buy,datalenth)
+    _sell = list_split(sell,datalenth)
 
     dataList = []
     xtime = []
@@ -115,11 +128,13 @@ def market_candlestick(market_history:list,title:str) -> BytesIO:
         min_buy.append(min(_buy[i]))
         avg_sell.append(sum(_sell[i])/len(_sell[i]))
 
-    fig, ax = plt.subplots(figsize = (16,9),dpi = 100)
-    plt.xticks(range(len(dataList)),xtime,rotation=30)
+    fig, ax = plt.subplots(figsize = figsize, dpi = 100)
     plt.plot(xtime, min_buy, c = 'darkblue', linestyle = '-')
     plt.plot(xtime, avg_sell, c = 'black', linestyle = '-')
     candlestick_ohlc(ax, dataList, width = 0.4, colorup = 'red', colordown = 'limegreen', alpha = 1)
+    plt.xlim((-1,N))
+    plt.xticks(range(len(dataList)) , xtime, rotation = 30)
+    plt.subplots_adjust(left=0.03, right=0.97, top=0.9, bottom=0.1)
     plt.title(title, fontproperties=font)
     plt.grid(True, linestyle='--', alpha=0.3)
     output = BytesIO()

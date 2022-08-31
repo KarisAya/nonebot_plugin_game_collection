@@ -67,7 +67,11 @@ async def market_linechart(figsize: Tuple[int,int], market_history:list, title:s
     sell = []
     T = []
     for i in range(N):
-        T.append(datetime.fromtimestamp(market_history[-i-1][0]).strftime("%H:%M"))
+        T.append(
+            datetime.fromtimestamp(market_history[-i-1][0]).strftime("%d-%H:%M")
+            if datetime.fromtimestamp(market_history[-i-1][0]).strftime("%H:%M") in T
+            else datetime.fromtimestamp(market_history[-i-1][0]).strftime("%H:%M")
+            )
         buy.append(market_history[-i-1][1])
         sell.append(market_history[-i-1][2])
     else:
@@ -100,7 +104,11 @@ async def market_candlestick(figsize: Tuple[int,int],datalenth: int, market_hist
     sell = []
     T = []
     for i in range(N):
-        T.append(datetime.fromtimestamp(market_history[-i-1][0]).strftime("%H:%M"))
+        T.append(
+            datetime.fromtimestamp(market_history[-i-1][0]).strftime("%d-%H:%M")
+            if datetime.fromtimestamp(market_history[-i-1][0]).strftime("%H:%M") in T
+            else datetime.fromtimestamp(market_history[-i-1][0]).strftime("%H:%M")
+            )
         buy.append(market_history[-i-1][1])
         sell.append(market_history[-i-1][2])
     else:

@@ -1536,6 +1536,8 @@ class MarketManager:
             with open(file, "r", encoding="utf8") as f:
                 self.market_history = json.load(f)
 
+        self.info_temp = [[],0]
+
     def _init_market_data(self, event: GroupMessageEvent,company_name: str):
         """
         初始化市场数据
@@ -1953,65 +1955,70 @@ class MarketManager:
         """
         市场详细信息
         """
-        lst = []
-        for x in self._market_data.keys():
-            if self._market_data[x].get("time") == None:
-                lst.append([x,self._market_data[x]["group_gold"]])
-        else:
-            lst.sort(key = lambda x:x[1],reverse = True)
 
-        n = len(lst)
-        if n:
-            msg = []
-            for i in range(n):
-                price = (
-                    self._market_data[lst[i][0]]["gold"]
-                    if self._market_data[lst[i][0]]["gold"] > self._market_data[lst[i][0]]["float_gold"]
-                    else self._market_data[lst[i][0]]["float_gold"]
-                    )
-                msg.append(
-                    {
-                        "type": "node",
-                        "data": {
-                            "name": f"{bot_name}",
-                            "uin": str(event.self_id),
-                            "content": (
-                                f'【{lst[i][0]}】\n'
-                                "——————————————\n"
-                                f'固定资产：{round(self._market_data[lst[i][0]]["gold"], 2)} 金币\n'
-                                f'市场流动：{int(lst[i][1])} 金币\n'
-                                f'发行价格：{round(price/20000,2)} 金币\n'
-                                f'结算价格：{round(self._market_data[lst[i][0]]["float_gold"] / 20000, 2)} 金币\n'
-                                f'剩余数量：{self._market_data[lst[i][0]]["stock"]} 株\n'
-                                "——————————————"
-                                ) 
-                            }
-                        }
-                    )
-                msg.append(
-                    {
-                        "type": "node",
-                        "data": {
-                            "name": f"{bot_name}",
-                            "uin": str(event.self_id),
-                            "content": MessageSegment.image(await market_linechart((32,9), self.market_history[lst[i][0]], lst[i][0]))
-                            }
-                        }
-                    )
-                msg.append(
-                    {
-                        "type": "node",
-                        "data": {
-                            "name": f"{bot_name}",
-                            "uin": str(event.self_id),
-                            "content": MessageSegment.image(await market_candlestick((32,9), 6, self.market_history[lst[i][0]], lst[i][0]))
-                            }
-                        }
-                    )
-            else:
-                return msg
+        if self.info_temp[1] == 1:
+            return self.info_temp[0]
         else:
-            return "市场不存在..."
+            lst = []
+            for x in self._market_data.keys():
+                if self._market_data[x].get("time") == None:
+                    lst.append([x,self._market_data[x]["group_gold"]])
+            else:
+                lst.sort(key = lambda x:x[1],reverse = True)
+
+            if lst:
+                msg = []
+                for i in range(len(lst)):
+                    price = (
+                        self._market_data[lst[i][0]]["gold"]
+                        if self._market_data[lst[i][0]]["gold"] > self._market_data[lst[i][0]]["float_gold"]
+                        else self._market_data[lst[i][0]]["float_gold"]
+                        )
+                    msg.append(
+                        {
+                            "type": "node",
+                            "data": {
+                                "name": f"{bot_name}",
+                                "uin": str(event.self_id),
+                                "content": (
+                                    f'【{lst[i][0]}】\n'
+                                    "——————————————\n"
+                                    f'固定资产：{round(self._market_data[lst[i][0]]["gold"], 2)} 金币\n'
+                                    f'市场流动：{int(lst[i][1])} 金币\n'
+                                    f'发行价格：{round(price/20000,2)} 金币\n'
+                                    f'结算价格：{round(self._market_data[lst[i][0]]["float_gold"] / 20000, 2)} 金币\n'
+                                    f'剩余数量：{self._market_data[lst[i][0]]["stock"]} 株\n'
+                                    "——————————————"
+                                    ) 
+                                }
+                            }
+                        )
+                    msg.append(
+                        {
+                            "type": "node",
+                            "data": {
+                                "name": f"{bot_name}",
+                                "uin": str(event.self_id),
+                                "content": MessageSegment.image(await market_linechart((32,9), self.market_history[lst[i][0]], lst[i][0]))
+                                }
+                            }
+                        )
+                    msg.append(
+                        {
+                            "type": "node",
+                            "data": {
+                                "name": f"{bot_name}",
+                                "uin": str(event.self_id),
+                                "content": MessageSegment.image(await market_candlestick((32,9), 6, self.market_history[lst[i][0]], lst[i][0]))
+                                }
+                            }
+                        )
+                else:
+                    self.info_temp[0] = msg
+                    self.info_temp[1] = 1
+                    return msg
+            else:
+                return "市场不存在..."
 
     def company_info(self,company_name:str):
         """
@@ -2109,7 +2116,7 @@ class MarketManager:
 
         self.market_history.setdefault(company_name,[])
         self.market_history[company_name].append([time.time(),buy,sell])
-        while len(self.market_history[company_name]) > 2100:
+        while len(self.market_history[company_name]) > 1200:
             del self.market_history[company_name][0]
 
     def intergroup_transfer(self, event, company_name, gold) -> str:

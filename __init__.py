@@ -973,6 +973,7 @@ async def _():
             market_manager.company_update(group_id)
             logger.info(f'【{market_manager._market_data[group_id]["company_name"]}】更新成功...')
     else:
+        market_manager.info_temp[1] = 0
         russian_manager.save()
         market_manager.market_data_save()
         market_manager.market_history_save()

@@ -1,4 +1,4 @@
-from nonebot import on_command,require
+from nonebot import on_command, on_fullmatch, require
 from nonebot.adapters.onebot.v11 import (
     GROUP,
     GROUP_ADMIN,
@@ -32,7 +32,7 @@ from .data_source import (
     market_manager,
     max_bet_gold,
     race_bet_gold,
-    russian_path
+    russian_path,
     )
 
 from .start import *
@@ -318,8 +318,8 @@ my_info = on_command("我的信息", aliases={"我的资料"}, permission=GROUP,
 my_props = on_command("我的道具", aliases={"我的仓库"}, permission=GROUP, priority=5, block=True)
 
 russian_rank = on_command(
-    "胜场排行",
-    aliases={"金币排行", "胜利排行", "败场排行", "失败排行", "欧洲人排行", "慈善家排行"},
+    "金币排行",
+    aliases = {"胜场排行", "胜利排行", "败场排行", "失败排行", "欧洲人排行", "慈善家排行"},
     permission=GROUP,
     priority=5,
     block=True,
@@ -709,6 +709,7 @@ async def _(event: GroupMessageEvent):
     await my_gold.send(MessageSegment.image(output))
 
 # 查看排行榜
+
 @russian_rank.handle()
 async def _(event: GroupMessageEvent, state: T_State = State()):
     msg = await russian_manager.rank(state["_prefix"]["raw_command"], event.group_id)

@@ -967,15 +967,15 @@ class GameManager:
         :param msg: 排行榜类型
         :param group_id: 群号
         """
-        if msg in ["金币排行"]:
+        if "金币排行" in msg:
             return await rank(self._player_data, group_id, "gold_rank")
-        if msg in ["胜场排行", "胜利排行"]:
+        if "胜场排行" in msg or "胜利排行" in msg:
             return await rank(self._player_data, group_id, "win_rank")
-        if msg in ["败场排行", "失败排行"]:
+        if "败场排行" in msg or "失败排行" in msg:
             return await rank(self._player_data, group_id, "lose_rank")
-        if msg == "欧洲人排行":
+        if "欧洲人排行" in msg:
             return await rank(self._player_data, group_id, "make_gold")
-        if msg == "慈善家排行":
+        if "慈善家排行" in msg:
             return await rank(self._player_data, group_id, "lose_gold")
 
     def check_game_is_start(self, group_id: int) -> bool:

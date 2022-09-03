@@ -45,6 +45,9 @@ russian_config = Config.parse_obj(nonebot.get_driver().config.dict())
 max_bet_gold = russian_config.max_bet_gold
 race_bet_gold = russian_config.race_bet_gold
 
+# 定义永久道具
+constant_props = ("钻石","路灯挂件标记")
+
 async def rank(player_data: dict, group_id: int, type_: str) -> str:
     """
     排行榜数据统计
@@ -1241,14 +1244,11 @@ class GameManager:
         all_user = list(player_data[group_id].keys())
         sum = 0
         if all_user:
-            all_user_gold = [player_data[group_id][x]["gold"] for x in all_user]
-            all_user_value = [player_data[group_id][x]["stock"]["value"] for x in all_user]
+            all_user_gold = [player_data[group_id][i]["gold"] + player_data[group_id][i]["stock"]["value"] for i in all_user]
             for _ in range(len(all_user) if len(all_user) < number else number):
                 _max_gold = max(all_user_gold)
-                _max_value = max(all_user_value)
-                sum = sum + int(_max_gold) + int(_max_value)
+                sum = sum + int(_max_gold)
                 all_user_gold.remove(_max_gold)
-                all_user_value.remove(_max_value)
             return sum
         else:
             return -1
@@ -1261,26 +1261,34 @@ class GameManager:
         player_data = self._player_data
         group_id = str(group_id)
         all_user = list(player_data[group_id].keys())
-        all_user_data = [player_data[group_id][x]["gold"] for x in all_user]
+        all_user_data = [player_data[group_id][i]["gold"] + player_data[group_id][i]["stock"]["value"] for i in all_user]
         first = max(all_user_data)
         first_id = all_user[all_user_data.index(first)]
         first_name = player_data[group_id][first_id]["nickname"]
         if all_user:
             sum = self.total_gold(group_id,10)
             if first > 8000 and first >= sum - first:
-                for _ in range(len(all_user) if len(all_user) < 10 else 10):
+                for i in range(len(all_user) if len(all_user) < 10 else 10):
                     _max = max(all_user_data)
                     _max_id = all_user[all_user_data.index(_max)]
                     player_data[group_id][_max_id]["gold"] = int(_max*0.2)
+                    for company_name in player_data[group_id][_max_id]["stock"].keys():
+                        if company_name == "value":
+                            continue
+                        else:
+                            stock = int(player_data[group_id][_max_id]["stock"][company_name] * 0.8)
+                            player_data[group_id][_max_id]["stock"][company_name] -= stock
+                            market_manager._market_data[company_name]["stock"] += stock
                     all_user_data.remove(_max)
                     all_user.remove(_max_id)
                 for user_id in player_data[group_id].keys():
                     player_data[group_id][user_id]["revolution"] = False
                 player_data[group_id][first_id]["Achieve_revolution"] += 1
                 self.save()
+                market_manager.market_data_save()
                 return f"重置成功\n恭喜{first_name}进入路灯挂件榜~☆！"
             else:
-                return f"{first_name}的金币需要达到{8000 if sum - first < 8000 else sum - first}才可以发起重置。"
+                return f"{first_name}的金币需要达到{round(8000 if sum - first < 8000 else sum - first, 2)}才可以发起重置。"
         else:
             return None
 
@@ -1322,44 +1330,81 @@ class GameManager:
 
     def transfer_accounts(
         self,
-        player_id: int,
+        event: GroupMessageEvent,
         at_player_id: int,
-        group_id: int,
         unsettled: int,
-        ):
+        ) -> str:
         """
         转账数据处理保存
-        :param player_id: 转出账户玩家id
+        :param event: event
         :param at_player_id: 转入账户玩家id
-        :param group_id: 群聊
         :param unsettled: 转账金额
         """
-        player_id=str(player_id)
-        at_player_id=str(at_player_id)
-        group_id=str(group_id)
-
-        flag = self._player_data[group_id][player_id]["props"].get("钻石会员卡",0)
+        user_id = str(event.user_id)
+        group_id = str(event.group_id)
+        at_player_id = str(at_player_id)
+        flag = self._player_data[group_id][user_id]["props"].get("钻石会员卡",0)
         if flag > 0:
             fee = 0
         else:
             fee = int(unsettled * 0.02)
 
-        self._player_data[group_id][player_id]["gold"] -= unsettled
+        self._player_data[group_id][user_id]["gold"] -= unsettled
         self._player_data[group_id][at_player_id]["gold"] += unsettled - fee
         self.save()
         return (
-            f"{self._player_data[group_id][player_id]['nickname']} 向 {self._player_data[group_id][at_player_id]['nickname']} 转账{unsettled}金币\n"+
+            f"{self._player_data[group_id][user_id]['nickname']} 向 {self._player_data[group_id][at_player_id]['nickname']} 转账{unsettled}金币\n"+
             ("『钻石会员卡』免手续费" if flag > 0 else f"扣除2%手续费：{fee}，实际到账金额{unsettled - fee}")
             )
+
+    def give_props(
+        self,
+        event: GroupMessageEvent,
+        at_player_id: int,
+        props: str,
+        count: int,
+        ) -> str:
+        """
+        送道具
+        :param event: event
+        :param at_player_id: 接收道具玩家id
+        :param props: 道具名
+        :param count: 道具数量
+        """
+        user_id = str(event.user_id)
+        group_id = str(event.group_id)
+        at_player_id = str(at_player_id)
+
+        user_data = self._player_data[group_id][user_id]
+        at_user_data = self._player_data[group_id][at_player_id]
+        if props == "路灯挂件标记":
+            if user_data["Achieve_revolution"] + user_data["props"].get(props,0) < count:
+                return "数量不足"
+            else:
+                user_data["props"].setdefault(props,0)
+                user_data["props"][props] -= count
+                at_user_data["props"].setdefault(props,0)
+                at_user_data["props"][props] += count
+                self.save()
+                return f"{count} 个 {props} 已送出"
+        else:
+            if user_data["props"].get(props,0) < count:
+                return "数量不足"
+            else:
+                user_data["props"][props] -= count
+                at_user_data["props"].setdefault(props,0)
+                at_user_data["props"][props] += count
+                self.save()
+                return f"{count} 个 {props} 已送出"
 
     def Achieve_list(self,user_data):
         rank = ""
         count = user_data["props"].get("四叶草标记",0)
-        if count >0:
-            rank += "𝐿𝒰𝒞𝒦𝒴 ✤ 𝒞𝐿𝒪𝒱𝐸𝑅\n"
-        count = user_data["Achieve_revolution"]
         if count > 0:
-            if count <=5:
+            rank += "𝐿𝒰𝒞𝒦𝒴 ✤ 𝒞𝐿𝒪𝒱𝐸𝑅\n"
+        count = user_data["Achieve_revolution"] + user_data["props"].get("路灯挂件标记",0)
+        if count > 0:
+            if count < 5:
                 rank += f"{count*'☆ '}路灯挂件{count*' ☆'}\n"
             else: 
                 rank += f"❀ 路灯挂件 Lv.{count} ❀\n"
@@ -1505,7 +1550,7 @@ class MarketManager:
         self._market_data = {}
         self.market_index = {}  # 市场指数
         file = russian_path / "data" / "russian" / "market_data.json"
-        self.market_index_file = file
+        self.file = file
         if not file.exists():
             old_file = Path(os.path.dirname(__file__)) / "market_data.json"
             if old_file.exists():
@@ -1572,7 +1617,7 @@ class MarketManager:
         """
         保存市场数据
         """
-        with open(self.market_index_file, "w", encoding="utf8") as f:
+        with open(self.file, "w", encoding="utf8") as f:
             json.dump(self._market_data, f, ensure_ascii=False, indent=4)
 
     def Stock_Exchange_save(self):
@@ -2077,8 +2122,10 @@ class MarketManager:
         stock_data = russian_manager._player_data[group_id][user_id]["stock"]
         company_name = self._market_data.get(group_id,{"company_name": "value"})["company_name"]
         for i in stock_data.keys():
-            if not i in ["value",company_name]:
-                value += stock_data[i] * self._market_data[i]["gold"] / 20000
+            if  i in ["value",company_name]:
+                continue
+            else:
+                value += stock_data[i] * self._market_data[i]["float_gold"] / 20000
         return value
 
     def company_update(self,group_id:str):
@@ -2118,6 +2165,16 @@ class MarketManager:
         self.market_history[company_name].append([time.time(),buy,sell])
         while len(self.market_history[company_name]) > 1200:
             del self.market_history[company_name][0]
+
+    def reset_market_index(self):
+        """
+        市场指数更新
+        """
+        for group_id in russian_manager._player_data.keys():
+            if group_id in market_manager._market_data.keys():
+                company_name = self._market_data[group_id]["company_name"]
+                self.market_index[company_name] = random.uniform(-0.5, 0.1)
+                logger.info(f'【{company_name}】市场指数更新为 {self.market_index.get(company_name,0)}')
 
     def intergroup_transfer(self, event, company_name, gold) -> str:
         """

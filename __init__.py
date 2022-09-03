@@ -21,6 +21,9 @@ import time
 import asyncio
 import random
 
+import shutil
+import os
+
 from io import BytesIO
 from nonebot_plugin_imageutils import Text2Image
 
@@ -32,8 +35,9 @@ from .data_source import (
     market_manager,
     max_bet_gold,
     race_bet_gold,
-    russian_path,
+    russian_path
     )
+from .data_source import constant_props
 
 from .start import *
 from .race_group import race_group
@@ -54,6 +58,9 @@ driver = get_driver()
 async def events_read():
     global events_list
     events_list = await load_dlcs()
+    market_manager.reset_market_index()
+
+
 
 RaceNew = on_command("赛马创建",aliases = {"创建赛马"}, permission=GROUP, priority=5, block=True)
 RaceJoin = on_command("赛马加入",aliases = {"加入赛马"}, permission=GROUP, priority=5, block=True)
@@ -137,7 +144,6 @@ async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
     else:
         await RaceJoin.finish(f"请输入你的马儿名字", at_sender=True)
 
-
 @RaceStart.handle()
 async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
     global race
@@ -196,7 +202,7 @@ async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
             await RaceStart.send(MessageSegment.image(output))
 
         if text:
-            await asyncio.sleep(0.5 + int(0.1 * len(text)))
+            await asyncio.sleep(0.5 + int(0.06 * len(text)))
         else:
             await asyncio.sleep(0.5)
             
@@ -289,12 +295,14 @@ async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg()):
     await RaceReload.finish(logs)
 
 
+
 sign = on_command("金币签到",aliases={"轮盘签到"}, permission=GROUP, priority=5, block=True)
 
 revolt = on_command("发起重置", aliases={"发起revolt","发动revolt", "revolution", "Revolution"},permission=GROUP, priority=5, block=True)
 revolt_sign = on_command("重置签到",aliases={"revolt签到"},permission=GROUP, priority=5, block=True)
 
 give_gold = on_command("打钱", aliases={"发红包", "赠送金币"},permission=GROUP, priority=5, block=True)
+give_props = on_command("送道具", aliases={"赠送道具"},permission=GROUP, priority=5, block=True)
 
 slot = on_command("（已停用）幸运花色", aliases={"（已停用）抽花色"},permission=GROUP, priority=5, block=True)
 gacha = on_command("十连",aliases={"10连"},rule = to_me(),permission=GROUP, priority=5, block=True)
@@ -325,26 +333,6 @@ russian_rank = on_command(
     block=True,
     )
 name_list = on_command("查看路灯挂件",aliases={"查看路灯","查看挂件"},permission=GROUP, priority=5, block=True)
-
-intergroup_transfer = on_command("金币转移", permission=GROUP, priority=5, block=True)
-
-Market_public = on_command("市场注册",aliases={"公司注册","注册公司"},rule = to_me(),permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority=5, block=True)
-Market_info = on_command("市场信息",aliases={"查看市场"}, priority=5, block=True)
-Market_info_pro = on_command("市场行情",aliases={"市场走势","市场详细信息"}, priority=5, block=True)
-company_info = on_command("公司信息",aliases={"公司资料"}, priority=5, block=True)
-
-Market_buy = on_command("买入",aliases={"购买","购入"},permission=GROUP, priority=5, block=True)
-Market_sell = on_command("卖出",aliases={"出售","上架"},permission=GROUP, priority=5, block=True)
-
-company_buy = on_command("发行购买",aliases={"发行买入"},permission=GROUP, priority=5, block=True)
-company_clear = on_command("官方结算",permission=GROUP, priority=5, block=True)
-
-update_intro = on_command("更新公司简介",aliases={"添加公司简介"},permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority=5, block=True)
-update_intro_superuser = on_command("管理员更新公司简介",aliases={"管理员更新公司简介"},permission=SUPERUSER, priority=5, block=True)
-
-reset_sign = on_command("reset_sign", permission=SUPERUSER, priority=5, block=True) # 重置每日签到和每日补贴
-reset_market_index = on_command("reset_market_index", permission=SUPERUSER, priority=5, block=True) # 重置市场指数
-
 
 @sign.handle()
 async def _(event: GroupMessageEvent):
@@ -388,8 +376,32 @@ async def _(bot: Bot,event: GroupMessageEvent,arg: Message = CommandArg(),):
                         await give_gold.finish("您的账户没有足够的金币", at_sender=True)
                     else:
                         await russian_manager._init_at_player_data(bot,event,at_player_id)
-                        msg = russian_manager.transfer_accounts(player_id,at_player_id,event.group_id,unsettled)
+                        msg = russian_manager.transfer_accounts(event, at_player_id, unsettled)
                         await give_gold.finish(msg)
+
+# 送道具
+
+@give_props.handle()
+async def _(bot: Bot,event: GroupMessageEvent,arg: Message = CommandArg(),):
+    msg = arg.extract_plain_text().strip()
+    if msg:
+        msg = msg.split()
+        at_player_id = get_message_at(event.json())
+        if at_player_id:
+            at_player_id = at_player_id[0]
+            if len(msg) == 1:
+                props = msg[0]
+                count = 1
+            else:
+                props = msg[0]
+                if is_number(msg[1]):
+                    count = abs(int(msg[1])) or 1
+                else:
+                    count = 1
+            russian_manager._init_player_data(event)
+            await russian_manager._init_at_player_data(bot,event,at_player_id)
+            msg = russian_manager.give_props(event, at_player_id, props, count)
+            await give_props.finish(msg, at_sender=True)
 
 # 状态处理
 
@@ -650,7 +662,7 @@ async def _(event: GroupMessageEvent):
     props_info = '\n'
     for x in props.keys():
         if props[x] != 0:
-            if x == "钻石":
+            if x in constant_props:
                 props_info += f'『{x}』 {props[x]}个\n'
             else:
                 props_info += f'『{x}』 {props[x]}天\n'
@@ -746,35 +758,25 @@ async def _(event: GroupMessageEvent):
     else:
         await name_list.finish()
 
-# 刷新每日签到和每日补贴
-@reset_sign.handle()
-async def _():
-    russian_manager.reset_gold()
-    logger.info("签到重置成功...")
-    russian_manager.reset_security()
-    logger.info("补贴重置成功...")
 
-# 刷新每日签到，每日补贴，每日利息发放
-@scheduler.scheduled_job("cron", hour=0, minute=0)
-async def _():
-    russian_manager.reset_gold()
-    logger.info("今日签到重置成功...")
-    russian_manager.reset_security()
-    logger.info("今日补贴重置成功...")
-    russian_manager.interest()
-    logger.info("今日利息已发放...")
 
-# 重置幸运花色
-'''
-@scheduler.scheduled_job("cron",minute = "0,30")
-async def _():
-    for group_id in russian_manager._player_data.keys():
-        for user_id in russian_manager._player_data[group_id].keys():
-            russian_manager._player_data[group_id][user_id]["slot"] = 0
+Market_public = on_command("市场注册",aliases={"公司注册","注册公司"},rule = to_me(),permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority=5, block=True)
 
-    logger.info("幸运花色已重置...")
-    russian_manager.save()
-'''
+company_buy = on_command("发行购买",aliases={"发行买入"},permission=GROUP, priority=5, block=True)
+company_clear = on_command("官方结算",permission=GROUP, priority=5, block=True)
+
+Market_buy = on_command("买入",aliases={"购买","购入"},permission=GROUP, priority=5, block=True)
+Market_sell = on_command("卖出",aliases={"出售","上架"},permission=GROUP, priority=5, block=True)
+
+Market_info = on_command("市场信息",aliases={"查看市场"}, priority=5, block=True)
+Market_info_pro = on_command("市场行情",aliases={"市场走势","市场详细信息"}, priority=5, block=True)
+
+company_info = on_command("公司信息",aliases={"公司资料"}, priority=5, block=True)
+
+update_intro = on_command("更新公司简介",aliases={"添加公司简介"},permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority=5, block=True)
+update_intro_superuser = on_command("管理员更新公司简介",aliases={"管理员更新公司简介"},permission=SUPERUSER, priority=5, block=True)
+
+intergroup_transfer = on_command("金币转移", permission=GROUP, priority=5, block=True)
 
 # 公司上市
 @Market_public.handle()
@@ -894,15 +896,6 @@ async def _(event: MessageEvent,arg: Message = CommandArg()):
             Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
             await company_info.finish(MessageSegment.image(output))
 
-# 管理员更新简介
-@update_intro_superuser.handle()
-async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
-    msg = arg.extract_plain_text().strip()
-    if msg:
-        msg = msg.split(" ",1)
-        market_manager.update_intro(msg[0],msg[1])
-        await update_intro_superuser.finish("简介更新完成...")
-
 # 更新公司简介
 @update_intro.handle()
 async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
@@ -918,8 +911,16 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
     else:
         await update_intro.finish()
 
-# 跨群转移金币到自己的账户
+# 管理员更新简介
+@update_intro_superuser.handle()
+async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
+    msg = arg.extract_plain_text().strip()
+    if msg:
+        msg = msg.split(" ",1)
+        market_manager.update_intro(msg[0],msg[1])
+        await update_intro_superuser.finish("简介更新完成...")
 
+# 跨群转移金币到自己的账户
 @intergroup_transfer.handle()
 async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
     msg = arg.extract_plain_text().strip().split()
@@ -928,40 +929,57 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
         gold = msg[1]
         msg = market_manager.intergroup_transfer(event,company_name,gold)
         await intergroup_transfer.finish(msg, at_sender=True)
-        
+
+
+
+reset_sign = on_command("reset_sign", permission=SUPERUSER, priority=5, block=True) # 重置每日签到和每日补贴
+
+# 刷新每日签到和每日补贴
+@reset_sign.handle()
+async def _():
+    russian_manager.reset_gold()
+    logger.info("签到重置成功...")
+    russian_manager.reset_security()
+    logger.info("补贴重置成功...")
+
+# 刷新每日签到，每日补贴，每日利息发放
+@scheduler.scheduled_job("cron", hour=0, minute=0)
+async def _():
+    russian_manager.reset_gold()
+    logger.info("今日签到重置成功...")
+    russian_manager.reset_security()
+    logger.info("今日补贴重置成功...")
+    russian_manager.interest()
+    logger.info("今日利息已发放...")
+
+# 重置幸运花色
+'''
+@scheduler.scheduled_job("cron",minute = "0,30")
+async def _():
+    for group_id in russian_manager._player_data.keys():
+        for user_id in russian_manager._player_data[group_id].keys():
+            russian_manager._player_data[group_id][user_id]["slot"] = 0
+
+    logger.info("幸运花色已重置...")
+    russian_manager.save()
+'''
+     
 # 刷新道具时间
 @scheduler.scheduled_job("cron", hour = 4, minute = 0)
 async def _():
     for group_id in russian_manager._player_data.keys():
         for user_id in russian_manager._player_data[group_id].keys():
             for props in russian_manager._player_data[group_id][user_id]["props"].keys():
-                if russian_manager._player_data[group_id][user_id]["props"][props] > 0 and props!="钻石":
+                if russian_manager._player_data[group_id][user_id]["props"][props] > 0 and props not in constant_props:
                     russian_manager._player_data[group_id][user_id]["props"][props] -= 1
     else:
         logger.info("道具时间已刷新...")
         russian_manager.save()
 
-# 市场指数更新（手动）
-@reset_market_index.handle()
-async def _():
-    msg = ""
-    for group_id in russian_manager._player_data.keys():
-        if group_id in market_manager._market_data.keys():
-            company_name = market_manager._market_data[group_id]["company_name"]
-            market_manager.market_index[company_name] = random.uniform(-0.5, 0.1)
-            logger.info(f'【{company_name}】市场指数更新为 {market_manager.market_index.get(company_name,0)}')
-            msg += f'【{company_name}】市场指数更新为 {round(market_manager.market_index.get(company_name,0),4)}\n'
-    else:
-        await reset_market_index.finish(msg[:-1])
-
 # 市场指数更新
 @scheduler.scheduled_job("cron", hour = "0,6,12,18")
 async def _():
-    for group_id in russian_manager._player_data.keys():
-        if group_id in market_manager._market_data.keys():
-            company_name = market_manager._market_data[group_id]["company_name"]
-            market_manager.market_index[company_name] = random.uniform(-0.5, 0.1)
-            logger.info(f'【{company_name}】市场指数更新为 {market_manager.market_index.get(company_name,0)}')
+    market_manager.reset_market_index()
 
 # 股市更新
 @scheduler.scheduled_job("cron",minute = "0,5,10,15,20,25,30,35,40,45,50,55")
@@ -981,25 +999,18 @@ async def _():
 
 # 数据备份
 
-import shutil
-import os
-from .data_source import russian_path
-
 @scheduler.scheduled_job("cron",hour = "4,10,16,22")
 async def _():
     now = time.strftime('%Y-%m-%d-%H', time.localtime(time.time()))
     path =f"{russian_path}/data/russian"
-    try:
-        if not os.path.exists(f"{path}/backup"):
-            os.makedirs(f"{path}/backup")
-        if os.path.isfile(f"{path}/market_data.json"):
-            shutil.copy(f"{path}/market_data.json",f"{path}/backup/market_data {now}.json")
-            logger.info(f'market_data.json备份成功！')
-        if os.path.isfile(f"{path}/russian_data.json"):
-            shutil.copy(f"{path}/russian_data.json",f"{path}/backup/russian_data {now}.json")
-            logger.info(f'russian_data.json备份成功！')
-        if os.path.isfile(f"{path}/Stock_Exchange.json"):
-            shutil.copy(f"{path}/Stock_Exchange.json",f"{path}/backup/Stock_Exchange {now}.json")
-            logger.info(f'Stock_Exchange.json备份成功！')
-    except:
-        logger.info(f'数据备份失败...')
+    if not os.path.exists(f"{path}/backup"):
+        os.makedirs(f"{path}/backup")
+    if os.path.isfile(f"{path}/market_data.json"):
+        shutil.copy(f"{path}/market_data.json",f"{path}/backup/market_data {now}.json")
+        logger.info(f'market_data.json备份成功！')
+    if os.path.isfile(f"{path}/russian_data.json"):
+        shutil.copy(f"{path}/russian_data.json",f"{path}/backup/russian_data {now}.json")
+        logger.info(f'russian_data.json备份成功！')
+    if os.path.isfile(f"{path}/Stock_Exchange.json"):
+        shutil.copy(f"{path}/Stock_Exchange.json",f"{path}/backup/Stock_Exchange {now}.json")
+        logger.info(f'Stock_Exchange.json备份成功！')

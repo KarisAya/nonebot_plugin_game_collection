@@ -25,10 +25,10 @@ mplfinance K线图
 
 ## 使用
     nonebot.load_plugin('nonebot_plugin_game_collection')
-    
-如果之前运行过[nonebot_plugin_russian](https://github.com/HibiKier/nonebot_plugin_russian)那么需要把之前的数据删掉，不然会报错。。。
 
-__1.4.0 版本 需要安装 matplotlib 和 mplfinance 不然无法运行__
+__注意：本插件与nonebot_plugin_russian不兼容！__
+
+如果之前运行过[nonebot_plugin_russian](https://github.com/HibiKier/nonebot_plugin_russian)那么需要把之前的数据删掉，不然会报错。。。
 
 ## 配置
 

@@ -1869,10 +1869,7 @@ class MarketManager:
                         self._market_data[company_name]["gold"] += value
                         russian_manager._player_data[group_id][user_id]["gold"] -= int(value)
                         self._market_data[company_name]["group_gold"] = float(russian_manager.total_gold(str(self._market_data[company_name]["group_id"]),1000))
-                        gold = self._market_data[company_name]["gold"]
-                        group_gold = self._market_data[company_name]["group_gold"]
-                        float_gold = self._market_data[company_name]["float_gold"]
-                        self._market_data[company_name]["float_gold"] = float_gold * 0.4 + group_gold * 0.15 + gold * 0.3
+                        self._market_data[company_name]["float_gold"] += value * 0.65
                         russian_manager._player_data[group_id][user_id]["stock"]["value"] = self.value_update(group_id,user_id)
                         self.market_data_save()
                         russian_manager.save()
@@ -1919,10 +1916,7 @@ class MarketManager:
                 self._market_data[company_name]["gold"] -= value
                 russian_manager._player_data[group_id][user_id]["gold"] += int(value * 0.998)
                 self._market_data[company_name]["group_gold"] = float(russian_manager.total_gold(str(self._market_data[company_name]["group_id"]),1000))
-                gold = self._market_data[company_name]["gold"]
-                group_gold = self._market_data[company_name]["group_gold"]
-                float_gold = self._market_data[company_name]["float_gold"]
-                self._market_data[company_name]["float_gold"] = float_gold * 0.4 + group_gold * 0.15 + gold * 0.3
+                self._market_data[company_name]["float_gold"] = _gold
                 russian_manager._player_data[group_id][user_id]["stock"]["value"] = self.value_update(group_id,user_id)
                 self.market_data_save()
                 russian_manager.save()

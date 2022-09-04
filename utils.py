@@ -55,7 +55,7 @@ def list_split(data:list,lenth:int) -> list:
 
 font = FontProperties(fname = os.path.dirname(__file__) + '/events/fonts/simsun.ttc', size=30)
 
-async def market_linechart(figsize: Tuple[int,int], market_history:list, title:str) -> BytesIO:
+def market_linechart(figsize: Tuple[int,int], market_history:list, title:str) -> BytesIO:
     """
     生成股价折线图（120）
     :param figsize: 图片尺寸
@@ -91,7 +91,7 @@ async def market_linechart(figsize: Tuple[int,int], market_history:list, title:s
     plt.savefig(output)
     return output
 
-async def market_candlestick(figsize: Tuple[int,int],datalenth: int, market_history:list, title:str) -> BytesIO:
+def market_candlestick(figsize: Tuple[int,int],datalenth: int, market_history:list, title:str) -> BytesIO:
     """
     生成股价K线图(60)
     :param figsize: 图片尺寸

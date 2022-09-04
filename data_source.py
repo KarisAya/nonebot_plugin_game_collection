@@ -1398,6 +1398,10 @@ class GameManager:
                 return f"{count} 个 {props} 已送出"
 
     def Achieve_list(self,user_data):
+        """
+        送道具
+        :param user_data: russian_manager.get_user_data(event)
+        """
         rank = ""
         count = user_data["props"].get("四叶草标记",0)
         if count > 0:
@@ -1419,15 +1423,53 @@ class GameManager:
             rank += f"◆◇ 连败 Lv.{count-1} ◆◇\n"
         return rank
 
+    def my_info(self, event: GroupMessageEvent) -> str:
+        """
+        资料卡
+        :param event: event
+        """
+        user_data = self.get_user_data(event)
+        nickname = user_data["nickname"]
+        gold = user_data["gold"]
+        make_gold = user_data["make_gold"]
+        lose_gold = user_data["lose_gold"]
+        is_sign = user_data["is_sign"]
+        security = user_data["security"]
+        win_count = user_data["win_count"]
+        lose_count = user_data["lose_count"]
+        stock = user_data["stock"]
+        stock["value"] = market_manager.value_update(str(event.group_id),str(event.user_id))
+        my_stock = []
+        stock_info = ""
+        for x in stock.keys():
+            if x == "value" or  stock[x] == 0 :
+                continue
+            else:
+                my_stock.append([x,round(market_manager._market_data[x]["float_gold"] * stock[x] / 20000,2)])
+        else:
+            my_stock.sort(key = lambda x:x[1],reverse = True)
+            for i in range(len(my_stock)):
+                stock_info += f'【{my_stock[i][0]}】\n持有：{stock[my_stock[i][0]]} 株\n价值：{my_stock[i][1]} 金币\n'
 
+        info = (
+            f'【{nickname}】\n'
+            "——————————————\n"
+            + ("" if self.Achieve_list(user_data) == "" else self.Achieve_list(user_data) + "——————————————\n") +
+            f'金币：{gold}\n'
+            f'持有价值：{round(stock["value"],2)}\n'
+            f'赚取金币：{make_gold}\n'
+            f'输掉金币：{lose_gold}\n'
+            "——————————————\n"
+            f'胜场:败场：{win_count}:{lose_count}\n'
+            f'胜率：{str((win_count/(win_count + lose_count) if win_count + lose_count > 0 else 0 ) * 100 )[:5]}%\n'
+            "——————————————\n"
+            f'今日签到：{"已签到"if is_sign else "未签到"}\n'
+            f'今日补贴：还剩 {3 - security} 次\n'
+            "——————————————\n" +
+            stock_info
+            )
+        return info
 
-russian_manager = GameManager()
-
-
-
-class SingleManager:
-    def __init__(self):
-        self._current_player = {}
     def slot(self, event: GroupMessageEvent,gold:int):
         """
         抽花色
@@ -1437,12 +1479,12 @@ class SingleManager:
         group_id = str(event.group_id)
         user_id = str(event.user_id)
         
-        if gold > russian_manager.get_user_data(event)["gold"]:
-            return f'你没有足够的金币，你的金币：{russian_manager._player_data[group_id][user_id]["gold"]}。'
-        if russian_manager._player_data[group_id][user_id]["slot"] > 2:
+        if gold > self.get_user_data(event)["gold"]:
+            return f'你没有足够的金币，你的金币：{self._player_data[group_id][user_id]["gold"]}。'
+        if self._player_data[group_id][user_id]["slot"] > 2:
             return '你的本轮次数已用光。'
 
-        russian_manager._player_data[group_id][user_id]["slot"] += 1
+        self._player_data[group_id][user_id]["slot"] += 1
         suit_dict = {
             1:"♤",
             2:"♡",
@@ -1456,8 +1498,8 @@ class SingleManager:
         lst=[x,y,z]
         lst0=list(set(lst))
         if len(lst0)==1:
-            russian_manager._player_data[group_id][user_id]["gold"] += gold *7
-            russian_manager._player_data[group_id][user_id]["make_gold"] += gold *7
+            self._player_data[group_id][user_id]["gold"] += gold *7
+            self._player_data[group_id][user_id]["make_gold"] += gold *7
             msg =(
                 f"你抽到的花色为：\n"+
                 suit+
@@ -1470,15 +1512,15 @@ class SingleManager:
                 f"\n祝你好运~"
                 )
         else:
-            russian_manager._player_data[group_id][user_id]["gold"] -= gold
-            russian_manager._player_data[group_id][user_id]["lose_gold"] += gold
+            self._player_data[group_id][user_id]["gold"] -= gold
+            self._player_data[group_id][user_id]["lose_gold"] += gold
             msg =(
                 f"你抽到的花色为：\n"+
                 suit+
                 f"\n你失去了{gold}金币 ，祝你好运~"
                 )
 
-        russian_manager.save()
+        self.save()
         return msg
 
     def gacha(self, event: GroupMessageEvent):
@@ -1489,34 +1531,34 @@ class SingleManager:
         group_id = str(event.group_id)
         user_id = str(event.user_id)
         
-        if russian_manager.get_user_data(event)["gold"] < gacha_gold:
-            return f'10连抽卡需要{gacha_gold}金币，你的金币：{russian_manager._player_data[group_id][user_id]["gold"]}。'
+        if self.get_user_data(event)["gold"] < gacha_gold:
+            return f'10连抽卡需要{gacha_gold}金币，你的金币：{self._player_data[group_id][user_id]["gold"]}。'
         else:
-            russian_manager._player_data[group_id][user_id]["gold"] -= gacha_gold
+            self._player_data[group_id][user_id]["gold"] -= gacha_gold
             msg = '\n'
             for i in range(10):
                 props = random.randint(1,200)
                 if props in range(1,21):
-                    russian_manager._player_data[group_id][user_id]["props"].setdefault("四叶草标记",0)
-                    if russian_manager._player_data[group_id][user_id]["props"]["四叶草标记"] < 7:
-                        russian_manager._player_data[group_id][user_id]["props"]["四叶草标记"] += 1
+                    self._player_data[group_id][user_id]["props"].setdefault("四叶草标记",0)
+                    if self._player_data[group_id][user_id]["props"]["四叶草标记"] < 7:
+                        self._player_data[group_id][user_id]["props"]["四叶草标记"] += 1
                     msg += "『四叶草标记』 ☆☆☆\n"
                 elif props in range(21,31):
-                    russian_manager._player_data[group_id][user_id]["props"].setdefault("钻石会员卡",0)
-                    if russian_manager._player_data[group_id][user_id]["props"]["钻石会员卡"] < 7:
-                        russian_manager._player_data[group_id][user_id]["props"]["钻石会员卡"] += 1
+                    self._player_data[group_id][user_id]["props"].setdefault("钻石会员卡",0)
+                    if self._player_data[group_id][user_id]["props"]["钻石会员卡"] < 7:
+                        self._player_data[group_id][user_id]["props"]["钻石会员卡"] += 1
                     msg += "『钻石会员卡』 ☆☆☆☆\n"
                 elif props in range(31,41):
                     msg += "『高级空气』 ☆☆☆☆\n"
                 elif props in range(41,46):
-                    russian_manager._player_data[group_id][user_id]["props"].setdefault("20%结算补贴",0)
-                    if russian_manager._player_data[group_id][user_id]["props"]["20%结算补贴"] < 7:
-                        russian_manager._player_data[group_id][user_id]["props"]["20%结算补贴"] += 1
+                    self._player_data[group_id][user_id]["props"].setdefault("20%结算补贴",0)
+                    if self._player_data[group_id][user_id]["props"]["20%结算补贴"] < 7:
+                        self._player_data[group_id][user_id]["props"]["20%结算补贴"] += 1
                     msg += "『20%结算补贴』 ☆☆☆☆☆\n"
                 elif props in range(46,51):
-                    russian_manager._player_data[group_id][user_id]["props"].setdefault("20%额外奖励",0)
-                    if russian_manager._player_data[group_id][user_id]["props"]["20%额外奖励"] < 7:
-                        russian_manager._player_data[group_id][user_id]["props"]["20%额外奖励"] += 1
+                    self._player_data[group_id][user_id]["props"].setdefault("20%额外奖励",0)
+                    if self._player_data[group_id][user_id]["props"]["20%额外奖励"] < 7:
+                        self._player_data[group_id][user_id]["props"]["20%额外奖励"] += 1
                     msg += "『20%额外奖励』 ☆☆☆☆☆\n"
                 elif props in range(51,56):
                     msg += "『进口空气』 ☆☆☆☆☆\n"
@@ -1525,8 +1567,8 @@ class SingleManager:
                 elif props in range(61,81):
                     msg += "『优质空气』 ☆☆☆\n"
                 elif props == 100:
-                    russian_manager._player_data[group_id][user_id]["props"].setdefault("钻石",0)
-                    russian_manager._player_data[group_id][user_id]["props"]["钻石"] += 1
+                    self._player_data[group_id][user_id]["props"].setdefault("钻石",0)
+                    self._player_data[group_id][user_id]["props"]["钻石"] += 1
                     msg += "『钻石』 ☆☆☆☆☆☆\n"
                 elif props == 200:
                     msg += "『纯净空气』 ☆☆☆☆☆☆\n"
@@ -1535,12 +1577,12 @@ class SingleManager:
                     pass
             else:
                 msg = msg[:-1]
-                russian_manager.save()
+                self.save()
         return msg
 
 
 
-single_manager = SingleManager()
+russian_manager = GameManager()
 
 
 
@@ -1963,7 +2005,7 @@ class MarketManager:
                                 Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
                                 msg = MessageSegment.image(output)
                             else:
-                                msg = msg.replace("——————————————", "----------")
+                                pass
                     else:
                         msg = []
                         if market_info_type == "image" :
@@ -1996,11 +2038,10 @@ class MarketManager:
                 msg = "市场不存在..."
         return msg
 
-    async def Market_info_pro(self, event):
+    def Market_info_pro(self, event):
         """
         市场详细信息
         """
-
         if self.info_temp[1] == 1:
             return self.info_temp[0]
         else:
@@ -2044,7 +2085,7 @@ class MarketManager:
                             "data": {
                                 "name": f"{bot_name}",
                                 "uin": str(event.self_id),
-                                "content": MessageSegment.image(await market_linechart((32,9), self.market_history[lst[i][0]], lst[i][0]))
+                                "content": MessageSegment.image(market_linechart((32,9), self.market_history[lst[i][0]], lst[i][0]))
                                 }
                             }
                         )
@@ -2054,7 +2095,7 @@ class MarketManager:
                             "data": {
                                 "name": f"{bot_name}",
                                 "uin": str(event.self_id),
-                                "content": MessageSegment.image(await market_candlestick((32,9), 6, self.market_history[lst[i][0]], lst[i][0]))
+                                "content": MessageSegment.image(market_candlestick((32,9), 6, self.market_history[lst[i][0]], lst[i][0]))
                                 }
                             }
                         )

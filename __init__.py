@@ -31,7 +31,6 @@ from .utils import is_number, get_message_at
 from .data_source import (
     bot_name,
     russian_manager,
-    single_manager,
     market_manager,
     max_bet_gold,
     race_bet_gold,
@@ -645,13 +644,13 @@ async def _(bot: Bot, event: GroupMessageEvent,arg: Message = CommandArg()):
             if 0 < tmp <= int(max_bet_gold/2):
                 gold = abs(int(str(arg)))
 
-    msg = single_manager.slot(event,gold)
-    await slot.send(MessageSegment.at(event.user_id) + msg)
+    msg = russian_manager.slot(event,gold)
+    await slot.finish(msg, at_sender=True)
 
 @gacha.handle()
 async def _(bot: Bot, event: GroupMessageEvent,arg: Message = CommandArg()):
-    msg = single_manager.gacha(event)
-    await gacha.send(msg,at_sender=True,)
+    msg = russian_manager.gacha(event)
+    await gacha.finish(msg, at_sender=True)
 
 # 我的
 
@@ -670,55 +669,19 @@ async def _(event: GroupMessageEvent):
     props_info = props_info[:-1]
     if not props_info:
         props_info = "你的仓库空空如也..."
-    await my_props.send(props_info,at_sender=True)
+    await my_props.finish(props_info,at_sender=True)
 
 @my_gold.handle()
 async def _(event: GroupMessageEvent):
     gold = russian_manager.get_user_data(event)["gold"]
-    await my_gold.send(f"你还有 {gold} 枚金币", at_sender=True)
+    await my_gold.finish(f"你还有 {gold} 枚金币", at_sender=True)
 
 @my_info.handle()
 async def _(event: GroupMessageEvent):
-    nickname = russian_manager.get_user_data(event)["nickname"]
-    gold = russian_manager.get_user_data(event)["gold"]
-    make_gold = russian_manager.get_user_data(event)["make_gold"]
-    lose_gold = russian_manager.get_user_data(event)["lose_gold"]
-    is_sign = russian_manager.get_user_data(event)["is_sign"]
-    security = russian_manager.get_user_data(event)["security"]
-    win_count = russian_manager.get_user_data(event)["win_count"]
-    lose_count = russian_manager.get_user_data(event)["lose_count"]
-    stock = russian_manager.get_user_data(event)["stock"]
-    my_stock = []
-    stock_info = ""
-    for x in stock.keys():
-        if x != "value" and  stock[x] != 0 :
-            my_stock.append([x,round(market_manager._market_data[x]["gold"] * stock[x] / 20000,2)])
-    else:
-        my_stock.sort(key = lambda x:x[1],reverse = True)
-        for i in range(len(my_stock)):
-            stock_info += f'【{my_stock[i][0]}】\n持有：{stock[my_stock[i][0]]} 株\n价值：{my_stock[i][1]} 金币\n'
-
-    info=(
-        f'【{nickname}】\n'
-        "——————————————\n"+
-        ("" if russian_manager.Achieve_list(russian_manager.get_user_data(event)) == "" 
-            else russian_manager.Achieve_list(russian_manager.get_user_data(event)) + "——————————————\n") +
-        f'金币：{gold}\n'
-        f'持有价值：{round(stock["value"],2)}\n'
-        f'赚取金币：{make_gold}\n'
-        f'输掉金币：{lose_gold}\n'
-        "——————————————\n"
-        f'胜场:败场：{win_count}:{lose_count}\n'
-        f'胜率：{str((win_count/(win_count + lose_count) if win_count + lose_count > 0 else 0 ) * 100 )[:5]}%\n'
-        "——————————————\n"
-        f'今日签到：{"已签到"if is_sign else "未签到"}\n'
-        f'今日补贴：还剩 {3 - security} 次\n'
-        "——————————————\n" +
-        stock_info
-        )
+    info = russian_manager.my_info(event)
     output = BytesIO()
     Text2Image.from_text(info[:-1],50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
-    await my_gold.send(MessageSegment.image(output))
+    await my_info.finish(MessageSegment.image(output))
 
 # 查看排行榜
 
@@ -873,7 +836,7 @@ async def _(bot:Bot, event: MessageEvent,arg: Message = CommandArg()):
 # 市场走势
 @Market_info_pro.handle()
 async def _(bot:Bot, event: MessageEvent):
-    msg = await market_manager.Market_info_pro(event)
+    msg = market_manager.Market_info_pro(event)
     if type(msg) == list:
         if isinstance(event, GroupMessageEvent):
             await bot.send_group_forward_msg(group_id = event.group_id, messages = msg)
@@ -977,12 +940,12 @@ async def _():
         russian_manager.save()
 
 # 市场指数更新
-@scheduler.scheduled_job("cron", hour = "0,6,12,18")
+@scheduler.scheduled_job("cron", hour = "0,3,6,9,12,15,18,21")
 async def _():
     market_manager.reset_market_index()
 
 # 股市更新
-@scheduler.scheduled_job("cron",minute = "0,5,10,15,20,25,30,35,40,45,50,55")
+@scheduler.scheduled_job("cron", minute = "0,5,10,15,20,25,30,35,40,45,50,55")
 async def _():
     for group_id in russian_manager._player_data.keys():
         for user_id in russian_manager._player_data[group_id].keys():

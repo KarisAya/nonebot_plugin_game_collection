@@ -766,9 +766,14 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
             company_name = msg[0]
             stock = abs(int(msg[1])) if is_number(msg[1]) else 100
             msg = market_manager.company_buy(event,company_name,stock)
-            output = BytesIO()
-            Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
-            await company_buy.finish(MessageSegment.image(output))
+            try:
+                await company_buy.send(msg)
+            except:
+                output = BytesIO()
+                Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                await company_buy.send(MessageSegment.image(output))
+            finally:
+                await company_buy.finish()
 
 # 债务清算
 @company_clear.handle()
@@ -780,9 +785,14 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
             company_name = msg[0]            
             stock = abs(int(msg[1])) if is_number(msg[1]) else 100
             msg = market_manager.company_clear(event,company_name,stock)
-            output = BytesIO()
-            Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
-            await company_clear.finish(MessageSegment.image(output))
+            try:
+                await company_clear.send(msg)
+            except:
+                output = BytesIO()
+                Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                await company_clear.send(MessageSegment.image(output))
+            finally:
+                await company_clear.finish()
 
 # 市场买入
 @Market_buy.handle()
@@ -794,9 +804,14 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
             company_name = msg[0]            
             stock = abs(int(msg[1])) if is_number(msg[1]) else 100
             msg = market_manager.Market_buy(event,company_name,stock)
-            output = BytesIO()
-            Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
-            await Market_buy.finish(MessageSegment.image(output))
+            try:
+                await Market_buy.send(msg)
+            except:
+                output = BytesIO()
+                Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                await Market_buy.send(MessageSegment.image(output))
+            finally:
+                await Market_buy.finish()
 
 # 市场卖出
 @Market_sell.handle()
@@ -810,9 +825,14 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
                 quote = abs(float(msg[1]))
                 stock = abs(int(msg[2])) if is_number(msg[2]) else 100
                 msg = market_manager.Market_sell(event,company_name,quote,stock)
-                output = BytesIO()
-                Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
-                await Market_sell.finish(MessageSegment.image(output))
+                try:
+                    await Market_sell.send(msg)
+                except:
+                    output = BytesIO()
+                    Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                    await Market_sell.send(MessageSegment.image(output))
+                finally:
+                    await Market_sell.finish()
 
 # 市场信息
 @Market_info.handle()

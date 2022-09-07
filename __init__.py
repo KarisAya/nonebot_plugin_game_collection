@@ -460,8 +460,8 @@ async def _(
         msg = msg.split()
         if len(msg) == 1:
             msg = msg[0]
-            if is_number(msg):
-                if 0 < int(msg) < 7:
+            if is_number(msg) and 0 < int(msg):
+                if int(msg) < 7:
                     bullet_num = int(msg)
                 else:
                     money = int(msg)
@@ -470,7 +470,7 @@ async def _(
             msg[1] = msg[1].strip()         
             if is_number(msg[0]) and 0 < int(msg[0]) < 7:
                 bullet_num = int(msg[0])
-            if is_number(msg[1]):
+            if is_number(msg[1]) and 0 < int(msg[1]):
                 money = int(msg[1])
 
         state["bullet_num"] = bullet_num
@@ -633,8 +633,7 @@ async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
     card = arg.extract_plain_text().strip()
     await russian_manager.poker_play(bot, event, card)
 
-# 单人游戏
-
+# 幸运花色
 @slot.handle()
 async def _(bot: Bot, event: GroupMessageEvent,arg: Message = CommandArg()):
     gold = 50
@@ -647,6 +646,7 @@ async def _(bot: Bot, event: GroupMessageEvent,arg: Message = CommandArg()):
     msg = russian_manager.slot(event,gold)
     await slot.finish(msg, at_sender=True)
 
+# 十连抽卡
 @gacha.handle()
 async def _(bot: Bot, event: GroupMessageEvent,arg: Message = CommandArg()):
     msg = russian_manager.gacha(event)
@@ -684,7 +684,6 @@ async def _(event: GroupMessageEvent):
     await my_info.finish(MessageSegment.image(output))
 
 # 查看排行榜
-
 @russian_rank.handle()
 async def _(event: GroupMessageEvent, state: T_State = State()):
     msg = await russian_manager.rank(state["_prefix"]["raw_command"], event.group_id)
@@ -694,6 +693,7 @@ async def _(event: GroupMessageEvent, state: T_State = State()):
         await russian_rank.finish(MessageSegment.image(output))
     else:
         await russian_rank.finish()
+
 # 查看路灯挂件
 @name_list.handle()
 async def _(event: GroupMessageEvent):

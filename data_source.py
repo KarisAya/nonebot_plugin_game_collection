@@ -1972,7 +1972,7 @@ class MarketManager:
             lst = []
             for x in self._market_data.keys():
                 if self._market_data[x].get("time") == None:
-                    lst.append(x)
+                    lst.append([x,self._market_data[x]["group_gold"]])
             else:
                 lst.sort(key = lambda x:x[1],reverse = True)
 
@@ -1980,18 +1980,18 @@ class MarketManager:
             if lst:
                 for x in lst:
                     price = (
-                        self._market_data[x]["gold"]
-                        if self._market_data[x]["gold"] > self._market_data[x]["float_gold"]
-                        else self._market_data[x]["float_gold"]
+                        self._market_data[x[0]]["gold"]
+                        if self._market_data[x[0]]["gold"] > self._market_data[x[0]]["float_gold"]
+                        else self._market_data[x[0]]["float_gold"]
                         )
                     msg_lst.append(
-                        f'【{x}】\n'
+                        f'【{x[0]}】\n'
                         "——————————————\n"
-                        f'固定资产：{round(self._market_data[x]["gold"], 2)} 金币\n'
-                        f'市场流动：{int(self._market_data[x]["group_gold"])} 金币\n'
+                        f'固定资产：{round(self._market_data[x[0]]["gold"], 2)} 金币\n'
+                        f'市场流动：{int(x[1])} 金币\n'
                         f'发行价格：{round(price/20000,2)} 金币\n'
-                        f'结算价格：{round(self._market_data[x]["float_gold"] / 20000, 2)} 金币\n'
-                        f'剩余数量：{self._market_data[x]["stock"]} 株\n'
+                        f'结算价格：{round(self._market_data[x[0]]["float_gold"] / 20000, 2)} 金币\n'
+                        f'剩余数量：{self._market_data[x[0]]["stock"]} 株\n'
                         "——————————————"
                         )
                 else:
@@ -2049,7 +2049,7 @@ class MarketManager:
             lst = []
             for x in self._market_data.keys():
                 if self._market_data[x].get("time") == None:
-                    lst.append(x)
+                    lst.append([x,self._market_data[x]["group_gold"]])
             else:
                 lst.sort(key = lambda x:x[1],reverse = True)
 
@@ -2057,9 +2057,9 @@ class MarketManager:
                 msg = []
                 for x in lst:
                     price = (
-                        self._market_data[x]["gold"]
-                        if self._market_data[x]["gold"] > self._market_data[x]["float_gold"]
-                        else self._market_data[x]["float_gold"]
+                        self._market_data[x[0]]["gold"]
+                        if self._market_data[x[0]]["gold"] > self._market_data[x[0]]["float_gold"]
+                        else self._market_data[x[0]]["float_gold"]
                         )
                     msg.append(
                         {
@@ -2068,13 +2068,13 @@ class MarketManager:
                                 "name": f"{bot_name}",
                                 "uin": str(event.self_id),
                                 "content": (
-                                    f'【{x}】\n'
+                                    f'【{x[0]}】\n'
                                     "——————————————\n"
-                                    f'固定资产：{round(self._market_data[x]["gold"], 2)} 金币\n'
-                                    f'市场流动：{int(self._market_data[x]["group_gold"])} 金币\n'
+                                    f'固定资产：{round(self._market_data[x[0]]["gold"], 2)} 金币\n'
+                                    f'市场流动：{int(x[1])} 金币\n'
                                     f'发行价格：{round(price/20000,2)} 金币\n'
-                                    f'结算价格：{round(self._market_data[x]["float_gold"] / 20000, 2)} 金币\n'
-                                    f'剩余数量：{self._market_data[x]["stock"]} 株\n'
+                                    f'结算价格：{round(self._market_data[x[0]]["float_gold"] / 20000, 2)} 金币\n'
+                                    f'剩余数量：{self._market_data[x[0]]["stock"]} 株\n'
                                     "——————————————"
                                     ) 
                                 }
@@ -2086,7 +2086,7 @@ class MarketManager:
                             "data": {
                                 "name": f"{bot_name}",
                                 "uin": str(event.self_id),
-                                "content": MessageSegment.image(market_linechart((32,9), self.market_history[x], x))
+                                "content": MessageSegment.image(market_linechart((32,9), self.market_history[x[0]], x[0]))
                                 }
                             }
                         )
@@ -2096,7 +2096,7 @@ class MarketManager:
                             "data": {
                                 "name": f"{bot_name}",
                                 "uin": str(event.self_id),
-                                "content": MessageSegment.image(market_candlestick((32,9), 6, self.market_history[x], x))
+                                "content": MessageSegment.image(market_candlestick((32,9), 6, self.market_history[x[0]], x[0]))
                                 }
                             }
                         )

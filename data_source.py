@@ -677,23 +677,23 @@ class GameManager:
         '''
         card_msg = "技能牌为"
         skill_msg = "\n"
-        for i in range(len(st["hand"])):
-            card_msg += f'【{suit_name_dict[st["hand"][i][0]]} {point_dict[st["hand"][i][1]]}】'
-            if st["hand"][i][0] == 1:
-                st["DEF"] += st["hand"][i][1]
-                skill_msg += f'♤防御力强化了 {st["hand"][i][1]}\n'
-            elif st["hand"][i][0] == 2:
-                st["HP"] += st["hand"][i][1]
-                skill_msg += f'♡生命值增加了 {st["hand"][i][1]}\n'
-            elif st["hand"][i][0] == 3:
-                st["SP"] += 2 * st["hand"][i][1]
-                skill_msg += f'♧技能点增加了 {st["hand"][i][1]}\n'
-            elif st["hand"][i][0] == 4:
-                st["ATK"] += st["hand"][i][1]
-                skill_msg += f'♢发动了攻击 {st["hand"][i][1]}\n'
+        for card in st["hand"]:
+            card_msg += f'【{suit_name_dict[card[0]]} {point_dict[card[1]]}】'
+            if card[0] == 1:
+                st["DEF"] += card[1]
+                skill_msg += f'♤防御力强化了 {card[1]}\n'
+            elif card[0] == 2:
+                st["HP"] += card[1]
+                skill_msg += f'♡生命值增加了 {card[1]}\n'
+            elif card[0] == 3:
+                st["SP"] += 2 * card[1]
+                skill_msg += f'♧技能点增加了 {card[1]}\n'
+            elif card[0] == 4:
+                st["ATK"] += card[1]
+                skill_msg += f'♢发动了攻击 {card[1]}\n'
             else:
                 msg = "出现未知错误"
-            st["SP"] = 0 if st["SP"] - st["hand"][i][1] < 0 else st["SP"] - st["hand"][i][1]
+            st["SP"] = 0 if st["SP"] - card[1] <= 0 else st["SP"] - card[1]
         else:
             msg = card_msg + skill_msg[:-1]
             return msg
@@ -1268,7 +1268,7 @@ class GameManager:
         if all_user:
             sum = self.total_gold(group_id,10)
             if first > 8000 and first >= sum - first:
-                for i in range(len(all_user) if len(all_user) < 10 else 10):
+                for _ in range(len(all_user) if len(all_user) < 10 else 10):
                     _max = max(all_user_data)
                     _max_id = all_user[all_user_data.index(_max)]
                     player_data[group_id][_max_id]["gold"] = int(_max*0.2)
@@ -1448,8 +1448,8 @@ class GameManager:
                 my_stock.append([x,round(market_manager._market_data[x]["float_gold"] * stock[x] / 20000,2)])
         else:
             my_stock.sort(key = lambda x:x[1],reverse = True)
-            for i in range(len(my_stock)):
-                stock_info += f'【{my_stock[i][0]}】\n持有：{stock[my_stock[i][0]]} 株\n价值：{my_stock[i][1]} 金币\n'
+            for x in my_stock:
+                stock_info += f'【{x[0]}】\n持有：{stock[x[0]]} 株\n价值：{x[1]} 金币\n'
 
         info = (
             f'【{nickname}】\n'
@@ -1536,7 +1536,7 @@ class GameManager:
         else:
             self._player_data[group_id][user_id]["gold"] -= gacha_gold
             msg = '\n'
-            for i in range(10):
+            for _ in range(10):
                 props = random.randint(1,200)
                 if props in range(1,21):
                     self._player_data[group_id][user_id]["props"].setdefault("四叶草标记",0)
@@ -1739,72 +1739,72 @@ class MarketManager:
             return f"【{company_name}】未注册"
         else:
             lst = sorted(self.Stock_Exchange[company_name].items(),key = lambda x:x[1]["quote"])
-
+            i = 0
             count = 0
-            for i in range(len(lst)):
-                count += lst[i][1]["stock"]
-
-            for i in lst:
-                if i[0] == user_id:
-                    lst.remove(i)
-
+            while i < len(lst):
+                if lst[i][0] == user_id or lst[i][1]["stock"] == 0:
+                    lst.remove(lst[i])
+                else:
+                    count += lst[i][1]["stock"]
+                    i += 1
             if lst == []:
                 return f"市场上没有【{company_name}】"
             else:
                 stock = stock if count > stock else count
                 TL = {}
                 gold = 0.0
-                for i in range(len(lst)):
-                    _stock = lst[i][1]["stock"]
-                    _quote = lst[i][1]["quote"]
-                    _group_id = str(lst[i][1]["group_id"])
-
-                    _count = 0
-                    for j in range(_stock if _stock < stock else stock):
-                        _count += 1
-
+                for seller in lst:
+                    # 报价
+                    _quote = seller[1]["quote"]
+                    # 数量
+                    _stock = seller[1]["stock"]
+                    _count = _stock if _stock < stock else stock
                     stock -= _count
-
-                    TL.update({lst[i][0]:[_quote,_count,_group_id]})
-                    
+                    # 群组
+                    _group_id = seller[1]["group_id"]
+                    # 交易日志
+                    TL.update({seller[0]:[_quote,_count,_group_id]})
+                    # 统计金额
                     gold += _quote * _count
-
                 if gold > my_gold:
                     return (
-                        "金币不足\n"
+                        "金币不足：\n"
                         f'你的金币：{my_gold}'
                         f"需要金币：{int(gold)}"
                         )
                 else:
                     count = 0
-                    for i in range(len(lst)):
-                        unsettled = int (TL[lst[i][0]][0] * TL[lst[i][0]][1])
+                    for seller in lst:
+                        seller_group = TL[seller[0]][2]
+                        seller_id = seller[0]
+                        N = TL[seller_id][1]
+                        unsettled = int (TL[seller_id][0] * N)
                         
                         russian_manager._player_data[group_id][user_id]["gold"] -= unsettled
-                        russian_manager._player_data[TL[lst[i][0]][2]][lst[i][0]]["gold"] += unsettled
+                        russian_manager._player_data[seller_group][seller_id]["gold"] += unsettled
                         
                         russian_manager._player_data[group_id][user_id]["stock"]["value"] = self.value_update(group_id,user_id)
-                        russian_manager._player_data[TL[lst[i][0]][2]][lst[i][0]]["stock"]["value"] = self.value_update(TL[lst[i][0]][2],lst[i][0])
+                        russian_manager._player_data[seller_group][seller_id]["stock"]["value"] = self.value_update(seller_group,seller_id)
                         
                         russian_manager._player_data[group_id][user_id]["stock"].setdefault(company_name,0)
-                        russian_manager._player_data[group_id][user_id]["stock"][company_name] += TL[lst[i][0]][1]
+                        russian_manager._player_data[group_id][user_id]["stock"][company_name] += N
                    
-                        russian_manager._player_data[TL[lst[i][0]][2]][lst[i][0]]["stock"].setdefault(company_name,0)
-                        russian_manager._player_data[TL[lst[i][0]][2]][lst[i][0]]["stock"][company_name] -= TL[lst[i][0]][1]
+                        russian_manager._player_data[seller_group][seller_id]["stock"].setdefault(company_name,0)
+                        russian_manager._player_data[seller_group][seller_id]["stock"][company_name] -= N
                         
-                        self.Stock_Exchange[company_name][lst[i][0]]["stock"] -= TL[lst[i][0]][1]
-                        count += TL[lst[i][0]][1]
+                        self.Stock_Exchange[company_name][seller_id]["stock"] -= N
+                        count += N
                     else:
                         russian_manager.save()
                         self.Stock_Exchange_save()
-                        return (
-                            "交易成功！\n"
-                            "——————————————\n"
-                            f"【{company_name}】\n" 
-                            f"数量：{count}\n"
-                            f"价格：{round(gold/count,2)}\n"
-                            f"总计：{gold}"
-                            )
+                    return (
+                        "交易成功！\n"
+                        "——————————————\n"
+                        f"【{company_name}】\n" 
+                        f"数量：{count}\n"
+                        f"价格：{round(gold/count,2)}\n"
+                        f"总计：{gold}"
+                        )
 
     def Market_public(self, event: GroupMessageEvent,company_name: str):
         """
@@ -1846,7 +1846,7 @@ class MarketManager:
             if stock > 0:
                 value = 0.0
                 _gold = company["gold"] if  company["gold"] > company["float_gold"] else company["float_gold"]
-                for i in range(stock):
+                for _ in range(stock):
                     tmp = _gold/ 20000
                     tmp = 0.1 if tmp < 0.1 else tmp
                     _gold += tmp * 0.65
@@ -1906,7 +1906,7 @@ class MarketManager:
         else:
             value = 0.0
             _gold = company["float_gold"]
-            for i in range(stock):
+            for _ in range(stock):
                 tmp = float(_gold/ 20000)
                 _gold -= tmp * 0.65
                 value += tmp
@@ -1944,54 +1944,61 @@ class MarketManager:
         """
         市场信息
         :param company_name:公司名，为空则是总览。
-        """ 
-        msg = ""
+        """
         if company_name in self.Stock_Exchange.keys():
             lst = sorted(self.Stock_Exchange[company_name].items(),key = lambda x:x[1]["quote"])
-            for i in range(len(lst) if len(lst) < 10 else 10):
+            i = 0
+            msg = ""
+            while i < (len(lst) if len(lst) < 10 else 10):
                 if lst[i][1]["stock"] > 0:
                     nickname = russian_manager._player_data[lst[i][1]["group_id"]][lst[i][0]]["nickname"]
                     msg += (
                         f'{nickname}\n'
                         f'单价：{lst[i][1]["quote"]} 数量：{lst[i][1]["stock"]}\n'
                         )
+                    i += 1
+                else:
+                    del lst[i]
+
             if msg:
                 msg = (f'【{company_name}】\n'"——————————————\n") + msg
                 msg = msg[:-1]
                 output = BytesIO()
                 Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
                 msg = MessageSegment.image(output)
+            else:
+                return f"【{company_name}】市场为空"
         else:
             lst = []
             for x in self._market_data.keys():
                 if self._market_data[x].get("time") == None:
-                    lst.append([x,self._market_data[x]["group_gold"]])
+                    lst.append(x)
             else:
                 lst.sort(key = lambda x:x[1],reverse = True)
 
             msg_lst = []
-            n = len(lst)
-            if n:
-                for i in range(n):
+            if lst:
+                for x in lst:
                     price = (
-                        self._market_data[lst[i][0]]["gold"]
-                        if self._market_data[lst[i][0]]["gold"] > self._market_data[lst[i][0]]["float_gold"]
-                        else self._market_data[lst[i][0]]["float_gold"]
+                        self._market_data[x]["gold"]
+                        if self._market_data[x]["gold"] > self._market_data[x]["float_gold"]
+                        else self._market_data[x]["float_gold"]
                         )
                     msg_lst.append(
-                        f'【{lst[i][0]}】\n'
+                        f'【{x}】\n'
                         "——————————————\n"
-                        f'固定资产：{round(self._market_data[lst[i][0]]["gold"], 2)} 金币\n'
-                        f'市场流动：{int(lst[i][1])} 金币\n'
+                        f'固定资产：{round(self._market_data[x]["gold"], 2)} 金币\n'
+                        f'市场流动：{int(self._market_data[x]["group_gold"])} 金币\n'
                         f'发行价格：{round(price/20000,2)} 金币\n'
-                        f'结算价格：{round(self._market_data[lst[i][0]]["float_gold"] / 20000, 2)} 金币\n'
-                        f'剩余数量：{self._market_data[lst[i][0]]["stock"]} 株\n'
+                        f'结算价格：{round(self._market_data[x]["float_gold"] / 20000, 2)} 金币\n'
+                        f'剩余数量：{self._market_data[x]["stock"]} 株\n'
                         "——————————————"
                         )
                 else:
                     if market_info_chain == False or isinstance(event, PrivateMessageEvent):
-                        for i in range(n):
-                            msg += msg_lst[i] + "\n"
+                        msg = ""
+                        for x in msg_lst:
+                            msg += x + "\n"
                         else:
                             msg = msg[:-1]
                             if market_info_type == "image":
@@ -2003,9 +2010,9 @@ class MarketManager:
                     else:
                         msg = []
                         if market_info_type == "image" :
-                            for i in range(n):
+                            for x in msg_lst:
                                 output = BytesIO()
-                                Text2Image.from_text(msg_lst[i],50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                                Text2Image.from_text(x,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
                                 msg.append(
                                     {
                                         "type": "node",
@@ -2017,14 +2024,14 @@ class MarketManager:
                                         }
                                     )
                         else:
-                            for i in range(n):
+                            for x in msg_lst:
                                 msg.append(
                                     {
                                         "type": "node",
                                         "data": {
                                             "name": f"{bot_name}",
                                             "uin": str(event.self_id),
-                                            "content": msg_lst[i]
+                                            "content": x
                                             }
                                         }
                                     )
@@ -2042,17 +2049,17 @@ class MarketManager:
             lst = []
             for x in self._market_data.keys():
                 if self._market_data[x].get("time") == None:
-                    lst.append([x,self._market_data[x]["group_gold"]])
+                    lst.append(x)
             else:
                 lst.sort(key = lambda x:x[1],reverse = True)
 
             if lst:
                 msg = []
-                for i in range(len(lst)):
+                for x in lst:
                     price = (
-                        self._market_data[lst[i][0]]["gold"]
-                        if self._market_data[lst[i][0]]["gold"] > self._market_data[lst[i][0]]["float_gold"]
-                        else self._market_data[lst[i][0]]["float_gold"]
+                        self._market_data[x]["gold"]
+                        if self._market_data[x]["gold"] > self._market_data[x]["float_gold"]
+                        else self._market_data[x]["float_gold"]
                         )
                     msg.append(
                         {
@@ -2061,13 +2068,13 @@ class MarketManager:
                                 "name": f"{bot_name}",
                                 "uin": str(event.self_id),
                                 "content": (
-                                    f'【{lst[i][0]}】\n'
+                                    f'【{x}】\n'
                                     "——————————————\n"
-                                    f'固定资产：{round(self._market_data[lst[i][0]]["gold"], 2)} 金币\n'
-                                    f'市场流动：{int(lst[i][1])} 金币\n'
+                                    f'固定资产：{round(self._market_data[x]["gold"], 2)} 金币\n'
+                                    f'市场流动：{int(self._market_data[x]["group_gold"])} 金币\n'
                                     f'发行价格：{round(price/20000,2)} 金币\n'
-                                    f'结算价格：{round(self._market_data[lst[i][0]]["float_gold"] / 20000, 2)} 金币\n'
-                                    f'剩余数量：{self._market_data[lst[i][0]]["stock"]} 株\n'
+                                    f'结算价格：{round(self._market_data[x]["float_gold"] / 20000, 2)} 金币\n'
+                                    f'剩余数量：{self._market_data[x]["stock"]} 株\n'
                                     "——————————————"
                                     ) 
                                 }
@@ -2079,7 +2086,7 @@ class MarketManager:
                             "data": {
                                 "name": f"{bot_name}",
                                 "uin": str(event.self_id),
-                                "content": MessageSegment.image(market_linechart((32,9), self.market_history[lst[i][0]], lst[i][0]))
+                                "content": MessageSegment.image(market_linechart((32,9), self.market_history[x], x))
                                 }
                             }
                         )
@@ -2089,7 +2096,7 @@ class MarketManager:
                             "data": {
                                 "name": f"{bot_name}",
                                 "uin": str(event.self_id),
-                                "content": MessageSegment.image(market_candlestick((32,9), 6, self.market_history[lst[i][0]], lst[i][0]))
+                                "content": MessageSegment.image(market_candlestick((32,9), 6, self.market_history[x], x))
                                 }
                             }
                         )
@@ -2105,13 +2112,20 @@ class MarketManager:
         公司信息
         :param company_name:公司名。
         """ 
-        msg = ""
         if company_name in self.Stock_Exchange.keys():
             lst = sorted(self.Stock_Exchange[company_name].items(),key = lambda x:x[1]["quote"])
-            for i in range(len(lst) if len(lst) < 10 else 10):
+            i = 0
+            msg = ""
+            while i < (len(lst) if len(lst) < 10 else 10):
                 if lst[i][1]["stock"] > 0:
                     nickname = russian_manager._player_data[lst[i][1]["group_id"]][lst[i][0]]["nickname"]
-                    msg += f'{nickname}\n单价：{lst[i][1]["quote"]} 数量：{lst[i][1]["stock"]}\n'
+                    msg += (
+                        f'{nickname}\n'
+                        f'单价：{lst[i][1]["quote"]} 数量：{lst[i][1]["stock"]}\n'
+                        )
+                    i += 1
+                else:
+                    del lst[i]
 
             group_id = self._market_data[company_name]["group_id"]
             group_id = str(group_id)
@@ -2137,6 +2151,8 @@ class MarketManager:
                 "简介：\n"f'{self._market_data[company_name]["intro"]}'
                 )
             return info
+        else:
+            return None
 
     def update_intro(self,company_name:str,intro:str):
         """

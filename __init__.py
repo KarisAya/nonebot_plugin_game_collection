@@ -207,8 +207,8 @@ async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
             
         #全员失败计算
         if race[group].is_die_all():
-            for x in range(len(race[group].player)):
-                uid = race[group].player[x].playeruid
+            for x in race[group].player:
+                uid = x.playeruid
                 if uid > 10:
                     russian_manager._player_data[str(group)][str(uid)]["gold"] += race_bet_gold
             else:
@@ -226,9 +226,9 @@ async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
                 ) 
             await asyncio.sleep(1)
             gold = int(race_bet_gold * len(race[group].player) / len(winer))
-            for x in range(len(winer)):
-                uid = winer[x][1]
-                winer_list += "> "+ winer[x][0] + "\n"
+            for x in winer:
+                uid = x[1]
+                winer_list += "> "+ x[0] + "\n"
                 if uid > 10:
                     russian_manager._player_data[str(group)][str(uid)]["gold"] += gold
             else:
@@ -246,8 +246,8 @@ async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg()):
     group = event.group_id
     time_key = math.ceil(time.time() - race[group].time)
     if time_key >= setting_over_time:
-        for x in range(len(race[group].player)):
-            uid = race[group].player[x].playeruid
+        for x in race[group].player:
+            uid = x.playeruid
             if uid > 10:
                 russian_manager._player_data[str(group)][str(uid)]["gold"] += race_bet_gold
         else:
@@ -267,8 +267,8 @@ async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
 async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg()):
     global race
     group = event.group_id
-    for x in range(len(race[group].player)):
-        uid = race[group].player[x].playeruid
+    for x in race[group].player:
+        uid = x.playeruid
         if uid > 10:
             russian_manager._player_data[str(group)][str(uid)]["gold"] += race_bet_gold
     else:
@@ -713,7 +713,8 @@ async def _(event: GroupMessageEvent):
             rst += f"{name}：达成{_max}次\n"
             all_user_data.remove(_max)
             all_user.remove(_max_id)
-        rst = rst[:-1]
+        else:
+            rst = rst[:-1]
         if rst:
             await name_list.finish("☆ ☆ 路灯挂件榜 ☆ ☆\n" + rst)
         else:
@@ -872,13 +873,14 @@ async def _(event: MessageEvent,arg: Message = CommandArg()):
     company_name = arg.extract_plain_text().strip()
     if company_name:
         company_name = company_name.split()
-        if len(company_name) == 1:
-            company_name = company_name[0]
-            msg = market_manager.company_info(company_name)
+        company_name = company_name[0]
+        msg = market_manager.company_info(company_name)
+        if msg:
             output = BytesIO()
             Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
             await company_info.finish(MessageSegment.image(output))
-
+        else:
+            await company_info.finish(f"【{company_name}】未注册")
 # 更新公司简介
 @update_intro.handle()
 async def _(event: GroupMessageEvent,arg: Message = CommandArg()):

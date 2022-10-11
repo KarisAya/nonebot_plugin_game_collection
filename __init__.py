@@ -24,10 +24,7 @@ import random
 import shutil
 import os
 
-from io import BytesIO
-from nonebot_plugin_imageutils import Text2Image
-
-from .utils import is_number, get_message_at
+from .utils import is_number, get_message_at, text_to_png
 from .data_source import (
     bot_name,
     russian_manager,
@@ -191,8 +188,7 @@ async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
 
         logger.info(f'事件输出:{text}\n{display}')
         
-        output = BytesIO()
-        Text2Image.from_text(display, 50, spacing = 10).to_image("white",(20,20)).save(output, format="png")
+        output = text_to_png(display)
 
         try:
             await RaceStart.send(Message(text) + MessageSegment.image(output))
@@ -679,8 +675,7 @@ async def _(event: GroupMessageEvent):
 @my_info.handle()
 async def _(event: GroupMessageEvent):
     info = russian_manager.my_info(event)
-    output = BytesIO()
-    Text2Image.from_text(info[:-1],50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+    output = text_to_png(info[:-1], 15)
     await my_info.finish(MessageSegment.image(output))
 
 # 查看排行榜
@@ -688,8 +683,7 @@ async def _(event: GroupMessageEvent):
 async def _(event: GroupMessageEvent, state: T_State = State()):
     msg = await russian_manager.rank(state["_prefix"]["raw_command"], event.group_id)
     if msg:
-        output = BytesIO()
-        Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+        output = text_to_png(msg)
         await russian_rank.finish(MessageSegment.image(output))
     else:
         await russian_rank.finish()
@@ -770,8 +764,7 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
             try:
                 await company_buy.send(msg)
             except:
-                output = BytesIO()
-                Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                output = text_to_png(msg)
                 await company_buy.send(MessageSegment.image(output))
             finally:
                 await company_buy.finish()
@@ -789,8 +782,7 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
             try:
                 await company_clear.send(msg)
             except:
-                output = BytesIO()
-                Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                output = text_to_png(msg)
                 await company_clear.send(MessageSegment.image(output))
             finally:
                 await company_clear.finish()
@@ -808,8 +800,7 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
             try:
                 await Market_buy.send(msg)
             except:
-                output = BytesIO()
-                Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                output = text_to_png(msg)
                 await Market_buy.send(MessageSegment.image(output))
             finally:
                 await Market_buy.finish()
@@ -829,8 +820,7 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
                 try:
                     await Market_sell.send(msg)
                 except:
-                    output = BytesIO()
-                    Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                    output = text_to_png(msg)
                     await Market_sell.send(MessageSegment.image(output))
                 finally:
                     await Market_sell.finish()
@@ -857,7 +847,7 @@ async def _(bot:Bot, event: MessageEvent,arg: Message = CommandArg()):
 # 市场走势
 @Market_info_pro.handle()
 async def _(bot:Bot, event: MessageEvent):
-    msg = market_manager.Market_info_pro(event)
+    msg = await market_manager.Market_info_pro(event)
     if type(msg) == list:
         if isinstance(event, GroupMessageEvent):
             await bot.send_group_forward_msg(group_id = event.group_id, messages = msg)
@@ -876,8 +866,7 @@ async def _(event: MessageEvent,arg: Message = CommandArg()):
         company_name = company_name[0]
         msg = market_manager.company_info(company_name)
         if msg:
-            output = BytesIO()
-            Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+            output = text_to_png(msg)
             await company_info.finish(MessageSegment.image(output))
         else:
             await company_info.finish(f"【{company_name}】未注册")
@@ -937,6 +926,33 @@ async def _():
     russian_manager.interest()
     logger.info("今日利息已发放...")
 
+# 收回股票
+repurchase = on_command("repurchase", permission=SUPERUSER, priority=5, block=True) # 重置每日签到和每日补贴
+
+@repurchase.handle()
+async def _(bot:Bot):
+    tmp = await bot.get_group_list()
+    live_group_list = []
+    if tmp:
+        for group in tmp:
+            live_group_list.append(str(group["group_id"]))
+
+        group_list = russian_manager._player_data.keys()
+
+        repurchase_group_list = set(group_list) - set(live_group_list)
+
+        if repurchase_group_list:
+            msg = ""
+            for group_id in repurchase_group_list:
+                for user_id in russian_manager._player_data[group_id].keys():
+                    for stock in russian_manager._player_data[group_id][user_id]["stock"].keys():
+                        count = russian_manager._player_data[group_id][user_id]["stock"][stock]
+                        if stock != "value" and count != 0:
+                            msg += f"群组：{group_id} 账户：{user_id} 股票：{stock} 数量：{count}" 
+                            print(f"群组：{group_id} 账户：{user_id} 股票：{stock} 数量：{count}")
+            await repurchase.finish(msg)
+        else:
+            await repurchase.finish("没有要回收的股票")
 # 重置幸运花色
 '''
 @scheduler.scheduled_job("cron",minute = "0,30")

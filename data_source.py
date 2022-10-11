@@ -3,19 +3,29 @@ from typing import Optional, Tuple, Union, List, Dict
 from datetime import datetime
 from nonebot.log import logger
 from pathlib import Path
-from io import BytesIO
-from nonebot_plugin_imageutils import Text2Image
+
 import nonebot
 import asyncio
 import random
 import time
 import os
+import subprocess
+
 from .config import Config
-from .utils import market_linechart, market_candlestick
+from .utils import text_to_png
 try:
     import ujson as json
 except ModuleNotFoundError:
     import json
+
+from sys import platform
+
+if platform == "linux" or platform == "linux2":
+    python = "python3"
+elif platform == "darwin":
+    python = "python3"
+elif platform == "win32":
+    python = "python"
 
 global_config = nonebot.get_driver().config
 russian_config = Config.parse_obj(global_config.dict())
@@ -47,6 +57,8 @@ race_bet_gold = russian_config.race_bet_gold
 
 # 定义永久道具
 constant_props = ("钻石","路灯挂件标记")
+
+cache = russian_path / "data" / "russian" / "cache"
 
 async def rank(player_data: dict, group_id: int, type_: str) -> str:
     """
@@ -255,8 +267,7 @@ class GameManager:
                             "手牌：\n"
                             f"{hand_msg}\n"
                             )
-                        output = BytesIO()
-                        Text2Image.from_text(message, 50, spacing = 30).to_image("white",(20,20)).save(output, format="png")
+                        output = text_to_png(message,30)
                         return MessageSegment.image(output)
                     else:
                         return Message("error")
@@ -662,8 +673,7 @@ class GameManager:
                 f'领先：{self._current_player[event.group_id]["win_name"]}\n'
                 f'下一回合：{next_name}'
                 )
-            output = BytesIO()
-            Text2Image.from_text(message, 50, spacing = 30).to_image("white",(20,20)).save(output, format="png")
+            output = text_to_png(message,30)
             await bot.send(event,message = MessageSegment.image(output))
 
             if self._current_player[event.group_id]["round"] > 10:
@@ -799,8 +809,7 @@ class GameManager:
                 try:
                     await bot.send(event,message = msg,at_sender=True)
                 except:
-                    output = BytesIO()
-                    Text2Image.from_text(msg, 50, spacing = 30).to_image("white",(20,60)).save(output, format="png")
+                    output = text_to_png(msg,30)
                     await bot.send(event,message = MessageSegment.image(output))
 
                 await asyncio.sleep(0.03*len(msg))
@@ -825,8 +834,7 @@ class GameManager:
                     try:
                         await bot.send(event,message = msg)
                     except:
-                        output = BytesIO()
-                        Text2Image.from_text(msg, 50, spacing = 30).to_image("white",(20,60)).save(output, format="png")
+                        output = text_to_png(msg,30)
                         await bot.send(event,message = MessageSegment.image(output))
 
                 await asyncio.sleep(1.5)
@@ -885,8 +893,7 @@ class GameManager:
                     "手牌：\n"
                     f"{hand_msg}\n"
                     )
-                output = BytesIO()
-                Text2Image.from_text(message, 50, spacing = 30).to_image("white",(20,20)).save(output, format="png")
+                output = text_to_png(message,30)
 
                 try:
                     await bot.send(event,message = MessageSegment.image(output))
@@ -1163,13 +1170,11 @@ class GameManager:
             f"手续费：{fee} " + ("『钻石会员卡』"if rand == -1 else f"({float(rand)}%)")
             )
         
-        output = BytesIO()
-        Text2Image.from_text(message, 50, spacing = 10).to_image("white",(20,20)).save(output, format="png")
+        output = text_to_png(message)
         await bot.send(event,MessageSegment.image(output))
 
         if game_str:
-            output = BytesIO()
-            Text2Image.from_text(game_str, 50, spacing = 20).to_image("white",(20,20)).save(output, format="png")
+            output = text_to_png(game_str,20)
             await bot.send(event,MessageSegment.image(output))
 
     def _end_data_handle(
@@ -1963,8 +1968,7 @@ class MarketManager:
             if msg:
                 msg = (f'【{company_name}】\n'"——————————————\n") + msg
                 msg = msg[:-1]
-                output = BytesIO()
-                Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                output = text_to_png(msg)
                 msg = MessageSegment.image(output)
             else:
                 return f"【{company_name}】市场为空"
@@ -2002,8 +2006,7 @@ class MarketManager:
                         else:
                             msg = msg[:-1]
                             if market_info_type == "image":
-                                output = BytesIO()
-                                Text2Image.from_text(msg,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                                output = text_to_png(msg)
                                 msg = MessageSegment.image(output)
                             else:
                                 pass
@@ -2011,8 +2014,7 @@ class MarketManager:
                         msg = []
                         if market_info_type == "image" :
                             for x in msg_lst:
-                                output = BytesIO()
-                                Text2Image.from_text(x,50,spacing = 10).to_image("white",(20,20)).save(output, format="png")
+                                output = text_to_png(x)
                                 msg.append(
                                     {
                                         "type": "node",
@@ -2039,13 +2041,30 @@ class MarketManager:
                 msg = "市场不存在..."
         return msg
 
-    def Market_info_pro(self, event):
+    async def Market_info_pro(self, event):
         """
         市场详细信息
         """
         if self.info_temp[1] == 1:
             return self.info_temp[0]
         else:
+            p = subprocess.Popen(f"{python} {os.path.dirname(__file__)}/process/ohlc.py {russian_path}", shell=True)
+            start = time.time()
+            while True:
+                if time.time() - start >= 300:
+                    p.kill()
+                    return "等待时间过长。"
+                returncode = p.poll()
+                if returncode == None:
+                    await asyncio.sleep(1)
+                elif returncode == 1:
+                    return "没有市场历史数据..."
+                else:
+                    break
+
+            with open(cache / "ohlc.json", "r", encoding="utf8") as f:
+                ohlc = json.load(f)
+
             lst = []
             for x in self._market_data.keys():
                 if self._market_data[x].get("time") == None:
@@ -2053,59 +2072,56 @@ class MarketManager:
             else:
                 lst.sort(key = lambda x:x[1],reverse = True)
 
-            if lst:
-                msg = []
-                for x in lst:
-                    price = (
-                        self._market_data[x[0]]["gold"]
-                        if self._market_data[x[0]]["gold"] > self._market_data[x[0]]["float_gold"]
-                        else self._market_data[x[0]]["float_gold"]
-                        )
-                    msg.append(
-                        {
-                            "type": "node",
-                            "data": {
-                                "name": f"{bot_name}",
-                                "uin": str(event.self_id),
-                                "content": (
-                                    f'【{x[0]}】\n'
-                                    "——————————————\n"
-                                    f'固定资产：{round(self._market_data[x[0]]["gold"], 2)} 金币\n'
-                                    f'市场流动：{int(x[1])} 金币\n'
-                                    f'发行价格：{round(price/20000,2)} 金币\n'
-                                    f'结算价格：{round(self._market_data[x[0]]["float_gold"] / 20000, 2)} 金币\n'
-                                    f'剩余数量：{self._market_data[x[0]]["stock"]} 株\n'
-                                    "——————————————"
-                                    ) 
-                                }
+            msg = []
+            for x in lst:
+                price = (
+                    self._market_data[x[0]]["gold"]
+                    if self._market_data[x[0]]["gold"] > self._market_data[x[0]]["float_gold"]
+                    else self._market_data[x[0]]["float_gold"]
+                    )
+                msg.append(
+                    {
+                        "type": "node",
+                        "data": {
+                            "name": f"{bot_name}",
+                            "uin": str(event.self_id),
+                            "content": (
+                                f'【{x[0]}】\n'
+                                "——————————————\n"
+                                f'固定资产：{round(self._market_data[x[0]]["gold"], 2)} 金币\n'
+                                f'市场流动：{int(x[1])} 金币\n'
+                                f'发行价格：{round(price/20000,2)} 金币\n'
+                                f'结算价格：{round(self._market_data[x[0]]["float_gold"] / 20000, 2)} 金币\n'
+                                f'剩余数量：{self._market_data[x[0]]["stock"]} 株\n'
+                                "——————————————"
+                                ) 
                             }
-                        )
-                    msg.append(
-                        {
-                            "type": "node",
-                            "data": {
-                                "name": f"{bot_name}",
-                                "uin": str(event.self_id),
-                                "content": MessageSegment.image(market_linechart((32,9), self.market_history[x[0]], x[0]))
-                                }
+                        }
+                    )
+                msg.append(
+                    {
+                        "type": "node",
+                        "data": {
+                            "name": f"{bot_name}",
+                            "uin": str(event.self_id),
+                            "content": MessageSegment.image(Path(ohlc[x[0]][0]))
                             }
-                        )
-                    msg.append(
-                        {
-                            "type": "node",
-                            "data": {
-                                "name": f"{bot_name}",
-                                "uin": str(event.self_id),
-                                "content": MessageSegment.image(market_candlestick((32,9), 6, self.market_history[x[0]], x[0]))
-                                }
+                        }
+                    )
+                msg.append(
+                    {
+                        "type": "node",
+                        "data": {
+                            "name": f"{bot_name}",
+                            "uin": str(event.self_id),
+                            "content": MessageSegment.image(Path(ohlc[x[0]][1]))
                             }
-                        )
-                else:
-                    self.info_temp[0] = msg
-                    self.info_temp[1] = 1
-                    return msg
+                        }
+                    )
             else:
-                return "市场不存在..."
+                self.info_temp[0] = msg
+                self.info_temp[1] = 1
+                return msg
 
     def company_info(self,company_name:str):
         """

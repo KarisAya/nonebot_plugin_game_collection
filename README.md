@@ -225,7 +225,7 @@ __注：注册好的公司名称不可修改__
 
 如有建议，bug反馈，以及讨论新玩法，新机制（或者单纯没有明白怎么用）可以来加群哦~
 
-![群号](https://github.com/KarisAya/nonebot_plugin_game_collection/blob/master/%E9%99%84%E4%BB%B6/QQ%E5%9B%BE%E7%89%8720220826221034.jpg)
+![群号](https://github.com/KarisAya/nonebot_plugin_game_collection/blob/master/%E9%99%84%E4%BB%B6/qrcode_1665028285876.jpg)
 
 当然也可以发issue...
 

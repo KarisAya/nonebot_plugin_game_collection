@@ -1404,19 +1404,19 @@ class GameManager:
 
     def Achieve_list(self,user_data):
         """
-        送道具
+        成就列表
         :param user_data: russian_manager.get_user_data(event)
         """
         rank = ""
-        count = user_data["props"].get("四叶草标记",0)
-        if count > 0:
-            rank += "𝐿𝒰𝒞𝒦𝒴 ✤ 𝒞𝐿𝒪𝒱𝐸𝑅\n"
         count = user_data["Achieve_revolution"] + user_data["props"].get("路灯挂件标记",0)
         if count > 0:
-            if count < 5:
-                rank += f"{count*'☆ '}路灯挂件{count*' ☆'}\n"
+            if count <= 4:
+                rank += f"{count *'☆'} 路灯挂件 {count *'☆'}\n"
             else: 
-                rank += f"❀ 路灯挂件 Lv.{count} ❀\n"
+                rank += f"☆☆☆☆☆路灯挂件☆☆☆☆☆\n"
+        count = user_data["props"].get("四叶草标记",0)
+        if count > 0:
+            rank += "𝐿 𝒰 𝒞 𝒦 𝒴 ✤ 𝒞 𝐿 𝒪 𝒱 𝐸 𝑅\n"
         count = user_data["gold"]
         if count > max_bet_gold:
             rank += f"◆◇ 金库 Lv.{int(count/max_bet_gold)} ◆◇\n"
@@ -1426,6 +1426,7 @@ class GameManager:
         count = user_data["Achieve_lose"]
         if count >1:
             rank += f"◆◇ 连败 Lv.{count-1} ◆◇\n"
+
         return rank
 
     def my_info(self, event: GroupMessageEvent) -> str:

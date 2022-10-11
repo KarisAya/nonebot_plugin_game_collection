@@ -291,43 +291,8 @@ async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg()):
 
 
 
+# 金币签到
 sign = on_command("金币签到",aliases={"轮盘签到"}, permission=GROUP, priority=5, block=True)
-
-revolt = on_command("发起重置", aliases={"发起revolt","发动revolt", "revolution", "Revolution"},permission=GROUP, priority=5, block=True)
-revolt_sign = on_command("重置签到",aliases={"revolt签到"},permission=GROUP, priority=5, block=True)
-
-give_gold = on_command("打钱", aliases={"发红包", "赠送金币"},permission=GROUP, priority=5, block=True)
-give_props = on_command("送道具", aliases={"赠送道具"},permission=GROUP, priority=5, block=True)
-
-slot = on_command("（已停用）幸运花色", aliases={"（已停用）抽花色"},permission=GROUP, priority=5, block=True)
-gacha = on_command("十连",aliases={"10连"},rule = to_me(),permission=GROUP, priority=5, block=True)
-
-accept = on_command("接受挑战", aliases={"接受决斗", "接受对决"}, permission=GROUP, priority=5, block=True)
-refuse = on_command("拒绝挑战", aliases={"拒绝决斗", "拒绝对决"}, permission=GROUP, priority=5, block=True)
-settlement = on_command("结算", permission=GROUP, priority=5, block=True)
-fold = on_command("结束", permission=GROUP, priority=5, block=True)
-
-russian = on_command("俄罗斯轮盘", aliases={"装弹", "俄罗斯转盘"}, permission=GROUP, priority=5, block=True)
-shot = on_command("开枪", aliases={"咔", "嘭", "嘣"}, permission=GROUP, priority=5, block=True)
-
-dice = on_command("摇骰子",aliases={"摇色子", "掷骰子", "掷色子"}, permission=GROUP, priority=5, block=True)
-dice_open = on_command("取出", aliases={"开数", "开点"},permission=GROUP, priority=5, block=True)
-
-poker = on_command("扑克对战",aliases={"扑克对决", "扑克决斗"}, permission=GROUP, priority=5, block=True)
-poker_play = on_command("出牌", permission=GROUP, priority=5, block=True)
-
-my_gold = on_command("我的金币", permission=GROUP, priority=5, block=True)
-my_info = on_command("我的信息", aliases={"我的资料"}, permission=GROUP, priority=5, block=True)
-my_props = on_command("我的道具", aliases={"我的仓库"}, permission=GROUP, priority=5, block=True)
-
-russian_rank = on_command(
-    "金币排行",
-    aliases = {"胜场排行", "胜利排行", "败场排行", "失败排行", "欧洲人排行", "慈善家排行"},
-    permission=GROUP,
-    priority=5,
-    block=True,
-    )
-name_list = on_command("查看路灯挂件",aliases={"查看路灯","查看挂件"},permission=GROUP, priority=5, block=True)
 
 @sign.handle()
 async def _(event: GroupMessageEvent):
@@ -337,6 +302,8 @@ async def _(event: GroupMessageEvent):
         logger.info(f"USER {event.user_id} | GROUP {event.group_id} 获取 {gold} 金币")
 
 # 发动革命
+revolt = on_command("发起重置", aliases={"发起revolt","发动revolt", "revolution", "Revolution"},permission=GROUP, priority=5, block=True)
+
 @revolt.handle()
 async def _(event: GroupMessageEvent,state: T_State = State()):
     msg=russian_manager.revlot(event.group_id)
@@ -345,6 +312,8 @@ async def _(event: GroupMessageEvent,state: T_State = State()):
     else:
         await revolt.finish()
 # 重置签到
+revolt_sign = on_command("重置签到",aliases={"revolt签到"},permission=GROUP, priority=5, block=True)
+
 @revolt_sign.handle()
 async def _(event: GroupMessageEvent):
     msg, gold = russian_manager.revolt_sign(event)
@@ -353,6 +322,7 @@ async def _(event: GroupMessageEvent):
         logger.info(f"USER {event.user_id} | GROUP {event.group_id} 获取 {gold} 金币")
 
 # 发红包
+give_gold = on_command("打钱", aliases={"发红包", "赠送金币"},permission=GROUP, priority=5, block=True)
 
 @give_gold.handle()
 async def _(bot: Bot,event: GroupMessageEvent,arg: Message = CommandArg(),):
@@ -375,6 +345,7 @@ async def _(bot: Bot,event: GroupMessageEvent,arg: Message = CommandArg(),):
                         await give_gold.finish(msg)
 
 # 送道具
+give_props = on_command("送道具", aliases={"赠送道具"},permission=GROUP, priority=5, block=True)
 
 @give_props.handle()
 async def _(bot: Bot,event: GroupMessageEvent,arg: Message = CommandArg(),):
@@ -399,6 +370,7 @@ async def _(bot: Bot,event: GroupMessageEvent,arg: Message = CommandArg(),):
             await give_props.finish(msg, at_sender=True)
 
 # 状态处理
+accept = on_command("接受挑战", aliases={"接受决斗", "接受对决"}, permission=GROUP, priority=5, block=True)
 
 @accept.handle()
 async def _(event: GroupMessageEvent):
@@ -408,6 +380,8 @@ async def _(event: GroupMessageEvent):
     else:
         await accept.finish()
 
+refuse = on_command("拒绝挑战", aliases={"拒绝决斗", "拒绝对决"}, permission=GROUP, priority=5, block=True)
+
 @refuse.handle()
 async def _(bot: Bot, event: GroupMessageEvent):
     msg = await russian_manager.refuse(bot, event)
@@ -415,6 +389,8 @@ async def _(bot: Bot, event: GroupMessageEvent):
         await refuse.send(msg, at_sender=True)        
     else:
         await refuse.finish()
+
+settlement = on_command("结算", permission=GROUP, priority=5, block=True)
 
 @settlement.handle()
 async def _(bot: Bot, event: GroupMessageEvent):
@@ -424,6 +400,8 @@ async def _(bot: Bot, event: GroupMessageEvent):
         await russian_manager.end_game(bot, event)
     else:
         await settlement.finish()
+
+fold = on_command("结束", permission=GROUP, priority=5, block=True)
 
 @fold.handle()
 async def _(bot: Bot, event: GroupMessageEvent):
@@ -438,6 +416,8 @@ async def get_bullet_num(
         return state
     else:
         return None
+
+russian = on_command("俄罗斯轮盘", aliases={"装弹", "俄罗斯转盘"}, permission=GROUP, priority=5, block=True)
 
 @russian.handle()
 async def _(
@@ -512,6 +492,8 @@ async def _(
     _msg = russian_manager.ready_game(event, msg, player1_name, at_, money, info)
     await russian.send(_msg)
 
+shot = on_command("开枪", aliases={"咔", "嘭", "嘣"}, permission=GROUP, priority=5, block=True)
+
 @shot.handle()  
 async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
     count = arg.extract_plain_text().strip()
@@ -529,6 +511,8 @@ async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
     await russian_manager.shot(bot, event, count)
 
 # 摇骰子
+dice = on_command("摇骰子",aliases={"摇色子", "掷骰子", "掷色子"}, permission=GROUP, priority=5, block=True)
+
 @dice.handle()
 async def _(
     bot: Bot,event: GroupMessageEvent,state: T_State = State(),arg: Message = CommandArg(),
@@ -574,11 +558,15 @@ async def _(
             _msg = russian_manager.ready_game(event, msg, player1_name, at_, money, info)
             await dice.send(_msg)
 
+dice_open = on_command("取出", aliases={"开数", "开点"},permission=GROUP, priority=5, block=True)
+
 @dice_open.handle()
 async def _(bot: Bot, event: GroupMessageEvent):
     await russian_manager.dice_open(bot, event)
 
 # 扑克对战
+poker = on_command("扑克对战",aliases={"扑克对决", "扑克决斗"}, permission=GROUP, priority=5, block=True)
+
 @poker.handle()
 async def _(
     bot: Bot,event: GroupMessageEvent,state: T_State = State(),arg: Message = CommandArg(),
@@ -624,12 +612,16 @@ async def _(
             _msg = russian_manager.ready_game(event, msg, player1_name, at_, money, info)
             await poker.send(_msg)
 
+poker_play = on_command("出牌", permission=GROUP, priority=5, block=True)
+
 @poker_play.handle()
 async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
     card = arg.extract_plain_text().strip()
     await russian_manager.poker_play(bot, event, card)
 
 # 幸运花色
+slot = on_command("（已停用）幸运花色", aliases={"（已停用）抽花色"},permission=GROUP, priority=5, block=True)
+
 @slot.handle()
 async def _(bot: Bot, event: GroupMessageEvent,arg: Message = CommandArg()):
     gold = 50
@@ -643,12 +635,15 @@ async def _(bot: Bot, event: GroupMessageEvent,arg: Message = CommandArg()):
     await slot.finish(msg, at_sender=True)
 
 # 十连抽卡
+gacha = on_command("十连",aliases={"10连"},rule = to_me(),permission=GROUP, priority=5, block=True)
+
 @gacha.handle()
 async def _(bot: Bot, event: GroupMessageEvent,arg: Message = CommandArg()):
     msg = russian_manager.gacha(event)
     await gacha.finish(msg, at_sender=True)
 
 # 我的
+my_props = on_command("我的道具", aliases={"我的仓库"}, permission=GROUP, priority=5, block=True)
 
 @my_props.handle()
 async def _(event: GroupMessageEvent):
@@ -667,18 +662,30 @@ async def _(event: GroupMessageEvent):
         props_info = "你的仓库空空如也..."
     await my_props.finish(props_info,at_sender=True)
 
+my_gold = on_command("我的金币", permission=GROUP, priority=5, block=True)
+
 @my_gold.handle()
 async def _(event: GroupMessageEvent):
     gold = russian_manager.get_user_data(event)["gold"]
     await my_gold.finish(f"你还有 {gold} 枚金币", at_sender=True)
 
+my_info = on_command("我的信息", aliases={"我的资料"}, permission=GROUP, priority=5, block=True)
+
 @my_info.handle()
 async def _(event: GroupMessageEvent):
     info = russian_manager.my_info(event)
-    output = text_to_png(info[:-1], 15)
+    output = text_to_png(info[:-1], 12)
     await my_info.finish(MessageSegment.image(output))
 
 # 查看排行榜
+russian_rank = on_command(
+    "金币排行",
+    aliases = {"胜场排行", "胜利排行", "败场排行", "失败排行", "欧洲人排行", "慈善家排行"},
+    permission=GROUP,
+    priority=5,
+    block=True,
+    )
+
 @russian_rank.handle()
 async def _(event: GroupMessageEvent, state: T_State = State()):
     msg = await russian_manager.rank(state["_prefix"]["raw_command"], event.group_id)
@@ -689,6 +696,8 @@ async def _(event: GroupMessageEvent, state: T_State = State()):
         await russian_rank.finish()
 
 # 查看路灯挂件
+name_list = on_command("查看路灯挂件",aliases={"查看路灯","查看挂件"},permission=GROUP, priority=5, block=True)
+
 @name_list.handle()
 async def _(event: GroupMessageEvent):
     group_id = str(event.group_id)
@@ -718,25 +727,27 @@ async def _(event: GroupMessageEvent):
 
 
 
-Market_public = on_command("市场注册",aliases={"公司注册","注册公司"},rule = to_me(),permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority=5, block=True)
 
-company_buy = on_command("发行购买",aliases={"发行买入"},permission=GROUP, priority=5, block=True)
-company_clear = on_command("官方结算",permission=GROUP, priority=5, block=True)
 
-Market_buy = on_command("买入",aliases={"购买","购入"},permission=GROUP, priority=5, block=True)
-Market_sell = on_command("卖出",aliases={"出售","上架"},permission=GROUP, priority=5, block=True)
 
-Market_info = on_command("市场信息",aliases={"查看市场"}, priority=5, block=True)
-Market_info_pro = on_command("市场行情",aliases={"市场走势","市场详细信息"}, priority=5, block=True)
 
-company_info = on_command("公司信息",aliases={"公司资料"}, priority=5, block=True)
 
-update_intro = on_command("更新公司简介",aliases={"添加公司简介"},permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority=5, block=True)
-update_intro_superuser = on_command("管理员更新公司简介",aliases={"管理员更新公司简介"},permission=SUPERUSER, priority=5, block=True)
 
-intergroup_transfer = on_command("金币转移", permission=GROUP, priority=5, block=True)
+
+
+
+
+
+
+
+
+
+
+
 
 # 公司上市
+Market_public = on_command("市场注册",aliases={"公司注册","注册公司"},rule = to_me(),permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority=5, block=True)
+
 @Market_public.handle()
 async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
     msg = arg.extract_plain_text().strip()
@@ -752,6 +763,8 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
         await Market_public.finish("错误：未设置公司名称")
 
 # 发行购买
+company_buy = on_command("发行购买",aliases={"发行买入"},permission=GROUP, priority=5, block=True)
+
 @company_buy.handle()
 async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
     msg = arg.extract_plain_text().strip()
@@ -770,6 +783,8 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
                 await company_buy.finish()
 
 # 债务清算
+company_clear = on_command("官方结算",permission=GROUP, priority=5, block=True)
+
 @company_clear.handle()
 async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
     msg = arg.extract_plain_text().strip()
@@ -788,6 +803,8 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
                 await company_clear.finish()
 
 # 市场买入
+Market_buy = on_command("买入",aliases={"购买","购入"},permission=GROUP, priority=5, block=True)
+
 @Market_buy.handle()
 async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
     msg = arg.extract_plain_text().strip()
@@ -806,6 +823,8 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
                 await Market_buy.finish()
 
 # 市场卖出
+Market_sell = on_command("卖出",aliases={"出售","上架"},permission=GROUP, priority=5, block=True)
+
 @Market_sell.handle()
 async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
     msg = arg.extract_plain_text().strip()
@@ -826,6 +845,8 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
                     await Market_sell.finish()
 
 # 市场信息
+Market_info = on_command("市场信息",aliases={"查看市场"}, priority=5, block=True)
+
 @Market_info.handle()
 async def _(bot:Bot, event: MessageEvent,arg: Message = CommandArg()):
     company_name = arg.extract_plain_text().strip()
@@ -845,6 +866,8 @@ async def _(bot:Bot, event: MessageEvent,arg: Message = CommandArg()):
         await Market_info.finish(msg)
 
 # 市场走势
+Market_info_pro = on_command("市场行情",aliases={"市场走势","市场详细信息"}, priority=5, block=True)
+
 @Market_info_pro.handle()
 async def _(bot:Bot, event: MessageEvent):
     msg = await market_manager.Market_info_pro(event)
@@ -858,6 +881,8 @@ async def _(bot:Bot, event: MessageEvent):
         await Market_info_pro.finish(msg)
 
 # 公司信息
+company_info = on_command("公司信息",aliases={"公司资料"}, priority=5, block=True)
+
 @company_info.handle()
 async def _(event: MessageEvent,arg: Message = CommandArg()):
     company_name = arg.extract_plain_text().strip()
@@ -871,6 +896,8 @@ async def _(event: MessageEvent,arg: Message = CommandArg()):
         else:
             await company_info.finish(f"【{company_name}】未注册")
 # 更新公司简介
+update_intro = on_command("更新公司简介",aliases={"添加公司简介"},permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority=5, block=True)
+
 @update_intro.handle()
 async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
     intro = arg.extract_plain_text().strip()
@@ -886,6 +913,8 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
         await update_intro.finish()
 
 # 管理员更新简介
+update_intro_superuser = on_command("管理员更新公司简介",aliases={"管理员更新公司简介"},permission=SUPERUSER, priority=5, block=True)
+
 @update_intro_superuser.handle()
 async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
     msg = arg.extract_plain_text().strip()
@@ -895,6 +924,8 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
         await update_intro_superuser.finish("简介更新完成...")
 
 # 跨群转移金币到自己的账户
+intergroup_transfer = on_command("金币转移", permission=GROUP, priority=5, block=True)
+
 @intergroup_transfer.handle()
 async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
     msg = arg.extract_plain_text().strip().split()
@@ -905,16 +936,47 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
         await intergroup_transfer.finish(msg, at_sender=True)
 
 
-
+# 刷新每日签到和每日补贴
 reset_sign = on_command("reset_sign", permission=SUPERUSER, priority=5, block=True) # 重置每日签到和每日补贴
 
-# 刷新每日签到和每日补贴
 @reset_sign.handle()
 async def _():
     russian_manager.reset_gold()
     logger.info("签到重置成功...")
     russian_manager.reset_security()
     logger.info("补贴重置成功...")
+
+# 回收股票
+repurchase = on_command("回收股票", permission = SUPERUSER, priority=5, block = True)
+
+@repurchase.handle()
+async def _(bot:Bot):
+    tmp = await bot.get_group_list()
+    live_group_list = []
+    if tmp:
+        for group in tmp:
+            live_group_list.append(str(group["group_id"]))
+        group_list = russian_manager._player_data.keys()
+        repurchase_group = set(group_list) - set(live_group_list)
+        if repurchase_group:
+            msg = ""
+            for group_id in repurchase_group:
+                for user_id in russian_manager._player_data[group_id].keys():
+                    for stock in russian_manager._player_data[group_id][user_id]["stock"].keys():
+                        count = russian_manager._player_data[group_id][user_id]["stock"][stock]
+                        if stock != "value" and count != 0:
+                            market_manager._market_data[stock]["stock"] += count
+                            russian_manager._player_data[group_id][user_id]["stock"][stock] = 0
+                            msg += f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}\n"
+                            logger.info(f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}")
+            if msg:
+                market_manager.market_data_save()
+                russian_manager.save()
+                await repurchase.finish(MessageSegment.image(text_to_png(msg[:-1])))
+            else:
+                await repurchase.finish("没有要回收的股票")
+        else:
+            await repurchase.finish("没有要回收的股票")
 
 # 刷新每日签到，每日补贴，每日利息发放
 @scheduler.scheduled_job("cron", hour=0, minute=0)
@@ -926,44 +988,17 @@ async def _():
     russian_manager.interest()
     logger.info("今日利息已发放...")
 
-# 收回股票
-repurchase = on_command("repurchase", permission=SUPERUSER, priority=5, block=True) # 重置每日签到和每日补贴
 
-@repurchase.handle()
-async def _(bot:Bot):
-    tmp = await bot.get_group_list()
-    live_group_list = []
-    if tmp:
-        for group in tmp:
-            live_group_list.append(str(group["group_id"]))
-
-        group_list = russian_manager._player_data.keys()
-
-        repurchase_group_list = set(group_list) - set(live_group_list)
-
-        if repurchase_group_list:
-            msg = ""
-            for group_id in repurchase_group_list:
-                for user_id in russian_manager._player_data[group_id].keys():
-                    for stock in russian_manager._player_data[group_id][user_id]["stock"].keys():
-                        count = russian_manager._player_data[group_id][user_id]["stock"][stock]
-                        if stock != "value" and count != 0:
-                            msg += f"群组：{group_id} 账户：{user_id} 股票：{stock} 数量：{count}" 
-                            print(f"群组：{group_id} 账户：{user_id} 股票：{stock} 数量：{count}")
-            await repurchase.finish(msg)
-        else:
-            await repurchase.finish("没有要回收的股票")
 # 重置幸运花色
-'''
-@scheduler.scheduled_job("cron",minute = "0,30")
-async def _():
-    for group_id in russian_manager._player_data.keys():
-        for user_id in russian_manager._player_data[group_id].keys():
-            russian_manager._player_data[group_id][user_id]["slot"] = 0
 
-    logger.info("幸运花色已重置...")
-    russian_manager.save()
-'''
+#@scheduler.scheduled_job("cron",minute = "0,30")
+#async def _():
+#    for group_id in russian_manager._player_data.keys():
+#        for user_id in russian_manager._player_data[group_id].keys():
+#            russian_manager._player_data[group_id][user_id]["slot"] = 0
+
+#    logger.info("幸运花色已重置...")
+#    russian_manager.save()
      
 # 刷新道具时间
 @scheduler.scheduled_job("cron", hour = 4, minute = 0)

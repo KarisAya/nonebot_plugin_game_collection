@@ -11,8 +11,7 @@ from nonebot.adapters.onebot.v11 import (
 )
 from nonebot.internal.adapter import Bot as BaseBot
 from nonebot.rule import to_me
-from nonebot.typing import T_State
-from nonebot.params import Depends, CommandArg, State
+from nonebot.params import CommandArg
 from nonebot.log import logger
 from nonebot.permission import SUPERUSER
 
@@ -305,7 +304,7 @@ async def _(event: GroupMessageEvent):
 revolt = on_command("发起重置", aliases={"发起revolt","发动revolt", "revolution", "Revolution"},permission=GROUP, priority=5, block=True)
 
 @revolt.handle()
-async def _(event: GroupMessageEvent,state: T_State = State()):
+async def _(event: GroupMessageEvent):
     msg=russian_manager.revlot(event.group_id)
     if msg:
         await revolt.finish(msg)
@@ -409,20 +408,10 @@ async def _(bot: Bot, event: GroupMessageEvent):
 
 # 俄罗斯轮盘
 
-async def get_bullet_num(
-    event: GroupMessageEvent, arg: Message = CommandArg(), state: T_State = State()
-):
-    if state["bullet_num"]:
-        return state
-    else:
-        return None
-
 russian = on_command("俄罗斯轮盘", aliases={"装弹", "俄罗斯转盘"}, permission=GROUP, priority=5, block=True)
 
 @russian.handle()
-async def _(
-    bot: Bot,event: GroupMessageEvent,state: T_State = State(),arg: Message = CommandArg(),
-):
+async def _(bot: Bot,event: GroupMessageEvent, arg: Message = CommandArg()):
     try:
         _msg = await russian_manager.check_current_game(bot, event)
         if _msg:
@@ -449,48 +438,38 @@ async def _(
             if is_number(msg[1]) and 0 < int(msg[1]):
                 money = int(msg[1])
 
-        state["bullet_num"] = bullet_num
-        state["money"] = money
-        state["at"] = get_message_at(event.json())
-        
-@russian.got("bullet_num")
-async def _(
-    bot: Bot, event: GroupMessageEvent, state: T_State = Depends(get_bullet_num)
-):
-    at_ = state["at"]
-    bullet_num = state["bullet_num"]
-    money = state["money"]
-    user_money = russian_manager.get_user_data(event)["gold"]
-    if money > max_bet_gold:
-        await russian.finish(f"单次金额不能超过{max_bet_gold}", at_sender=True)
-    if money > user_money:
-        await russian.finish("你没有足够的金币支撑这场挑战", at_sender=True)
+        user_money = russian_manager.get_user_data(event)["gold"]
 
-    player1_name = event.sender.card or event.sender.nickname
+        if money > max_bet_gold:
+            await russian.finish(f"单次金额不能超过{max_bet_gold}", at_sender=True)
+        if money > user_money:
+            await russian.finish("你没有足够的金币支撑这场挑战", at_sender=True)
 
-    if at_:
-        at_ = at_[0]
-        at_player_name = await bot.get_group_member_info(group_id=event.group_id, user_id=int(at_))
-        at_player_name = at_player_name["card"] or at_player_name["nickname"]
-        msg = (
-            f"{player1_name} 向 {MessageSegment.at(at_)} 发起挑战！\n"
-            f"请 {at_player_name} 回复 接受挑战 or 拒绝挑战\n"
-            "【30秒内有效】"
-            )
-    else:
-        at_ = 0
-        msg = (
-            f"{player1_name} 发起挑战！\n"
-            "回复 接受挑战 即可开始对局。\n"
-            "【30秒内有效】"
-            )
+        player1_name = event.sender.card or event.sender.nickname
+        at_ = get_message_at(event.json())
+        if at_:
+            at_ = at_[0]
+            at_player_name = await bot.get_group_member_info(group_id=event.group_id, user_id=int(at_))
+            at_player_name = at_player_name["card"] or at_player_name["nickname"]
+            msg = (
+                f"{player1_name} 向 {MessageSegment.at(at_)} 发起挑战！\n"
+                f"请 {at_player_name} 回复 接受挑战 or 拒绝挑战\n"
+                "【30秒内有效】"
+                )
+        else:
+            at_ = 0
+            msg = (
+                f"{player1_name} 发起挑战！\n"
+                "回复 接受挑战 即可开始对局。\n"
+                "【30秒内有效】"
+                )
 
-    info = {
-        "game":"russian",
-        "bullet_num":bullet_num
-        }
-    _msg = russian_manager.ready_game(event, msg, player1_name, at_, money, info)
-    await russian.send(_msg)
+        info = {
+            "game":"russian",
+            "bullet_num":bullet_num
+            }
+        _msg = russian_manager.ready_game(event, msg, player1_name, at_, money, info)
+        await russian.send(_msg)
 
 shot = on_command("开枪", aliases={"咔", "嘭", "嘣"}, permission=GROUP, priority=5, block=True)
 
@@ -514,9 +493,7 @@ async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
 dice = on_command("摇骰子",aliases={"摇色子", "掷骰子", "掷色子"}, permission=GROUP, priority=5, block=True)
 
 @dice.handle()
-async def _(
-    bot: Bot,event: GroupMessageEvent,state: T_State = State(),arg: Message = CommandArg(),
-):
+async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg(),):
     try:
         _msg = await russian_manager.check_current_game(bot, event)
         if _msg:
@@ -568,9 +545,7 @@ async def _(bot: Bot, event: GroupMessageEvent):
 poker = on_command("扑克对战",aliases={"扑克对决", "扑克决斗"}, permission=GROUP, priority=5, block=True)
 
 @poker.handle()
-async def _(
-    bot: Bot,event: GroupMessageEvent,state: T_State = State(),arg: Message = CommandArg(),
-):
+async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg(),):
     try:
         _msg = await russian_manager.check_current_game(bot, event)
         if _msg:
@@ -687,8 +662,8 @@ russian_rank = on_command(
     )
 
 @russian_rank.handle()
-async def _(event: GroupMessageEvent, state: T_State = State()):
-    msg = await russian_manager.rank(state["_prefix"]["raw_command"], event.group_id)
+async def _(event: GroupMessageEvent):
+    msg = await russian_manager.rank(event.raw_message, event.group_id)
     if msg:
         output = text_to_png(msg)
         await russian_rank.finish(MessageSegment.image(output))
@@ -716,10 +691,8 @@ async def _(event: GroupMessageEvent):
             rst += f"{name}：达成{_max}次\n"
             all_user_data.remove(_max)
             all_user.remove(_max_id)
-        else:
-            rst = rst[:-1]
         if rst:
-            await name_list.finish("☆ ☆ 路灯挂件榜 ☆ ☆\n" + rst)
+            await name_list.finish("☆ ☆ 路灯挂件榜 ☆ ☆\n" + rst[:-1])
         else:
             await name_list.finish("群内没有路灯挂件。")
     else:

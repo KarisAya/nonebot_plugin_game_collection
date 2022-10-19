@@ -924,7 +924,8 @@ async def _(bot:Bot):
                         if stock != "value" and count != 0:
                             market_manager._market_data[stock]["stock"] += count
                             del russian_manager._player_data[group_id][user_id]["stock"][stock]
-                            del market_manager.Stock_Exchange[stock][user_id]
+                            if market_manager.Stock_Exchange[stock].get(user_id):
+                                del market_manager.Stock_Exchange[stock][user_id]
                             msg += f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}\n"
                             logger.info(f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}")
             else:
@@ -943,7 +944,8 @@ async def _(bot:Bot):
                             if stock != "value" and count != 0:
                                 market_manager._market_data[stock]["stock"] += count
                                 del russian_manager._player_data[group_id][user_id]["stock"][stock]
-                                del market_manager.Stock_Exchange[stock][user_id]
+                                if market_manager.Stock_Exchange[stock].get(user_id):
+                                    del market_manager.Stock_Exchange[stock][user_id]
                                 msg += f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}\n"
                                 logger.info(f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}")
         if msg:

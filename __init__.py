@@ -698,26 +698,6 @@ async def _(event: GroupMessageEvent):
     else:
         await name_list.finish()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # 公司上市
 Market_public = on_command("市场注册",aliases={"公司注册","注册公司"},rule = to_me(),permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority=5, block=True)
 
@@ -926,28 +906,50 @@ repurchase = on_command("回收股票", permission = SUPERUSER, priority=5, bloc
 async def _(bot:Bot):
     tmp = await bot.get_group_list()
     live_group_list = []
-    if tmp:
+    if not tmp:
+        await repurchase.finish("群组获取失败")
+    else:
         for group in tmp:
             live_group_list.append(str(group["group_id"]))
+
         group_list = russian_manager._player_data.keys()
         repurchase_group = set(group_list) - set(live_group_list)
-        if repurchase_group:
-            msg = ""
-            for group_id in repurchase_group:
+
+        msg = ""
+        for group_id in russian_manager._player_data.keys():
+            if group_id in repurchase_group:
                 for user_id in russian_manager._player_data[group_id].keys():
                     for stock in russian_manager._player_data[group_id][user_id]["stock"].keys():
                         count = russian_manager._player_data[group_id][user_id]["stock"][stock]
                         if stock != "value" and count != 0:
                             market_manager._market_data[stock]["stock"] += count
-                            russian_manager._player_data[group_id][user_id]["stock"][stock] = 0
+                            del russian_manager._player_data[group_id][user_id]["stock"][stock]
+                            del market_manager.Stock_Exchange[stock][user_id]
                             msg += f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}\n"
                             logger.info(f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}")
-            if msg:
-                market_manager.market_data_save()
-                russian_manager.save()
-                await repurchase.finish(MessageSegment.image(text_to_png(msg[:-1])))
             else:
-                await repurchase.finish("没有要回收的股票")
+                all_group_member_list = bot.get_group_member_list(group_id = int(group_id), no_cache = True)
+                if all_group_member_list:
+                    for group_member in all_group_member_list:
+                        if group_member["last_sent_time"] > time.time() - 2592000:
+                            live_group_member_list.append(str(group_member["user_id"]))
+
+                    group_member_list = russian_manager._player_data[group_id].keys()
+                    repurchase_group_member = set(group_member_list) - set(live_group_member_list)
+                    for user_id in repurchase_group_member:
+                        for stock in russian_manager._player_data[group_id][user_id]["stock"].keys():
+                            count = russian_manager._player_data[group_id][user_id]["stock"][stock]
+                            if stock != "value" and count != 0:
+                                market_manager._market_data[stock]["stock"] += count
+                                del russian_manager._player_data[group_id][user_id]["stock"][stock]
+                                del market_manager.Stock_Exchange[stock][user_id]
+                                msg += f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}\n"
+                                logger.info(f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}")
+        if msg:
+            russian_manager.save()
+            market_manager.market_data_save()
+            market_manager.Stock_Exchange_save()
+            await repurchase.finish(MessageSegment.image(text_to_png(msg[:-1])))
         else:
             await repurchase.finish("没有要回收的股票")
 

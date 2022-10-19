@@ -1246,7 +1246,7 @@ class GameManager:
         金币总数
         """
         player_data = self._player_data
-        all_user = list(player_data[group_id].keys())
+        all_user = list(player_data.get(group_id,{}).keys())
         sum = 0
         if all_user:
             all_user_gold = [player_data[group_id][i]["gold"] + player_data[group_id][i]["stock"]["value"] for i in all_user]

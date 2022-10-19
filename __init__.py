@@ -928,9 +928,10 @@ async def _(bot:Bot):
                             msg += f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}\n"
                             logger.info(f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}")
             else:
-                all_group_member_list = bot.get_group_member_list(group_id = int(group_id), no_cache = True)
-                if all_group_member_list:
-                    for group_member in all_group_member_list:
+                tmp = await bot.get_group_member_list(group_id = int(group_id), no_cache = True)
+                live_group_member_list = []
+                if tmp:
+                    for group_member in tmp:
                         if group_member["last_sent_time"] > time.time() - 2592000:
                             live_group_member_list.append(str(group_member["user_id"]))
 

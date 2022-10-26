@@ -3,11 +3,13 @@ from nonebot.adapters.onebot.v11 import (
     GROUP,
     GROUP_ADMIN,
     GROUP_OWNER,
+    PRIVATE,
     Bot,
-    GroupMessageEvent,
     MessageEvent,
-    MessageSegment,
+    GroupMessageEvent,
+    PrivateMessageEvent,
     Message,
+    MessageSegment
 )
 from nonebot.internal.adapter import Bot as BaseBot
 from nonebot.rule import to_me
@@ -30,9 +32,11 @@ from .data_source import (
     market_manager,
     max_bet_gold,
     race_bet_gold,
-    russian_path
+    russian_path,
+    cache
     )
 from .data_source import constant_props
+from .utils import company_info_Splicing
 
 from .start import *
 from .race_group import race_group
@@ -708,7 +712,7 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
         msg = msg.split()
         if len(msg) == 1:
             msg = msg[0]
-            msg = market_manager.Market_public(event,msg)
+            msg = market_manager.public(event,msg)
             await Market_public.finish(msg)
         else:
             await Market_public.finish(f"错误：公司名称格式错误\n{str(msg)}")
@@ -823,7 +827,12 @@ Market_info_pro = on_command("市场行情",aliases={"市场走势","市场详�
 
 @Market_info_pro.handle()
 async def _(bot:Bot, event: MessageEvent):
-    msg = await market_manager.Market_info_pro(event)
+    if market_manager.info_temp[1] <= 6:
+        msg = market_manager.info_temp[0]
+    else:
+        await Market_info_pro.send("正在生成走势图...")
+        msg = await market_manager.Market_info_pro(event)
+
     if type(msg) == list:
         if isinstance(event, GroupMessageEvent):
             await bot.send_group_forward_msg(group_id = event.group_id, messages = msg)
@@ -844,7 +853,12 @@ async def _(event: MessageEvent,arg: Message = CommandArg()):
         company_name = company_name[0]
         msg = market_manager.company_info(company_name)
         if msg:
-            output = text_to_png(msg)
+            if os.path.exists(cache / "ohlc.json"):
+                with open(cache / "ohlc.json", "r", encoding="utf8") as f:
+                    ohlc = json.load(f)
+                output = company_info_Splicing(msg ,ohlc[company_name])
+            else:
+                output = text_to_png(msg)
             await company_info.finish(MessageSegment.image(output))
         else:
             await company_info.finish(f"【{company_name}】未注册")
@@ -888,98 +902,37 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
         msg = market_manager.intergroup_transfer(event,company_name,gold)
         await intergroup_transfer.finish(msg, at_sender=True)
 
+# 股票回收
+repurchase = on_command("股票回收",aliases={"回收股票"} ,rule = to_me() , permission = SUPERUSER, priority=5, block = True)
+
+@repurchase.handle()
+async def _(bot:Bot):
+    await repurchase.send("正在启动回收程序。")
+    msg = await market_manager.repurchase(bot)
+    await repurchase.finish(msg)
+
+# 公司退市
+delist = on_command("公司退市",aliases={"清理市场", "市场清理"} ,rule = to_me() , permission = SUPERUSER, priority=5, block = True)
+
+@delist.handle()
+async def _(bot:Bot):
+    await delist.send("正在启动退市程序。")
+    msg = await market_manager.delist(bot)
+    await delist.finish(msg)
 
 # 刷新每日签到和每日补贴
 reset_sign = on_command("reset_sign", permission=SUPERUSER, priority=5, block=True) # 重置每日签到和每日补贴
 
 @reset_sign.handle()
+@scheduler.scheduled_job("cron", hour = 0)
 async def _():
-    russian_manager.reset_gold()
-    logger.info("签到重置成功...")
-    russian_manager.reset_security()
-    logger.info("补贴重置成功...")
-
-# 回收股票
-repurchase = on_command("回收股票", permission = SUPERUSER, priority=5, block = True)
-
-@repurchase.handle()
-async def _(bot:Bot):
-    tmp = await bot.get_group_list()
-    live_group_list = []
-    if not tmp:
-        await repurchase.finish("群组获取失败")
-    else:
-        for group in tmp:
-            live_group_list.append(str(group["group_id"]))
-
-        group_list = russian_manager._player_data.keys()
-        repurchase_group = set(group_list) - set(live_group_list)
-
-        msg = ""
-        for group_id in russian_manager._player_data.keys():
-            if group_id in repurchase_group:
-                for user_id in russian_manager._player_data[group_id].keys():
-                    for stock in russian_manager._player_data[group_id][user_id]["stock"].keys():
-                        count = russian_manager._player_data[group_id][user_id]["stock"][stock]
-                        if stock != "value" and count != 0:
-                            market_manager._market_data[stock]["stock"] += count
-                            russian_manager._player_data[group_id][user_id]["stock"][stock] = 0
-                            if market_manager.Stock_Exchange[stock].get(user_id):
-                                del market_manager.Stock_Exchange[stock][user_id]
-                            msg += f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}\n"
-                            logger.info(f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}")
-            else:
-                tmp = await bot.get_group_member_list(group_id = int(group_id), no_cache = True)
-                live_group_member_list = []
-                if tmp:
-                    for group_member in tmp:
-                        if group_member["last_sent_time"] > time.time() - 2592000:
-                            live_group_member_list.append(str(group_member["user_id"]))
-
-                    group_member_list = russian_manager._player_data[group_id].keys()
-                    repurchase_group_member = set(group_member_list) - set(live_group_member_list)
-                    for user_id in repurchase_group_member:
-                        for stock in russian_manager._player_data[group_id][user_id]["stock"].keys():
-                            count = russian_manager._player_data[group_id][user_id]["stock"][stock]
-                            if stock != "value" and count != 0:
-                                market_manager._market_data[stock]["stock"] += count
-                                russian_manager._player_data[group_id][user_id]["stock"][stock] = 0
-                                if market_manager.Stock_Exchange[stock].get(user_id):
-                                    del market_manager.Stock_Exchange[stock][user_id]
-                                msg += f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}\n"
-                                logger.info(f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}")
-        if msg:
-            russian_manager.save()
-            market_manager.market_data_save()
-            market_manager.Stock_Exchange_save()
-            await repurchase.finish(MessageSegment.image(text_to_png(msg[:-1])))
-        else:
-            await repurchase.finish("没有要回收的股票")
-
-# 刷新每日签到，每日补贴，每日利息发放
-@scheduler.scheduled_job("cron", hour=0, minute=0)
-async def _():
-    russian_manager.reset_gold()
+    russian_manager.reset_sign()
     logger.info("今日签到重置成功...")
     russian_manager.reset_security()
     logger.info("今日补贴重置成功...")
-    russian_manager.interest()
-    logger.info("今日利息已发放...")
-
-
-# 重置幸运花色
-
-#@scheduler.scheduled_job("cron",minute = "0,30")
-#async def _():
-#    for group_id in russian_manager._player_data.keys():
-#        for user_id in russian_manager._player_data[group_id].keys():
-#            russian_manager._player_data[group_id][user_id]["slot"] = 0
-
-#    logger.info("幸运花色已重置...")
-#    russian_manager.save()
      
 # 刷新道具时间
-@scheduler.scheduled_job("cron", hour = 4, minute = 0)
+@scheduler.scheduled_job("cron", hour = 4)
 async def _():
     for group_id in russian_manager._player_data.keys():
         for user_id in russian_manager._player_data[group_id].keys():
@@ -1006,14 +959,14 @@ async def _():
             market_manager.company_update(group_id)
             logger.info(f'【{market_manager._market_data[group_id]["company_name"]}】更新成功...')
     else:
-        market_manager.info_temp[1] = 0
+        market_manager.info_temp[1] += 1
         russian_manager.save()
         market_manager.market_data_save()
         market_manager.market_history_save()
 
 # 数据备份
 
-@scheduler.scheduled_job("cron",hour = "4,10,16,22")
+@scheduler.scheduled_job("cron", hour = "4,10,16,22")
 async def _():
     now = time.strftime('%Y-%m-%d-%H', time.localtime(time.time()))
     path =f"{russian_path}/data/russian"

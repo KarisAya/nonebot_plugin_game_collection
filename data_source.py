@@ -1,4 +1,12 @@
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, PrivateMessageEvent, Message, MessageSegment, Bot
+from nonebot.adapters.onebot.v11 import (
+    Bot,
+    MessageEvent,
+    GroupMessageEvent,
+    PrivateMessageEvent,
+    Message,
+    MessageSegment
+    )
+
 from typing import Optional, Tuple, Union, List, Dict
 from datetime import datetime
 from nonebot.log import logger
@@ -9,10 +17,11 @@ import asyncio
 import random
 import time
 import os
+import re
 import subprocess
 
 from .config import Config
-from .utils import text_to_png
+from .utils import text_to_png, ohlc_Splicing
 try:
     import ujson as json
 except ModuleNotFoundError:
@@ -31,6 +40,8 @@ global_config = nonebot.get_driver().config
 russian_config = Config.parse_obj(global_config.dict())
 
 russian_path = russian_config.russian_path
+
+cache = russian_path / "data" / "russian" / "cache"
 
 # 签到金币随机范围
 sign_gold = russian_config.sign_gold
@@ -57,8 +68,6 @@ race_bet_gold = russian_config.race_bet_gold
 
 # 定义永久道具
 constant_props = ("钻石","路灯挂件标记")
-
-cache = russian_path / "data" / "russian" / "cache"
 
 async def rank(player_data: dict, group_id: int, type_: str) -> str:
     """
@@ -995,7 +1004,7 @@ class GameManager:
         """
         return self._current_player[group_id][1] != 0
 
-    def reset_gold(self):
+    def reset_sign(self):
         """
         刷新签到
         """
@@ -1012,19 +1021,6 @@ class GameManager:
         for group in self._player_data.keys():
             for user_id in self._player_data[group].keys():
                 self._player_data[group][user_id]["security"] = 0
-        else:
-            self.save()
-
-    def interest(self):
-        """
-        每日利息发放
-        """
-        for group in self._player_data.keys():
-            for user_id in self._player_data[group].keys():
-                if self._player_data[group][user_id]["gold"] > 0:
-                    IN = int(self._player_data[group][user_id]["gold"] * 0.02)
-                    self._player_data[group][user_id]["gold"] += IN
-                    self._player_data[group][user_id]["make_gold"] += IN
         else:
             self.save()
 
@@ -1055,7 +1051,6 @@ class GameManager:
                 "lose_gold": 0,
                 "win_count": 0,
                 "lose_count": 0,
-                "slot":0,
                 "is_sign": None,
                 "revolution": None,
                 "security":0,
@@ -1629,7 +1624,7 @@ class MarketManager:
             with open(file, "r", encoding="utf8") as f:
                 self.market_history = json.load(f)
 
-        self.info_temp = [[],0]
+        self.info_temp = [[],100]
 
     def _init_market_data(self, event: GroupMessageEvent,company_name: str):
         """
@@ -1640,26 +1635,26 @@ class MarketManager:
         group_id = str(event.group_id)
         if group_id in self._market_data.keys():
             return f"群号：{group_id}已注册"
-        elif company_name in self._market_data.keys():
+        if company_name in self._market_data.keys():
             return f"名称：{company_name}已注册"
-        else:
-            self._market_data[group_id] = {
-                "group_id":event.group_id,
-                "company_name":company_name,
-                "stock":20000,
-                "gold":0.0,
-                "time":time.time()
-                }
-            self._market_data[company_name] = {
-                "group_id":event.group_id,
-                "company_name":company_name,
-                "stock":20000,
-                "gold":0.0,
-                "group_gold":0.0,
-                "float_gold":0.0,
-                "intro":""
-                }
-            return None
+
+        self._market_data[group_id] = {
+            "group_id":event.group_id,
+            "company_name":company_name,
+            "stock":20000,
+            "gold":0.0,
+            "time":time.time()
+            }
+        self._market_data[company_name] = {
+            "group_id":event.group_id,
+            "company_name":company_name,
+            "stock":20000,
+            "gold":0.0,
+            "group_gold":0.0,
+            "float_gold":0.0,
+            "intro":""
+            }
+        return None
 
     def market_data_save(self):
         """
@@ -1812,28 +1807,6 @@ class MarketManager:
                         f"总计：{gold}"
                         )
 
-    def Market_public(self, event: GroupMessageEvent,company_name: str):
-        """
-        公司上市
-        :param event: event
-        :param company_name:公司名
-        """
-        gold = float(russian_manager.total_gold(str(event.group_id),1000))
-        if gold < 20000:
-            return f"金币总额达到20k才可注册。\n当前群内总金币为{gold}"
-        else:
-            msg = self._init_market_data(event,company_name)
-            if msg:
-                return msg
-            else:
-                self._market_data[company_name]["gold"] = gold * 0.5
-                self._market_data[company_name]["group_gold"] = gold
-                self._market_data[company_name]["float_gold"] = gold * 0.5
-                self.market_data_save()
-                self.Stock_Exchange.setdefault(company_name,{})
-                self.Stock_Exchange_save()
-                return f'{company_name}发行成功，发行价格为每股{round((self._market_data[company_name]["gold"]/20000),2)}金币'
-
     def company_buy(self,event: GroupMessageEvent, company_name:str ,stock:int) -> str:
         """
         购买公司发行股票
@@ -1946,7 +1919,7 @@ class MarketManager:
                 return True
         return False
 
-    def Market_info(self, event, company_name:str):
+    def Market_info(self, event:MessageEvent, company_name:str):
         """
         市场信息
         :param company_name:公司名，为空则是总览。
@@ -2042,87 +2015,227 @@ class MarketManager:
                 msg = "市场不存在..."
         return msg
 
-    async def Market_info_pro(self, event):
+    async def Market_info_pro(self, event:MessageEvent):
         """
         市场详细信息
         """
-        if self.info_temp[1] == 1:
-            return self.info_temp[0]
+        p = subprocess.Popen(f"{python} {os.path.dirname(__file__)}/process/ohlc.py {russian_path}", shell=True)
+        start = time.time()
+        while True:
+            if time.time() - start >= 900:
+                p.kill()
+                return "等待时间过长。"
+            returncode = p.poll()
+            if returncode == None:
+                await asyncio.sleep(1)
+            elif returncode == 1:
+                return "没有市场历史数据..."
+            else:
+                break
+
+        with open(cache / "ohlc.json", "r", encoding="utf8") as f:
+            ohlc = json.load(f)
+
+        lst = []
+        for x in self._market_data.keys():
+            if self._market_data[x].get("time") == None:
+                lst.append([x,self._market_data[x]["group_gold"]])
         else:
-            p = subprocess.Popen(f"{python} {os.path.dirname(__file__)}/process/ohlc.py {russian_path}", shell=True)
-            start = time.time()
-            while True:
-                if time.time() - start >= 300:
-                    p.kill()
-                    return "等待时间过长。"
-                returncode = p.poll()
-                if returncode == None:
-                    await asyncio.sleep(1)
-                elif returncode == 1:
-                    return "没有市场历史数据..."
-                else:
-                    break
+            lst.sort(key = lambda x:x[1],reverse = True)
 
-            with open(cache / "ohlc.json", "r", encoding="utf8") as f:
-                ohlc = json.load(f)
+        msg = []
+        for x in lst:
+            msg.append(
+                {
+                    "type": "node",
+                    "data": {
+                        "name": f"{bot_name}",
+                        "uin": str(event.self_id),
+                        "content": Message(self.company_info(x[0]))
+                        }
+                    }
+                )
+            msg.append(
+                {
+                    "type": "node",
+                    "data": {
+                        "name": f"{bot_name}",
+                        "uin": str(event.self_id),
+                        "content": MessageSegment.image(Path(ohlc[x[0]][0]))
+                        }
+                    }
+                )
+            msg.append(
+                {
+                    "type": "node",
+                    "data": {
+                        "name": f"{bot_name}",
+                        "uin": str(event.self_id),
+                        "content": MessageSegment.image(Path(ohlc[x[0]][1]))
+                        }
+                    }
+                )
+        else:
+            self.info_temp[0] = msg
+            self.info_temp[1] = 0
+        return msg
 
-            lst = []
-            for x in self._market_data.keys():
-                if self._market_data[x].get("time") == None:
-                    lst.append([x,self._market_data[x]["group_gold"]])
-            else:
-                lst.sort(key = lambda x:x[1],reverse = True)
-
-            msg = []
-            for x in lst:
-                price = (
-                    self._market_data[x[0]]["gold"]
-                    if self._market_data[x[0]]["gold"] > self._market_data[x[0]]["float_gold"]
-                    else self._market_data[x[0]]["float_gold"]
-                    )
-                msg.append(
-                    {
-                        "type": "node",
-                        "data": {
-                            "name": f"{bot_name}",
-                            "uin": str(event.self_id),
-                            "content": (
-                                f'【{x[0]}】\n'
-                                "——————————————\n"
-                                f'固定资产：{round(self._market_data[x[0]]["gold"], 2)} 金币\n'
-                                f'市场流动：{int(x[1])} 金币\n'
-                                f'发行价格：{round(price/20000,2)} 金币\n'
-                                f'结算价格：{round(self._market_data[x[0]]["float_gold"] / 20000, 2)} 金币\n'
-                                f'剩余数量：{self._market_data[x[0]]["stock"]} 株\n'
-                                "——————————————"
-                                ) 
-                            }
-                        }
-                    )
-                msg.append(
-                    {
-                        "type": "node",
-                        "data": {
-                            "name": f"{bot_name}",
-                            "uin": str(event.self_id),
-                            "content": MessageSegment.image(Path(ohlc[x[0]][0]))
-                            }
-                        }
-                    )
-                msg.append(
-                    {
-                        "type": "node",
-                        "data": {
-                            "name": f"{bot_name}",
-                            "uin": str(event.self_id),
-                            "content": MessageSegment.image(Path(ohlc[x[0]][1]))
-                            }
-                        }
-                    )
-            else:
-                self.info_temp[0] = msg
-                self.info_temp[1] = 1
+    def public(self, event: GroupMessageEvent,company_name: str):
+        """
+        公司上市
+        :param event: event
+        :param company_name:公司名
+        """
+        if company_name == "value":
+            return f"公司名称不能是{company_name}"
+        if len(company_name)>12:
+            return f"公司名称不能超过12字符"
+        gold = float(russian_manager.total_gold(str(event.group_id),1000))
+        if gold < 20000:
+            return f"金币总额达到20k才可注册。\n当前群内总金币为{gold}"
+        else:
+            msg = self._init_market_data(event,company_name)
+            if msg:
                 return msg
+            else:
+                self._market_data[company_name]["gold"] = gold * 0.5
+                self._market_data[company_name]["group_gold"] = gold
+                self._market_data[company_name]["float_gold"] = gold * 0.5
+                self.market_data_save()
+                self.Stock_Exchange.setdefault(company_name,{})
+                self.Stock_Exchange_save()
+                return f'{company_name}发行成功，发行价格为每股{round((self._market_data[company_name]["gold"]/20000),2)}金币'
+
+    async def repurchase(self, bot:Bot):
+        """
+        回收股票
+        """
+        tmp = await bot.get_group_list()
+        live_group_list = []
+        if not tmp:
+            return "群组获取失败"
+        else:
+            market = self._market_data
+            player = russian_manager._player_data
+
+            for group in tmp:
+                live_group_list.append(str(group["group_id"]))
+
+            group_list = player.keys()
+            repurchase_group = set(group_list) - set(live_group_list)
+
+            msg = ""
+            for group_id in group_list:
+                if group_id in repurchase_group:
+                    for user_id in player[group_id].keys():
+                        for stock in player[group_id][user_id]["stock"].keys():
+                            count = player[group_id][user_id]["stock"][stock]
+                            if stock != "value" and count != 0:
+                                market[stock]["stock"] += count
+                                player[group_id][user_id]["stock"][stock] = 0
+                                if user_id in self.Stock_Exchange[stock]:
+                                    del self.Stock_Exchange[stock][user_id]
+                                msg += f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}\n"
+                                logger.info(f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}")
+                else:
+                    tmp = await bot.get_group_member_list(group_id = int(group_id), no_cache = True)
+                    live_group_member_list = []
+                    if tmp:
+                        for group_member in tmp:
+                            if group_member["last_sent_time"] > time.time() - 604800:
+                                live_group_member_list.append(str(group_member["user_id"]))
+
+                        group_member_list = player[group_id].keys()
+                        repurchase_group_member = set(group_member_list) - set(live_group_member_list)
+
+                        for user_id in repurchase_group_member:
+                            for stock in player[group_id][user_id]["stock"].keys():
+                                count = player[group_id][user_id]["stock"][stock]
+                                if stock != "value" and count != 0:
+                                    market[stock]["stock"] += count
+                                    player[group_id][user_id]["stock"][stock] = 0
+                                    if user_id in self.Stock_Exchange[stock]:
+                                        del self.Stock_Exchange[stock][user_id]
+                                    msg += f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}\n"
+                                    logger.info(f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}")
+            if msg:
+                russian_manager.save()
+                self.market_data_save()
+                self.Stock_Exchange_save()
+                return MessageSegment.image(text_to_png(msg[:-1]))
+            else:
+                return "没有待回收的股票"
+
+    async def delist(self, bot:Bot):
+        """
+        公司退市
+        """
+        tmp = await bot.get_group_list()
+        live_group_list = []
+        if not tmp:
+            return "群组获取失败"
+        else:
+            market = self._market_data
+            player = russian_manager._player_data
+
+            for group in tmp:
+                live_group_list.append(str(group["group_id"]))
+
+            company_list = []
+            for group_id in market.keys():
+                if "time" in market[group_id]:
+                    company_list.append(group_id)
+
+            delist_company = set(company_list) - set(live_group_list)
+
+            if not delist_company:
+                msg = "没有待退市的公司"
+            else:
+                delist_list = []
+                for group_id in delist_company:
+                    company_name = market[group_id]["company_name"]
+                    delist_list.append((group_id,company_name))
+                    logger.info(f'开始清算【{company_name}】')
+                    for user_id in player[group_id].keys():
+                        for stock in player[group_id][user_id]["stock"].keys():
+                            count = player[group_id][user_id]["stock"][stock]
+                            if stock != "value" and count != 0:
+                                market[stock]["stock"] += count
+                                player[group_id][user_id]["stock"][stock] = 0
+                                if user_id in self.Stock_Exchange[stock]:
+                                    del self.Stock_Exchange[stock][user_id]
+                                logger.info(f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}")
+                    else:
+                        logger.info(f'清算完成。')
+                else:
+                    msg = ""
+                    for company,company_name in delist_list:
+                        msg += f'删除公司【{company_name}】\n'
+                        logger.info(f'删除公司【{company_name}】')
+                        del market[company]
+                        del market[company_name]
+                        del self.Stock_Exchange[company_name]
+                        del self.market_history[company_name]
+                    else:
+                        msg = msg[:-1]
+
+            logger.info("清理散户")
+            company_list = set(self.Stock_Exchange.keys())
+            for group_id in player.keys():
+                for user_id in player[group_id].keys():
+                    delist_list = set(player[group_id][user_id]["stock"].keys()) - company_list - {"value"}
+                    for company_name in delist_list:
+                        count = player[group_id][user_id]["stock"][company_name]
+                        del player[group_id][user_id]["stock"][company_name]
+                        logger.info(f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{company_name} 数量：{count}")
+
+            logger.info("退市程序已完成。")
+            russian_manager.save()
+            self.market_data_save()
+            self.Stock_Exchange_save()
+            self.market_history_save()
+
+            return msg
 
     def company_info(self,company_name:str):
         """
@@ -2137,7 +2250,7 @@ class MarketManager:
                 if lst[i][1]["stock"] > 0:
                     nickname = russian_manager._player_data[lst[i][1]["group_id"]][lst[i][0]]["nickname"]
                     msg += (
-                        f'{nickname}\n'
+                        f'{nickname if len(nickname)<=12 else (nickname[0:10] + "...")}\n'
                         f'单价：{lst[i][1]["quote"]} 数量：{lst[i][1]["stock"]}\n'
                         )
                     i += 1
@@ -2151,6 +2264,21 @@ class MarketManager:
                 if self._market_data[company_name]["gold"] > self._market_data[company_name]["float_gold"]
                 else self._market_data[company_name]["float_gold"]
                 )
+            origin_intro = self._market_data[company_name]["intro"]
+            intro = ""
+            flag = 0
+            for x in origin_intro:
+                intro += x
+                if x == "\n":
+                    flag = 0
+                elif flag >12:
+                    intro += "\n"
+                    flag = 0
+                else:
+                    flag += 1
+            else:
+                intro += "\n"
+                intro = re.sub('[\r\n]+', '\n', intro)
             info = (
                 f"【{company_name}】\n"
                 "——————————————\n"
@@ -2163,9 +2291,10 @@ class MarketManager:
                 f'结算价格：{round(self._market_data[company_name]["float_gold"] / 20000, 2)} 金币\n'
                 f'剩余数量：{self._market_data[company_name]["stock"]} 株\n'
                 "——————————————\n"
-                "市场：\n"+ msg +
+                "市场：\n" + msg +
                 "——————————————\n"
-                "简介：\n"f'{self._market_data[company_name]["intro"]}'
+                "简介：\n" + intro +
+                "——————————————"
                 )
             return info
         else:

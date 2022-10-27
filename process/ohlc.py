@@ -151,16 +151,10 @@ if __name__ == "__main__":
     if not os.path.exists(candlestick_cache):
         os.makedirs(candlestick_cache)
 
-    lst = market_history.keys()
-    data = {}
-    for x in lst:
-        A = market_linechart((32,9), market_history[x], x)
-        with open(linechart_cache / x, "wb") as f:
+    for company_name in market_history.keys():
+        A = market_linechart((32,9), market_history[company_name], company_name)
+        with open(linechart_cache / company_name, "wb") as f:
             f.write(A.getvalue())
-        B = market_candlestick((32,9), 6, market_history[x], x)
-        with open(candlestick_cache / x, "wb") as f:
+        B = market_candlestick((32,9), 6, market_history[company_name], company_name)
+        with open(candlestick_cache / company_name, "wb") as f:
             f.write(B.getvalue())
-        data.update({x:[str(linechart_cache / x), str(candlestick_cache / x)]})
-    else:
-        with open(cache / "ohlc.json", "w", encoding="utf8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)

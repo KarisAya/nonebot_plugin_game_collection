@@ -13,7 +13,8 @@ from nonebot.adapters.onebot.v11 import (
 )
 from nonebot.internal.adapter import Bot as BaseBot
 from nonebot.rule import to_me
-from nonebot.params import CommandArg
+from nonebot.matcher import Matcher
+from nonebot.params import CommandArg, Arg
 from nonebot.log import logger
 from nonebot.permission import SUPERUSER
 
@@ -295,34 +296,42 @@ async def _(bot: Bot, event: MessageEvent, arg: Message = CommandArg()):
 
 
 # 金币签到
-sign = on_command("金币签到",aliases={"轮盘签到"}, permission=GROUP, priority=5, block=True)
+sign = on_command("金币签到",aliases = {"轮盘签到"}, priority = 5, block = True)
 
 @sign.handle()
-async def _(event: GroupMessageEvent):
-    msg, gold = russian_manager.sign(event)
-    await sign.send(msg, at_sender=True)
-    if gold != -1:
-        logger.info(f"USER {event.user_id} | GROUP {event.group_id} 获取 {gold} 金币")
+async def _(event: MessageEvent):
+    flag =  russian_manager.sign(event)
+    if flag:
+        msg, gold, group_id, user_id = flag
+        if gold != -1:
+            logger.info(f"USER {user_id} | GROUP {group_id} 获取 {gold} 金币")
+        await sign.finish(msg, at_sender=True)
+    else:
+        await sign.finish(f'私聊未关联账户，请先关联群内账户。')
 
 # 发动革命
 revolt = on_command("发起重置", aliases={"发起revolt","发动revolt", "revolution", "Revolution"},permission=GROUP, priority=5, block=True)
 
 @revolt.handle()
 async def _(event: GroupMessageEvent):
-    msg=russian_manager.revlot(event.group_id)
+    msg = russian_manager.revlot(event.group_id)
     if msg:
         await revolt.finish(msg)
     else:
         await revolt.finish()
 # 重置签到
-revolt_sign = on_command("重置签到",aliases={"revolt签到"},permission=GROUP, priority=5, block=True)
+revolt_sign = on_command("重置签到",aliases = {"revolt签到"}, priority = 5, block = True)
 
 @revolt_sign.handle()
-async def _(event: GroupMessageEvent):
-    msg, gold = russian_manager.revolt_sign(event)
-    await sign.send(msg, at_sender=True)
-    if gold != -1:
-        logger.info(f"USER {event.user_id} | GROUP {event.group_id} 获取 {gold} 金币")
+async def _(event: MessageEvent):
+    flag = russian_manager.revolt_sign(event)
+    if flag:
+        msg, gold, group_id, user_id = flag
+        if gold != -1:
+            logger.info(f"USER {user_id} | GROUP {group_id} 获取 {gold} 金币")
+        await sign.finish(msg, at_sender=True)
+    else:
+        await sign.finish(f'私聊未关联账户，请先关联群内账户。')
 
 # 发红包
 give_gold = on_command("打钱", aliases={"发红包", "赠送金币"},permission=GROUP, priority=5, block=True)
@@ -598,26 +607,64 @@ async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
     card = arg.extract_plain_text().strip()
     await russian_manager.poker_play(bot, event, card)
 
+# 关联账户
+connect = on_command("连接账户", aliases = {"关联账户"}, rule = to_me(), priority = 5, block = True)
+
+@connect.handle()
+async def _(bot: Bot, event: MessageEvent, matcher: Matcher):
+    user_id = str(event.user_id)
+    if isinstance(event,GroupMessageEvent):
+        russian_manager._init_player_data(event)
+        russian_manager.connect_data[user_id] = str(event.group_id)
+        russian_manager.connect_save()
+        await connect.finish("私聊账户已关联到本群", at_sender=True)
+    else:
+        player = russian_manager._player_data
+        msg = "你的账户\n"
+        group_list = []
+        for group_id in player.keys():
+            if user_id in player[group_id].keys():
+                msg += f'{group_id} 金币：{player[group_id][user_id]["gold"]} 枚\n'
+                group_list.append(group_id)
+        else:
+            msg += "\n请输入你要关联的群号"
+        matcher.set_arg("group_list", group_list)
+        await asyncio.sleep(2)
+        await connect.send(msg)
+
+@connect.got("group_id")
+
+async def _(bot:Bot, event: MessageEvent, matcher: Matcher, group_id : Message = Arg()):
+    group_id = str(group_id).strip()
+    group_list = matcher.get_arg("group_list")
+    if group_id in group_list:
+        russian_manager.connect_data[str(event.user_id)] = group_id
+        russian_manager.connect_save()
+        await connect.finish(f"私聊账户已关联到{group_id}")
+    else:
+        await connect.finish(f"未关联")
+
 # 幸运花色
-slot = on_command("（已停用）幸运花色", aliases={"（已停用）抽花色"},permission=GROUP, priority=5, block=True)
+slot = on_command("幸运花色", aliases={"抽花色"}, permission = PRIVATE, priority=5, block=True)
 
 @slot.handle()
-async def _(bot: Bot, event: GroupMessageEvent,arg: Message = CommandArg()):
+async def _(bot: Bot, event: PrivateMessageEvent,arg: Message = CommandArg()):
     gold = 50
     if arg:
-        if is_number(str(arg)):
-            tmp = abs(int(str(arg)))
-            if 0 < tmp <= int(max_bet_gold/2):
-                gold = abs(int(str(arg)))
+        arg = str(arg)
+        if is_number(arg):
+            gold = abs(int(arg))
+    else:
+        gold = 50
 
     msg = russian_manager.slot(event,gold)
     await slot.finish(msg, at_sender=True)
 
 # 十连抽卡
-gacha = on_command("十连",aliases={"10连"},rule = to_me(),permission=GROUP, priority=5, block=True)
+gacha = on_command("十连", aliases = {"10连"}, rule = to_me(), priority = 5, block = True)
 
 @gacha.handle()
-async def _(bot: Bot, event: GroupMessageEvent,arg: Message = CommandArg()):
+async def _(bot: Bot, event: MessageEvent,arg: Message = CommandArg()):
     msg = russian_manager.gacha(event)
     await gacha.finish(msg, at_sender=True)
 
@@ -641,20 +688,26 @@ async def _(event: GroupMessageEvent):
         props_info = "你的仓库空空如也..."
     await my_props.finish(props_info,at_sender=True)
 
-my_gold = on_command("我的金币", permission=GROUP, priority=5, block=True)
+my_gold = on_command("我的金币", priority=5, block=True)
 
 @my_gold.handle()
-async def _(event: GroupMessageEvent):
-    gold = russian_manager.get_user_data(event)["gold"]
-    await my_gold.finish(f"你还有 {gold} 枚金币", at_sender=True)
+async def _(event: MessageEvent):
+    user_data = russian_manager.try_get_user_data(event)
+    if user_data:
+        await my_gold.finish(f'你还有 {user_data["gold"]} 枚金币', at_sender=True)
+    else:
+        await my_gold.finish(f'私聊未关联账户，请先关联群内账户。')
 
-my_info = on_command("我的信息", aliases={"我的资料"}, permission=GROUP, priority=5, block=True)
+my_info = on_command("我的信息", aliases={"我的资料"}, priority=5, block=True)
 
 @my_info.handle()
-async def _(event: GroupMessageEvent):
+async def _(event: MessageEvent):
     info = russian_manager.my_info(event)
-    output = text_to_png(info[:-1], 12)
-    await my_info.finish(MessageSegment.image(output))
+    if info:
+        output = text_to_png(info[:-1], 12)
+        await my_info.finish(MessageSegment.image(output))
+    else:
+        await my_info.finish(f'私聊未关联账户，请先关联群内账户。')
 
 # 查看排行榜
 russian_rank = on_command(
@@ -823,24 +876,24 @@ async def _(bot:Bot, event: MessageEvent,arg: Message = CommandArg()):
         await Market_info.finish(msg)
 
 # 市场走势
-Market_info_pro = on_command("市场行情",aliases={"市场走势","市场详细信息"}, priority=5, block=True)
+Market_ohlc = on_command("市场行情",aliases={"市场走势"}, priority=5, block=True)
 
-@Market_info_pro.handle()
+@Market_ohlc.handle()
 async def _(bot:Bot, event: MessageEvent):
-    if market_manager.info_temp[1] <= 6:
-        msg = market_manager.info_temp[0]
+    if market_manager.ohlc_temp[1] <= 6:
+        msg = market_manager.ohlc_temp[0]
     else:
-        await Market_info_pro.send("正在生成走势图...")
-        msg = await market_manager.Market_info_pro(event)
+        await Market_ohlc.send("正在生成走势图...")
+        msg = await market_manager.ohlc(event)
 
     if type(msg) == list:
         if isinstance(event, GroupMessageEvent):
             await bot.send_group_forward_msg(group_id = event.group_id, messages = msg)
         else:
             await bot.send_private_forward_msg(user_id = event.user_id, messages = msg)
-        await Market_info_pro.finish()
+        await Market_ohlc.finish()
     else:
-        await Market_info_pro.finish(msg)
+        await Market_ohlc.finish(msg)
 
 # 公司信息
 company_info = on_command("公司信息",aliases={"公司资料"}, priority=5, block=True)
@@ -959,7 +1012,7 @@ async def _():
             market_manager.company_update(group_id)
             logger.info(f'【{market_manager._market_data[group_id]["company_name"]}】更新成功...')
     else:
-        market_manager.info_temp[1] += 1
+        market_manager.ohlc_temp[1] += 1
         russian_manager.save()
         market_manager.market_data_save()
         market_manager.market_history_save()

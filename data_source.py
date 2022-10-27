@@ -42,6 +42,8 @@ russian_config = Config.parse_obj(global_config.dict())
 russian_path = russian_config.russian_path
 
 cache = russian_path / "data" / "russian" / "cache"
+linechart_cache = cache / "linechart"
+candlestick_cache = cache / "candlestick"
 
 # 签到金币随机范围
 sign_gold = russian_config.sign_gold
@@ -167,46 +169,58 @@ class GameManager:
         self._current_player = {}
         file = russian_path / "data" / "russian" / "russian_data.json"
         self.file = file
-        if not file.exists():
-            old_file = Path(os.path.dirname(__file__)) / "russian_data.json"
-            if old_file.exists():
-                os.rename(old_file, file)
         if file.exists():
             with open(file, "r", encoding="utf8") as f:
                 self._player_data = json.load(f)
 
-    def sign(self, event: GroupMessageEvent) -> Tuple[str, int]:
+        self.connect_data = {}
+        file = russian_path / "data" / "russian" / "connect.json"
+        self.connect_file = file
+        if file.exists():
+            with open(file, "r", encoding="utf8") as f:
+                self.connect_data = json.load(f)
+
+    def sign(self, event: MessageEvent) -> Tuple[str, int]:
         """
         签到
         :param event: event
         """
-        self._init_player_data(event)
-        if self._player_data[str(event.group_id)][str(event.user_id)]["is_sign"]:
-            return "你已经签过到了哦", -1
+        user_data, group_id, user_id = self.try_get_user_data(event)
+
+        if user_data == None:
+            return None
+        else:
+            pass
+
+        if user_data["is_sign"]:
+            return "你已经签过到了哦", -1, group_id, user_id
         gold = random.randint(sign_gold[0], sign_gold[1])
-        self._player_data[str(event.group_id)][str(event.user_id)]["gold"] += gold
-        self._player_data[str(event.group_id)][str(event.user_id)]["make_gold"] += gold
-        self._player_data[str(event.group_id)][str(event.user_id)]["is_sign"] = True
+        user_data["gold"] += gold
+        user_data["make_gold"] += gold
+        user_data["is_sign"] = True
         self.save()
-        return (
-            random.choice(["祝你好运~", "可别花光了哦~"]) + f"\n你获得了 {gold} 金币",
-            gold,
-        )
+        return random.choice(["祝你好运~", "可别花光了哦~"]) + f"\n你获得了 {gold} 金币", gold, group_id, user_id
 
     def revolt_sign(self, event: GroupMessageEvent) -> Tuple[str, int]:
         """
         revolt签到
         :param event: event
         """
-        self._init_player_data(event)
-        if self._player_data[str(event.group_id)][str(event.user_id)]["revolution"]:
-            return "你没有待领取的金币", -1
+        user_data, group_id, user_id = self.try_get_user_data(event)
+
+        if user_data == None:
+            return None
+        else:
+            pass
+
+        if user_data["revolution"]:
+            return "你没有待领取的金币", -1, group_id, user_id
         gold = random.randint(revolt_sign_gold[0], revolt_sign_gold[1])
-        self._player_data[str(event.group_id)][str(event.user_id)]["gold"] += gold
-        self._player_data[str(event.group_id)][str(event.user_id)]["make_gold"] += gold
-        self._player_data[str(event.group_id)][str(event.user_id)]["revolution"] = True
+        user_data["gold"] += gold
+        user_data["make_gold"] += gold
+        user_data["revolution"] = True
         self.save()
-        return ("这是你重置获得的金币~"+f"\n你获得了 {gold} 金币",gold)
+        return "这是你重置获得的金币~"+f"\n你获得了 {gold} 金币", gold, group_id, user_id
 
     def accept(self, event: GroupMessageEvent) -> Union[str, Message]:
         """
@@ -964,6 +978,20 @@ class GameManager:
                 else:
                     return None
 
+    def try_get_user_data(self, event: MessageEvent):
+        user_id = str(event.user_id)
+        if isinstance(event,PrivateMessageEvent):
+            group_id = self.connect_data.get(user_id)
+            if not group_id:
+                return None, None, user_id
+            else:
+                return self._player_data[group_id][user_id], group_id, user_id
+        else:
+            self._init_player_data(event)
+            group_id = str(event.group_id)
+            return self._player_data[group_id][user_id], group_id, user_id
+
+
     def get_user_data(self, event: GroupMessageEvent) -> Dict[str, Union[str, int]]:
         """
         获取用户数据
@@ -1424,12 +1452,18 @@ class GameManager:
 
         return rank
 
-    def my_info(self, event: GroupMessageEvent) -> str:
+    def my_info(self, event: MessageEvent) -> str:
         """
         资料卡
         :param event: event
         """
-        user_data = self.get_user_data(event)
+        user_data, group_id, user_id = self.try_get_user_data(event)
+
+        if user_data == None:
+            return None
+        else:
+            pass
+
         nickname = user_data["nickname"]
         gold = user_data["gold"]
         make_gold = user_data["make_gold"]
@@ -1439,7 +1473,7 @@ class GameManager:
         win_count = user_data["win_count"]
         lose_count = user_data["lose_count"]
         stock = user_data["stock"]
-        stock["value"] = market_manager.value_update(str(event.group_id),str(event.user_id))
+        stock["value"] = market_manager.value_update(group_id, user_id)
         my_stock = []
         stock_info = ""
         for x in stock.keys():
@@ -1471,21 +1505,27 @@ class GameManager:
             )
         return info
 
-    def slot(self, event: GroupMessageEvent,gold:int):
+    def connect_save(self):
+        with open(self.connect_file, "w", encoding="utf8") as f:
+            json.dump(self.connect_data, f, ensure_ascii=False, indent=4)
+
+    def slot(self, event: PrivateMessageEvent, gold:int):
         """
-        抽花色
+        幸运花色
         :param event: event
         :param gold: 金币
         """
-        group_id = str(event.group_id)
-        user_id = str(event.user_id)
-        
-        if gold > self.get_user_data(event)["gold"]:
-            return f'你没有足够的金币，你的金币：{self._player_data[group_id][user_id]["gold"]}。'
-        if self._player_data[group_id][user_id]["slot"] > 2:
-            return '你的本轮次数已用光。'
+        user_data = self.try_get_user_data(event)[0]
 
-        self._player_data[group_id][user_id]["slot"] += 1
+        if not user_data:
+            return f'私聊未关联账户，请先关联群内账户。'
+        if gold < 50:
+            return f'抽取幸运花色每次至少50金币。'
+        elif gold > max_bet_gold:
+            return f'抽取幸运花色每次最多{max_bet_gold}金币。'
+        elif gold > user_data["gold"]:
+            return f'你没有足够的金币，你的金币：{user_data["gold"]}。'
+
         suit_dict = {
             1:"♤",
             2:"♡",
@@ -1495,12 +1535,13 @@ class GameManager:
         x = random.randint(1,4)
         y = random.randint(1,4)
         z = random.randint(1,4)
+
         suit = f"| {suit_dict[x]} | {suit_dict[y]} | {suit_dict[z]} |"
         lst=[x,y,z]
         lst0=list(set(lst))
         if len(lst0)==1:
-            self._player_data[group_id][user_id]["gold"] += gold *7
-            self._player_data[group_id][user_id]["make_gold"] += gold *7
+            user_data["gold"] += gold *7
+            user_data["make_gold"] += gold *7
             msg =(
                 f"你抽到的花色为：\n"+
                 suit+
@@ -1513,8 +1554,8 @@ class GameManager:
                 f"\n祝你好运~"
                 )
         else:
-            self._player_data[group_id][user_id]["gold"] -= gold
-            self._player_data[group_id][user_id]["lose_gold"] += gold
+            user_data["gold"] -= gold
+            user_data["lose_gold"] += gold
             msg =(
                 f"你抽到的花色为：\n"+
                 suit+
@@ -1524,42 +1565,41 @@ class GameManager:
         self.save()
         return msg
 
-    def gacha(self, event: GroupMessageEvent):
+    def gacha(self, event: MessageEvent):
         """
         十连
         :param event: event
         """
-        group_id = str(event.group_id)
-        user_id = str(event.user_id)
+        user_data = self.try_get_user_data(event)[0]
         
-        if self.get_user_data(event)["gold"] < gacha_gold:
-            return f'10连抽卡需要{gacha_gold}金币，你的金币：{self._player_data[group_id][user_id]["gold"]}。'
+        if user_data["gold"] < gacha_gold:
+            return f'10连抽卡需要{gacha_gold}金币，你的金币：{user_data["gold"]}。'
         else:
-            self._player_data[group_id][user_id]["gold"] -= gacha_gold
-            msg = '\n'
+            user_data["gold"] -= gacha_gold
+            msg = '你获得了道具\n'
             for _ in range(10):
                 props = random.randint(1,200)
                 if props in range(1,21):
-                    self._player_data[group_id][user_id]["props"].setdefault("四叶草标记",0)
-                    if self._player_data[group_id][user_id]["props"]["四叶草标记"] < 7:
-                        self._player_data[group_id][user_id]["props"]["四叶草标记"] += 1
+                    user_data["props"].setdefault("四叶草标记",0)
+                    if user_data["props"]["四叶草标记"] < 7:
+                        user_data["props"]["四叶草标记"] += 1
                     msg += "『四叶草标记』 ☆☆☆\n"
                 elif props in range(21,31):
-                    self._player_data[group_id][user_id]["props"].setdefault("钻石会员卡",0)
-                    if self._player_data[group_id][user_id]["props"]["钻石会员卡"] < 7:
-                        self._player_data[group_id][user_id]["props"]["钻石会员卡"] += 1
+                    user_data["props"].setdefault("钻石会员卡",0)
+                    if user_data["props"]["钻石会员卡"] < 7:
+                        user_data["props"]["钻石会员卡"] += 1
                     msg += "『钻石会员卡』 ☆☆☆☆\n"
                 elif props in range(31,41):
                     msg += "『高级空气』 ☆☆☆☆\n"
                 elif props in range(41,46):
-                    self._player_data[group_id][user_id]["props"].setdefault("20%结算补贴",0)
-                    if self._player_data[group_id][user_id]["props"]["20%结算补贴"] < 7:
-                        self._player_data[group_id][user_id]["props"]["20%结算补贴"] += 1
+                    user_data["props"].setdefault("20%结算补贴",0)
+                    if user_data["props"]["20%结算补贴"] < 7:
+                        user_data["props"]["20%结算补贴"] += 1
                     msg += "『20%结算补贴』 ☆☆☆☆☆\n"
                 elif props in range(46,51):
-                    self._player_data[group_id][user_id]["props"].setdefault("20%额外奖励",0)
-                    if self._player_data[group_id][user_id]["props"]["20%额外奖励"] < 7:
-                        self._player_data[group_id][user_id]["props"]["20%额外奖励"] += 1
+                    user_data["props"].setdefault("20%额外奖励",0)
+                    if user_data["props"]["20%额外奖励"] < 7:
+                        user_data["props"]["20%额外奖励"] += 1
                     msg += "『20%额外奖励』 ☆☆☆☆☆\n"
                 elif props in range(51,56):
                     msg += "『进口空气』 ☆☆☆☆☆\n"
@@ -1568,8 +1608,8 @@ class GameManager:
                 elif props in range(61,81):
                     msg += "『优质空气』 ☆☆☆\n"
                 elif props == 100:
-                    self._player_data[group_id][user_id]["props"].setdefault("钻石",0)
-                    self._player_data[group_id][user_id]["props"]["钻石"] += 1
+                    user_data["props"].setdefault("钻石",0)
+                    user_data["props"]["钻石"] += 1
                     msg += "『钻石』 ☆☆☆☆☆☆\n"
                 elif props == 200:
                     msg += "『纯净空气』 ☆☆☆☆☆☆\n"
@@ -1594,10 +1634,7 @@ class MarketManager:
         self.market_index = {}  # 市场指数
         file = russian_path / "data" / "russian" / "market_data.json"
         self.file = file
-        if not file.exists():
-            old_file = Path(os.path.dirname(__file__)) / "market_data.json"
-            if old_file.exists():
-                os.rename(old_file, file)
+
         if file.exists():
             with open(file, "r", encoding="utf8") as f:
                 self._market_data = json.load(f)
@@ -1605,10 +1642,7 @@ class MarketManager:
         self.Stock_Exchange = {}
         file = russian_path / "data" / "russian" / "Stock_Exchange.json"
         self.Stock_Exchange_file = file
-        if not file.exists():
-            old_file = Path(os.path.dirname(__file__)) / "Stock_Exchange.json"
-            if old_file.exists():
-                os.rename(old_file, file)
+
         if file.exists():
             with open(file, "r", encoding="utf8") as f:
                 self.Stock_Exchange = json.load(f)
@@ -1616,15 +1650,12 @@ class MarketManager:
         self.market_history = {}
         file = russian_path / "data" / "russian" / "market_history.json"
         self.market_history_file = file
-        if not file.exists():
-            old_file = Path(os.path.dirname(__file__)) / "market_history.json"
-            if old_file.exists():
-                os.rename(old_file, file)
+
         if file.exists():
             with open(file, "r", encoding="utf8") as f:
                 self.market_history = json.load(f)
 
-        self.info_temp = [[],100]
+        self.ohlc_temp = [[],10]
 
     def _init_market_data(self, event: GroupMessageEvent,company_name: str):
         """
@@ -2015,9 +2046,9 @@ class MarketManager:
                 msg = "市场不存在..."
         return msg
 
-    async def Market_info_pro(self, event:MessageEvent):
+    async def ohlc(self, event:MessageEvent):
         """
-        市场详细信息
+        折线图
         """
         p = subprocess.Popen(f"{python} {os.path.dirname(__file__)}/process/ohlc.py {russian_path}", shell=True)
         start = time.time()
@@ -2032,9 +2063,6 @@ class MarketManager:
                 return "没有市场历史数据..."
             else:
                 break
-
-        with open(cache / "ohlc.json", "r", encoding="utf8") as f:
-            ohlc = json.load(f)
 
         lst = []
         for x in self._market_data.keys():
@@ -2051,7 +2079,7 @@ class MarketManager:
                     "data": {
                         "name": f"{bot_name}",
                         "uin": str(event.self_id),
-                        "content": Message(self.company_info(x[0]))
+                        "content": MessageSegment.image(Path(linechart_cache / x[0]))
                         }
                     }
                 )
@@ -2061,23 +2089,13 @@ class MarketManager:
                     "data": {
                         "name": f"{bot_name}",
                         "uin": str(event.self_id),
-                        "content": MessageSegment.image(Path(ohlc[x[0]][0]))
-                        }
-                    }
-                )
-            msg.append(
-                {
-                    "type": "node",
-                    "data": {
-                        "name": f"{bot_name}",
-                        "uin": str(event.self_id),
-                        "content": MessageSegment.image(Path(ohlc[x[0]][1]))
+                        "content": MessageSegment.image(Path(candlestick_cache / x[0]))
                         }
                     }
                 )
         else:
-            self.info_temp[0] = msg
-            self.info_temp[1] = 0
+            self.ohlc_temp[0] = msg
+            self.ohlc_temp[1] = 0
         return msg
 
     def public(self, event: GroupMessageEvent,company_name: str):

@@ -12,5 +12,4 @@ class Config(BaseModel, extra=Extra.ignore):
     revolt_sign_gold:Tuple[int, int] = (800, 1200)
     security_gold:Tuple[int, int] = (50, 200)
 
-    market_info_chain = False
-    market_info_type = "image"
+    lucky_clover= "• ＬＵＣＫＹ  ＣＬＯＶＥＲ •"

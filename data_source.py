@@ -53,10 +53,6 @@ security_gold = russian_config.security_gold
 # bot昵称
 bot_name = list(global_config.nickname)[0] if global_config.nickname else "bot"
 
-# 市场信息显示方式
-market_info_chain = russian_config.market_info_chain
-market_info_type = russian_config.market_info_type
-
 # 赌注
 max_bet_gold = russian_config.max_bet_gold
 race_bet_gold = russian_config.race_bet_gold
@@ -67,6 +63,9 @@ russian_config = Config.parse_obj(nonebot.get_driver().config.dict())
 
 max_bet_gold = russian_config.max_bet_gold
 race_bet_gold = russian_config.race_bet_gold
+
+# 自定义标记
+lucky_clover = russian_config.lucky_clover
 
 # 定义永久道具
 constant_props = ("钻石","路灯挂件标记")
@@ -1434,21 +1433,30 @@ class GameManager:
         count = user_data["Achieve_revolution"] + user_data["props"].get("路灯挂件标记",0)
         if count > 0:
             if count <= 4:
-                rank += f"{count *'☆'} 路灯挂件 {count *'☆'}\n"
+                rank += f"{(4-count)*'  '}{count*'☆'}  路灯挂件  {count*'☆'}{(4-count)*'  '}\n"
             else: 
                 rank += f"☆☆☆☆☆路灯挂件☆☆☆☆☆\n"
+            rank += "——————————————\n"
         count = user_data["props"].get("四叶草标记",0)
         if count > 0:
-            rank += "𝐿 𝑈 𝐶 𝐾 𝑌 🍀 𝐶 𝐿 𝑂 𝑉 𝐸 𝑅\n"
+            rank += f"{lucky_clover}\n"
+            rank += "——————————————\n"
         count = user_data["gold"]
         if count > max_bet_gold:
-            rank += f"◆◇ 金库 Lv.{int(count/max_bet_gold)} ◆◇\n"
+            count = int(count/max_bet_gold)
+            count = str(count) if count < 1000 else "MAX"
+            level =f"Lv.{count}"
+            rank += f"◆◇ 金库 {level}{(6-len(level))*' '} ◆◇\n"
         count = user_data["Achieve_victory"]
         if count >1:
-            rank += f"◆◇ 连胜 Lv.{count-1} ◆◇\n"
+            count = str(count) if count < 1000 else "MAX"
+            level =f"Lv.{count}"
+            rank += f"◆◇ 连胜 {level}{(6-len(level))*' '} ◆◇\n"
         count = user_data["Achieve_lose"]
         if count >1:
-            rank += f"◆◇ 连败 Lv.{count-1} ◆◇\n"
+            count = str(count) if count < 1000 else "MAX"
+            level =f"Lv.{count}"
+            rank += f"◆◇ 连败 {level}{(6-len(level))*' '} ◆◇\n"
 
         return rank
 
@@ -1486,17 +1494,36 @@ class GameManager:
             for x in my_stock:
                 stock_info += f'【{x[0]}】\n持有：{stock[x[0]]} 株\n价值：{x[1]} 金币\n'
 
+        output_nickname = ""
+        flag = 0
+        end = 0
+        for x in nickname:
+            output_nickname += x
+            if ord(x) < 0x200:
+                flag += 1
+            else:
+                flag += 2
+            if flag > 22:
+                output_nickname += f'{(24-flag)*" "}】\n【'
+                flag = 0
+                end = 1
+        else:
+            if end == 1:
+                output_nickname += (24-flag)*" "
+            else:
+                pass
+
         info = (
-            f'【{nickname}】\n'
+            f'【{output_nickname}】\n'
             "——————————————\n"
             + ("" if self.Achieve_list(user_data) == "" else self.Achieve_list(user_data) + "——————————————\n") +
-            f'金币：{gold}\n'
+            f'金    币：{gold}\n'
             f'持有价值：{round(stock["value"],2)}\n'
             f'赚取金币：{make_gold}\n'
             f'输掉金币：{lose_gold}\n'
             "——————————————\n"
-            f'胜场:败场：{win_count}:{lose_count}\n'
-            f'胜率：{str((win_count/(win_count + lose_count) if win_count + lose_count > 0 else 0 ) * 100 )[:5]}%\n'
+            f'胜败场次：{win_count}∶{lose_count}\n'
+            f'胜    率：{str((win_count/(win_count + lose_count) if win_count + lose_count > 0 else 0 ) * 100 )[:5]}%\n'
             "——————————————\n"
             f'今日签到：{"已签到"if is_sign else "未签到"}\n'
             f'今日补贴：还剩 {3 - security} 次\n'
@@ -2077,8 +2104,16 @@ class MarketManager:
         """
         if company_name == "value":
             return f"公司名称不能是{company_name}"
-        if len(company_name)>12:
-            return f"公司名称不能超过12字符"
+        if "\n" in company_name:
+            return f"公司名称不能含有回车"
+        flag = 0
+        for x in company_name:
+            if ord(x) < 0x200:
+                flag += 1
+            else:
+                flag += 2
+        if flag > 24:
+            return f"公司名称不能超过24字符"
         gold = float(russian_manager.total_gold(str(event.group_id),1000))
         if gold < 20000:
             return f"金币总额达到20k才可注册。\n当前群内总金币为{gold}"
@@ -2260,11 +2295,14 @@ class MarketManager:
                 intro += x
                 if x == "\n":
                     flag = 0
-                elif flag >12:
+                elif flag > 24:
                     intro += "\n"
                     flag = 0
                 else:
-                    flag += 1
+                    if ord(x) < 0x200:
+                        flag += 1
+                    else:
+                        flag += 2
             else:
                 intro += "\n"
                 intro = re.sub('[\r\n]+', '\n', intro)

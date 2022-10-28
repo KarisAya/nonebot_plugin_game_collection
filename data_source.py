@@ -1174,20 +1174,20 @@ class GameManager:
             f"结算：\n"
             "——————————————\n"+
             self.Achieve_list(win_user)+
-            (f"『20%额外奖励』\n"if extra != 0 else "")+
-            f" 胜者：{win_name}\n"
-            f' 结算：{win_user["gold"]- gold + fee - extra} + {gold + extra - fee} = {win_user["gold"]}\n'
-            f' 胜场:败场：{win_user["win_count"]}:{win_user["lose_count"]}\n'
-            f' 胜率：{str(win_user["win_count"]/(win_user["win_count"] + win_user["lose_count"])*100)[:5]}%\n'
+            (f"◆『20%额外奖励』\n"if extra != 0 else "")+
+            f"◆胜者：{win_name}\n"
+            f'◆结算：{win_user["gold"]}（+{gold + extra - fee}）\n'
+            f'◆胜场∶败场：{win_user["win_count"]}∶{win_user["lose_count"]}\n'
+            f'◆胜率：{str(win_user["win_count"]/(win_user["win_count"] + win_user["lose_count"])*100)[:5]}%\n'
             "——————————————\n" +
             self.Achieve_list(lose_user)+
-            (f"『金币补贴』\n"if security != 0 else "")+
-            (f"『20%结算补贴』\n"if off != 0 else "")+
-            f" 败者：{lose_name}\n"
-            f' 结算：{lose_user["gold"] - security + gold - off} - {gold - off} = {lose_user["gold"] - security}\n'+
-            (f" 已领取补贴：{security}\n"if security != 0 else "")+
-            f' 胜场:败场：{lose_user["win_count"]}:{lose_user["lose_count"]}\n'
-            f' 胜率：{str(lose_user["win_count"]/(lose_user["win_count"] + lose_user["lose_count"])*100)[:5]}%\n'
+            (f"◇『金币补贴』\n"if security != 0 else "")+
+            (f"◇『20%结算补贴』\n"if off != 0 else "")+
+            f"◇败者：{lose_name}\n"
+            f'◇结算：{lose_user["gold"] - security}（-{gold - off}）\n'+
+            (f"◇已领取补贴：{security}\n"if security else "")+
+            f'◇胜场∶败场：{lose_user["win_count"]}∶{lose_user["lose_count"]}\n'
+            f'◇胜率：{str(lose_user["win_count"]/(lose_user["win_count"] + lose_user["lose_count"])*100)[:5]}%\n'
             "——————————————\n"+
             f"手续费：{fee} " + ("『钻石会员卡』"if rand == -1 else f"({float(rand)}%)")
             )

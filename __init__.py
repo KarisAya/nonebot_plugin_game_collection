@@ -692,7 +692,7 @@ my_gold = on_command("我的金币", priority=5, block=True)
 
 @my_gold.handle()
 async def _(event: MessageEvent):
-    user_data = russian_manager.try_get_user_data(event)
+    user_data = russian_manager.try_get_user_data(event)[0]
     if user_data:
         await my_gold.finish(f'你还有 {user_data["gold"]} 枚金币', at_sender=True)
     else:
@@ -862,15 +862,17 @@ async def _(bot:Bot, event: MessageEvent,arg: Message = CommandArg()):
     company_name = arg.extract_plain_text().strip()
     if company_name:
         company_name = company_name.split()
-        if len(company_name) == 1:
-            company_name = company_name[0]
-        else:
-            company_name == ""
+        company_name = company_name[0]
     else:
         company_name == ""
+
     msg = market_manager.Market_info(event,company_name)
+
     if type(msg) == list:
-        await bot.send_group_forward_msg(group_id=event.group_id, messages = msg)
+        if isinstance(event, GroupMessageEvent):
+            await bot.send_group_forward_msg(group_id = event.group_id, messages = msg)
+        else:
+            await bot.send_private_forward_msg(user_id = event.user_id, messages = msg)
         await Market_info.finish()
     else:
         await Market_info.finish(msg)

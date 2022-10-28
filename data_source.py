@@ -1439,7 +1439,7 @@ class GameManager:
                 rank += f"☆☆☆☆☆路灯挂件☆☆☆☆☆\n"
         count = user_data["props"].get("四叶草标记",0)
         if count > 0:
-            rank += "𝐿 𝒰 𝒞 𝒦 𝒴 ✤ 𝒞 𝐿 𝒪 𝒱 𝐸 𝑅\n"
+            rank += "𝐿 𝑈 𝐶 𝐾 𝑌 🍀 𝐶 𝐿 𝑂 𝑉 𝐸 𝑅\n"
         count = user_data["gold"]
         if count > max_bet_gold:
             rank += f"◆◇ 金库 Lv.{int(count/max_bet_gold)} ◆◇\n"
@@ -1974,7 +1974,7 @@ class MarketManager:
                 msg = (f'【{company_name}】\n'"——————————————\n") + msg
                 msg = msg[:-1]
                 output = text_to_png(msg)
-                msg = MessageSegment.image(output)
+                return MessageSegment.image(output)
             else:
                 return f"【{company_name}】市场为空"
         else:
@@ -1985,66 +1985,37 @@ class MarketManager:
             else:
                 lst.sort(key = lambda x:x[1],reverse = True)
 
-            msg_lst = []
             if lst:
+                msg = []
                 for x in lst:
                     price = (
                         self._market_data[x[0]]["gold"]
                         if self._market_data[x[0]]["gold"] > self._market_data[x[0]]["float_gold"]
                         else self._market_data[x[0]]["float_gold"]
                         )
-                    msg_lst.append(
-                        f'【{x[0]}】\n'
-                        "——————————————\n"
-                        f'固定资产：{round(self._market_data[x[0]]["gold"], 2)} 金币\n'
-                        f'市场流动：{int(x[1])} 金币\n'
-                        f'发行价格：{round(price/20000,2)} 金币\n'
-                        f'结算价格：{round(self._market_data[x[0]]["float_gold"] / 20000, 2)} 金币\n'
-                        f'剩余数量：{self._market_data[x[0]]["stock"]} 株\n'
-                        "——————————————"
+                    msg.append(
+                        {
+                            "type": "node",
+                            "data": {
+                                "name": f"{bot_name}",
+                                "uin": str(event.self_id),
+                                "content": (
+                                    f'【{x[0]}】\n'
+                                    "——————————————\n"
+                                    f'固定资产：{round(self._market_data[x[0]]["gold"], 2)} 金币\n'
+                                    f'市场流动：{int(x[1])} 金币\n'
+                                    f'发行价格：{round(price/20000,2)} 金币\n'
+                                    f'结算价格：{round(self._market_data[x[0]]["float_gold"] / 20000, 2)} 金币\n'
+                                    f'剩余数量：{self._market_data[x[0]]["stock"]} 株\n'
+                                    "——————————————"
+                                    )
+                                }
+                            }
                         )
                 else:
-                    if market_info_chain == False or isinstance(event, PrivateMessageEvent):
-                        msg = ""
-                        for x in msg_lst:
-                            msg += x + "\n"
-                        else:
-                            msg = msg[:-1]
-                            if market_info_type == "image":
-                                output = text_to_png(msg)
-                                msg = MessageSegment.image(output)
-                            else:
-                                pass
-                    else:
-                        msg = []
-                        if market_info_type == "image" :
-                            for x in msg_lst:
-                                output = text_to_png(x)
-                                msg.append(
-                                    {
-                                        "type": "node",
-                                        "data": {
-                                            "name": f"{bot_name}",
-                                            "uin": str(event.self_id),
-                                            "content": MessageSegment.image(output)
-                                            }
-                                        }
-                                    )
-                        else:
-                            for x in msg_lst:
-                                msg.append(
-                                    {
-                                        "type": "node",
-                                        "data": {
-                                            "name": f"{bot_name}",
-                                            "uin": str(event.self_id),
-                                            "content": x
-                                            }
-                                        }
-                                    )
+                    return msg
             else:
-                msg = "市场不存在..."
-        return msg
+                return "市场不存在..."
 
     async def ohlc(self, event:MessageEvent):
         """

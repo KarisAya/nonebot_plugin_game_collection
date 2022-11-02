@@ -18,6 +18,7 @@ from nonebot.params import CommandArg, Arg
 from nonebot.log import logger
 from nonebot.permission import SUPERUSER
 
+from pathlib import Path
 import math
 import time
 import asyncio
@@ -34,7 +35,8 @@ from .data_source import (
     max_bet_gold,
     race_bet_gold,
     russian_path,
-    cache
+    linechart_cache,
+    candlestick_cache
     )
 from .data_source import constant_props
 from .utils import company_info_Splicing
@@ -908,10 +910,9 @@ async def _(event: MessageEvent,arg: Message = CommandArg()):
         company_name = company_name[0]
         msg = market_manager.company_info(company_name)
         if msg:
-            if os.path.exists(cache / "ohlc.json"):
-                with open(cache / "ohlc.json", "r", encoding="utf8") as f:
-                    ohlc = json.load(f)
-                output = company_info_Splicing(msg ,ohlc[company_name])
+            ohlc = [Path(linechart_cache / company_name), Path(candlestick_cache / company_name)]
+            if os.path.exists(ohlc[0]) and os.path.exists(ohlc[1]):
+                output = company_info_Splicing(msg ,ohlc)
             else:
                 output = text_to_png(msg)
             await company_info.finish(MessageSegment.image(output))

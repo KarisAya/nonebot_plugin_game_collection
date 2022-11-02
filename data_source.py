@@ -1498,23 +1498,30 @@ class GameManager:
         flag = 0
         end = 0
         for x in nickname:
+            if flag == 0:
+                output_nickname += "\n【"
             output_nickname += x
+
             if ord(x) < 0x200:
                 flag += 1
             else:
                 flag += 2
+
             if flag > 22:
-                output_nickname += f'{(24-flag)*" "}】\n【'
+                output_nickname += f'{(24-flag)*" "}】'
                 flag = 0
                 end = 1
         else:
-            if end == 1:
-                output_nickname += (24-flag)*" "
+            output_nickname = output_nickname[1:]
+            if end == 1 and flag != 0:
+                output_nickname += (24-flag)*" " + "】"
+            elif end != 1:
+                output_nickname += "】"
             else:
                 pass
 
         info = (
-            f'【{output_nickname}】\n'
+            f'{output_nickname}\n'
             "——————————————\n"
             + ("" if self.Achieve_list(user_data) == "" else self.Achieve_list(user_data) + "——————————————\n") +
             f'金    币：{gold}\n'

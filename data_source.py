@@ -2179,10 +2179,10 @@ class MarketManager:
                     if tmp:
                         for group_member in tmp:
                             live_group_member_list.append(str(group_member["user_id"]))
-                        else:
-                            live_group_member_list.remove(str(event.self_id))
+
                         group_member_list = player[group_id].keys()
                         logoff_group_member = set(group_member_list) - set(live_group_member_list)
+                        logoff_group_member -= {str(event.self_id)}
 
                         for user_id in logoff_group_member:
                             info = f'账户：{group_id[0:4]}-{user_id[0:4]} 金币：{player[group_id][user_id]["gold"]}'

@@ -2137,6 +2137,76 @@ class MarketManager:
                 self.Stock_Exchange_save()
                 return f'{company_name}发行成功，发行价格为每股{round((self._market_data[company_name]["gold"]/20000),2)}金币'
 
+    async def logoff(self, bot:Bot, event:MessageEvent):
+        """
+        清理无效账户
+        """
+        tmp = await bot.get_group_list()
+        live_group_list = []
+        if not tmp:
+            return "群组获取失败"
+        else:
+            market = self._market_data
+            player = russian_manager._player_data
+
+            for group in tmp:
+                live_group_list.append(str(group["group_id"]))
+
+            group_list = set(player.keys())
+            logoff_group = set(group_list) - set(live_group_list)
+
+            msg = ""
+            for group_id in group_list:
+                if group_id in logoff_group:
+                    for user_id in player[group_id].keys():
+                        info = f'账户：{group_id[0:4]}-{user_id[0:4]} 金币：{player[group_id][user_id]["gold"]}'
+                        msg += info + "\n"
+                        logger.info(info)
+                        for stock in player[group_id][user_id]["stock"].keys():
+                            count = player[group_id][user_id]["stock"][stock]
+                            if stock != "value" and count != 0:
+                                market[stock]["stock"] += count
+                                player[group_id][user_id]["stock"][stock] = 0
+                                if user_id in self.Stock_Exchange[stock]:
+                                    del self.Stock_Exchange[stock][user_id]
+                                info = f'账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}'
+                                msg += info + "\n"
+                                logger.info(info)
+                    del player[group_id]
+                else:
+                    tmp = await bot.get_group_member_list(group_id = int(group_id), no_cache = True)
+                    live_group_member_list = []
+                    if tmp:
+                        for group_member in tmp:
+                            live_group_member_list.append(str(group_member["user_id"]))
+                        else:
+                            live_group_member_list.remove(str(event.self_id))
+                        group_member_list = player[group_id].keys()
+                        logoff_group_member = set(group_member_list) - set(live_group_member_list)
+
+                        for user_id in logoff_group_member:
+                            info = f'账户：{group_id[0:4]}-{user_id[0:4]} 金币：{player[group_id][user_id]["gold"]}'
+                            msg += info + "\n"
+                            logger.info(info)
+                            for stock in player[group_id][user_id]["stock"].keys():
+                                count = player[group_id][user_id]["stock"][stock]
+                                if stock != "value" and count != 0:
+                                    market[stock]["stock"] += count
+                                    player[group_id][user_id]["stock"][stock] = 0
+                                    if user_id in self.Stock_Exchange[stock]:
+                                        del self.Stock_Exchange[stock][user_id]
+                                    info += f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}"
+                                    msg += info + "\n"
+                                    logger.info(info)
+                            del player[group_id][user_id]
+            if msg:
+                russian_manager.save()
+                self.market_data_save()
+                self.Stock_Exchange_save()
+                return MessageSegment.image(text_to_png(msg[:-1]))
+            else:
+                return "没有待清理的账户"
+
     async def repurchase(self, bot:Bot):
         """
         回收股票
@@ -2166,8 +2236,9 @@ class MarketManager:
                                 player[group_id][user_id]["stock"][stock] = 0
                                 if user_id in self.Stock_Exchange[stock]:
                                     del self.Stock_Exchange[stock][user_id]
-                                msg += f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}\n"
-                                logger.info(f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}")
+                                info = f'账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}'
+                                msg += info + "\n"
+                                logger.info(info)
                 else:
                     tmp = await bot.get_group_member_list(group_id = int(group_id), no_cache = True)
                     live_group_member_list = []
@@ -2187,8 +2258,9 @@ class MarketManager:
                                     player[group_id][user_id]["stock"][stock] = 0
                                     if user_id in self.Stock_Exchange[stock]:
                                         del self.Stock_Exchange[stock][user_id]
-                                    msg += f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}\n"
-                                    logger.info(f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}")
+                                    info = f'账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}'
+                                    msg += info + "\n"
+                                    logger.info(info)
             if msg:
                 russian_manager.save()
                 self.market_data_save()
@@ -2378,7 +2450,7 @@ class MarketManager:
             + self.market_index.get(company_name,0) # 市场指数
             )
 
-        self._market_data[company_name]["gold"] += 0.05 * (company_gold - gold)
+        self._market_data[company_name]["gold"] += 0.002 * (company_gold - gold)
 
         # 更新float_gold
         float_gold = self._market_data[company_name]["float_gold"]
@@ -2424,6 +2496,12 @@ class MarketManager:
                 return f"您的账户没有足够的金币，你的金币：{my_gold}"
             if not user_id in russian_manager._player_data[company_id].keys():
                 return f"你在【{company_name}】未注册"
+
+            first = russian_manager.total_gold(company_id,1)
+            sum = russian_manager.total_gold(company_id,10)
+
+            if first > 8000 and first >= sum - first:
+                return f"【{company_name}】不稳定，不可转入。"
             
             flag = russian_manager._player_data[group_id][user_id]["props"].get("钻石会员卡",0)
             if flag > 0:

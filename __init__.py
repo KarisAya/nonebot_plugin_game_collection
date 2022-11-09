@@ -958,6 +958,15 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
         msg = market_manager.intergroup_transfer(event,company_name,gold)
         await intergroup_transfer.finish(msg, at_sender=True)
 
+# 清理无效账户
+logoff = on_command("清理无效账户", rule = to_me() , permission = SUPERUSER, priority=5, block = True)
+
+@logoff.handle()
+async def _(bot:Bot, event:MessageEvent):
+    await repurchase.send("正在启动清理程序。")
+    msg = await market_manager.logoff(bot,event)
+    await logoff.finish(msg)
+
 # 股票回收
 repurchase = on_command("股票回收",aliases={"回收股票"} ,rule = to_me() , permission = SUPERUSER, priority=5, block = True)
 
@@ -968,11 +977,10 @@ async def _(bot:Bot):
     await repurchase.finish(msg)
 
 # 公司退市
-delist = on_command("公司退市",aliases={"清理市场", "市场清理"} ,rule = to_me() , permission = SUPERUSER, priority=5, block = True)
+delist = on_command("公司退市", aliases={"清理市场", "市场清理"} ,rule = to_me() , permission = SUPERUSER, priority=5, block = True)
 
 @delist.handle()
 async def _(bot:Bot):
-    await delist.send("正在启动退市程序。")
     msg = await market_manager.delist(bot)
     await delist.finish(msg)
 

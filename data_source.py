@@ -18,10 +18,11 @@ import random
 import time
 import os
 import re
+import unicodedata
 import subprocess
 
 from .config import Config
-from .utils import text_to_png, ohlc_Splicing
+from .utils import text_to_png, img_Splicing, ohlc_Splicing, company_info_Splicing
 try:
     import ujson as json
 except ModuleNotFoundError:
@@ -1298,12 +1299,12 @@ class GameManager:
                 for _ in range(len(all_user) if len(all_user) < 10 else 10):
                     _max = max(all_user_data)
                     _max_id = all_user[all_user_data.index(_max)]
-                    player_data[group_id][_max_id]["gold"] = int(_max*0.2)
+                    player_data[group_id][_max_id]["gold"] = 0
                     for company_name in player_data[group_id][_max_id]["stock"].keys():
                         if company_name == "value":
                             continue
                         else:
-                            stock = int(player_data[group_id][_max_id]["stock"][company_name] * 0.8)
+                            stock = player_data[group_id][_max_id]["stock"][company_name]
                             player_data[group_id][_max_id]["stock"][company_name] -= stock
                             market_manager._market_data[company_name]["stock"] += stock
                     all_user_data.remove(_max)
@@ -1689,7 +1690,7 @@ class MarketManager:
             with open(file, "r", encoding="utf8") as f:
                 self.market_history = json.load(f)
 
-        self.ohlc_temp = [[],10]
+        self.ohlc_temp = [[],1]
 
     def _init_market_data(self, event: GroupMessageEvent,company_name: str):
         """
@@ -1984,7 +1985,12 @@ class MarketManager:
                 return True
         return False
 
-    def Market_info(self, event:MessageEvent, company_name:str):
+
+    global ohlc
+
+    ohlc = subprocess.Popen(f"{python} {os.path.dirname(__file__)}/process/ohlc.py {russian_path}", shell=True)
+
+    async def Market_info(self, event:MessageEvent, company_name:str):
         """
         市场信息
         :param company_name:公司名，为空则是总览。
@@ -2020,88 +2026,120 @@ class MarketManager:
                 lst.sort(key = lambda x:x[1],reverse = True)
 
             if lst:
-                msg = []
-                for x in lst:
-                    price = (
-                        self._market_data[x[0]]["gold"]
-                        if self._market_data[x[0]]["gold"] > self._market_data[x[0]]["float_gold"]
-                        else self._market_data[x[0]]["float_gold"]
-                        )
-                    msg.append(
-                        {
-                            "type": "node",
-                            "data": {
-                                "name": f"{bot_name}",
-                                "uin": str(event.self_id),
-                                "content": (
-                                    f'【{x[0]}】\n'
-                                    "——————————————\n"
-                                    f'固定资产：{round(self._market_data[x[0]]["gold"], 2)} 金币\n'
-                                    f'市场流动：{int(x[1])} 金币\n'
-                                    f'发行价格：{round(price/20000,2)} 金币\n'
-                                    f'结算价格：{round(self._market_data[x[0]]["float_gold"] / 20000, 2)} 金币\n'
-                                    f'剩余数量：{self._market_data[x[0]]["stock"]} 株\n'
-                                    "——————————————"
-                                    )
-                                }
-                            }
-                        )
+                msg =[]
+                global ohlc
+                returncode = ohlc.poll()
+                if company_name == "pro":
+                    if self.ohlc_temp[1] <= 6:
+                        if returncode == 0:
+                            flag = 0
+                        else:
+                            flag = 1
+                    else:
+                        flag = 1
+                        if returncode == 0:
+                            ohlc = subprocess.Popen(f"{python} {os.path.dirname(__file__)}/process/ohlc.py {russian_path}", shell=True)
+                            self.ohlc_temp[1] = 0
+                        else:
+                            pass
                 else:
-                    return msg
+                    flag = 1
+
+                if flag == 0:
+                    output = []
+                    i = 0
+                    for x in lst:
+                        price = (
+                            self._market_data[x[0]]["gold"]
+                            if self._market_data[x[0]]["gold"] > self._market_data[x[0]]["float_gold"]
+                            else self._market_data[x[0]]["float_gold"]
+                            )
+                        info = (
+                            f'【{x[0]}】\n'
+                            "——————————————\n"
+                            f'固定资产：{round(self._market_data[x[0]]["gold"], 2)} 金币\n'
+                            f'市场流动：{int(x[1])} 金币\n'
+                            f'发行价格：{round(price/20000,2)} 金币\n'
+                            f'结算价格：{round(self._market_data[x[0]]["float_gold"] / 20000, 2)} 金币\n'
+                            f'剩余数量：{self._market_data[x[0]]["stock"]} 株\n'
+                            )
+                        if i < 3:
+                            output.append(company_info_Splicing(info,[Path(linechart_cache / x[0]),Path(candlestick_cache / x[0])]))
+                            i += 1
+                        else:
+                            msg.append(
+                                {
+                                    "type": "node",
+                                    "data": {
+                                        "name": f"{bot_name}",
+                                        "uin": str(event.self_id),
+                                        "content": MessageSegment.image(img_Splicing(output))
+                                        }
+                                    }
+                                )
+                            output = []
+                            i = 0
+                    else:
+                        if i:
+                            msg.append(
+                                {
+                                    "type": "node",
+                                    "data": {
+                                        "name": f"{bot_name}",
+                                        "uin": str(event.self_id),
+                                        "content": MessageSegment.image(img_Splicing(output))
+                                        }
+                                    }
+                                )
+                else:
+                    output = ""
+                    i = 0
+                    for x in lst:
+                        price = (
+                            self._market_data[x[0]]["gold"]
+                            if self._market_data[x[0]]["gold"] > self._market_data[x[0]]["float_gold"]
+                            else self._market_data[x[0]]["float_gold"]
+                            )
+                        if i < 5:
+                            output += (
+                                f'【{x[0]}】\n'
+                                "——————————————\n"
+                                f'固定资产：{round(self._market_data[x[0]]["gold"], 2)} 金币\n'
+                                f'市场流动：{int(x[1])} 金币\n'
+                                f'发行价格：{round(price/20000,2)} 金币\n'
+                                f'结算价格：{round(self._market_data[x[0]]["float_gold"] / 20000, 2)} 金币\n'
+                                f'剩余数量：{self._market_data[x[0]]["stock"]} 株\n'
+                                "——————————————\n"
+                                )
+                            i += 1
+                        else:
+                            msg.append(
+                                {
+                                    "type": "node",
+                                    "data": {
+                                        "name": f"{bot_name}",
+                                        "uin": str(event.self_id),
+                                        "content": MessageSegment.image(text_to_png(output[:-1]))
+                                        }
+                                    }
+                                )
+                            output = ""
+                            i = 0
+                    else:
+                        if i:
+                            msg.append(
+                                {
+                                    "type": "node",
+                                    "data": {
+                                        "name": f"{bot_name}",
+                                        "uin": str(event.self_id),
+                                        "content": MessageSegment.image(text_to_png(output[:-1]))
+                                        }
+                                    }
+                                )
+                return msg
             else:
                 return "市场不存在..."
-
-    async def ohlc(self, event:MessageEvent):
-        """
-        折线图
-        """
-        p = subprocess.Popen(f"{python} {os.path.dirname(__file__)}/process/ohlc.py {russian_path}", shell=True)
-        start = time.time()
-        while True:
-            if time.time() - start >= 900:
-                p.kill()
-                return "等待时间过长。"
-            returncode = p.poll()
-            if returncode == None:
-                await asyncio.sleep(1)
-            elif returncode == 1:
-                return "没有市场历史数据..."
-            else:
-                break
-
-        lst = []
-        for x in self._market_data.keys():
-            if self._market_data[x].get("time") == None:
-                lst.append([x,self._market_data[x]["group_gold"]])
-        else:
-            lst.sort(key = lambda x:x[1],reverse = True)
-
-        msg = []
-        for x in lst:
-            msg.append(
-                {
-                    "type": "node",
-                    "data": {
-                        "name": f"{bot_name}",
-                        "uin": str(event.self_id),
-                        "content": MessageSegment.image(Path(linechart_cache / x[0]))
-                        }
-                    }
-                )
-            msg.append(
-                {
-                    "type": "node",
-                    "data": {
-                        "name": f"{bot_name}",
-                        "uin": str(event.self_id),
-                        "content": MessageSegment.image(Path(candlestick_cache / x[0]))
-                        }
-                    }
-                )
-        else:
-            self.ohlc_temp[0] = msg
-            self.ohlc_temp[1] = 0
-        return msg
 
     def public(self, event: GroupMessageEvent,company_name: str):
         """

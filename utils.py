@@ -43,6 +43,32 @@ def text_to_png(msg, spacing: int = 10):
     Text2Image.from_text(msg, 50, spacing = spacing, fontname = fname).to_image("white", (20,20)).save(output, format="png")
     return output
 
+def img_Splicing(image_list:list) -> io.BytesIO:
+    """
+    合成图片
+    """
+    lst = []
+    x = []
+    y = []
+    for img in image_list:
+        image = Image.open(img)
+        lst.append(image)
+        x.append(image.size[0])
+        y.append(image.size[1])
+
+    image = Image.new("RGB", (max(x), sum(y)))
+
+    i = 0
+    l = 0
+    while i < len(lst):
+        image.paste(lst[i], (0, l))
+        l += y[i]
+        i += 1
+
+    output = io.BytesIO()
+    image.save(output, format="png")
+    return output
+
 def ohlc_Splicing(ohlc) -> io.BytesIO:
     """
     合成市场走势图

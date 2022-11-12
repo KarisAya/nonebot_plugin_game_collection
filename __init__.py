@@ -767,8 +767,11 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
         msg = msg.split()
         if len(msg) == 1:
             msg = msg[0]
-            msg = market_manager.public(event,msg)
-            await Market_public.finish(msg)
+            if is_number(msg):
+                await Market_public.finish("错误：公司名称不可以是数字。")
+            else:
+                msg = market_manager.public(event,msg)
+                await Market_public.finish(msg)
         else:
             await Market_public.finish(f"错误：公司名称格式错误\n{str(msg)}")
     else:
@@ -857,47 +860,34 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
                     await Market_sell.finish()
 
 # 市场信息
-Market_info = on_command("市场信息",aliases={"查看市场"}, priority=5, block=True)
+Market_info = on_command("市场信息",aliases={"查看市场","市场行情","市场走势"}, priority=5, block=True)
 
 @Market_info.handle()
 async def _(bot:Bot, event: MessageEvent,arg: Message = CommandArg()):
-    company_name = arg.extract_plain_text().strip()
-    if company_name:
-        company_name = company_name.split()
-        company_name = company_name[0]
+    cmd = event.raw_message
+    if "市场行情" in cmd or "市场走势" in cmd:
+        company_name = "pro"
     else:
-        company_name == ""
+        company_name = arg.extract_plain_text().strip()
+        if company_name:
+            company_name = company_name.split()
+            company_name = company_name[0]
+        else:
+            company_name == ""
 
-    msg = market_manager.Market_info(event,company_name)
+    msg = await market_manager.Market_info(event,company_name)
 
     if type(msg) == list:
-        if isinstance(event, GroupMessageEvent):
-            await bot.send_group_forward_msg(group_id = event.group_id, messages = msg)
+        if len(msg) == 1:
+            await Market_info.finish(msg[0]["data"]["content"])
         else:
-            await bot.send_private_forward_msg(user_id = event.user_id, messages = msg)
+            if isinstance(event, GroupMessageEvent):
+                await bot.send_group_forward_msg(group_id = event.group_id, messages = msg)
+            else:
+                await bot.send_private_forward_msg(user_id = event.user_id, messages = msg)
         await Market_info.finish()
     else:
         await Market_info.finish(msg)
-
-# 市场走势
-Market_ohlc = on_command("市场行情",aliases={"市场走势"}, priority=5, block=True)
-
-@Market_ohlc.handle()
-async def _(bot:Bot, event: MessageEvent):
-    if market_manager.ohlc_temp[1] <= 6:
-        msg = market_manager.ohlc_temp[0]
-    else:
-        await Market_ohlc.send("正在生成走势图...")
-        msg = await market_manager.ohlc(event)
-
-    if type(msg) == list:
-        if isinstance(event, GroupMessageEvent):
-            await bot.send_group_forward_msg(group_id = event.group_id, messages = msg)
-        else:
-            await bot.send_private_forward_msg(user_id = event.user_id, messages = msg)
-        await Market_ohlc.finish()
-    else:
-        await Market_ohlc.finish(msg)
 
 # 公司信息
 company_info = on_command("公司信息",aliases={"公司资料"}, priority=5, block=True)

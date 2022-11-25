@@ -2030,18 +2030,12 @@ class MarketManager:
                 global ohlc
                 returncode = ohlc.poll()
                 if company_name == "pro":
-                    if self.ohlc_temp[1] <= 6:
-                        if returncode == 0:
-                            flag = 0
-                        else:
-                            flag = 1
-                    else:
-                        flag = 1
-                        if returncode == 0:
-                            ohlc = subprocess.Popen(f"{python} {os.path.dirname(__file__)}/process/ohlc.py {russian_path}", shell=True)
-                            self.ohlc_temp[1] = 0
-                        else:
-                            pass
+                    flag = 0
+                    if self.ohlc_temp[1] > 6 and returncode == 0:
+                        ohlc = subprocess.Popen(f"{python} {os.path.dirname(__file__)}/process/ohlc.py {russian_path}", shell=True)
+                        self.ohlc_temp[1] = 0
+                    while ohlc.poll() == None:
+                        await asyncio.sleep(1)
                 else:
                     flag = 1
 
@@ -2175,208 +2169,144 @@ class MarketManager:
                 self.Stock_Exchange_save()
                 return f'{company_name}发行成功，发行价格为每股{round((self._market_data[company_name]["gold"]/20000),2)}金币'
 
-    async def logoff(self, bot:Bot, event:MessageEvent):
+    async def delist(self, bot:Bot, event:MessageEvent):
         """
-        清理无效账户
+        清理市场
         """
         tmp = await bot.get_group_list()
-        live_group_list = []
         if not tmp:
             return "群组获取失败"
         else:
             market = self._market_data
             player = russian_manager._player_data
-
+            
+            # 存在的群
+            live_group_list = []
             for group in tmp:
                 live_group_list.append(str(group["group_id"]))
 
+            # 已建立公司的群
+            company_list = []
+            for group_id in market.keys():
+                if "time" in market[group_id]:
+                    company_list.append(group_id)
+
+            # 注册过的群
             group_list = set(player.keys())
-            logoff_group = set(group_list) - set(live_group_list)
+
+            # 已注册但不存在的群
+            delist_group = set(group_list) - set(live_group_list)
 
             msg = ""
-            for group_id in group_list:
-                if group_id in logoff_group:
+
+            # 公司破产结算
+            delist_list = []
+            for group_id in company_list:
+                if group_id in delist_group or russian_manager.total_gold(group_id,1000) < 10000:
+                    company_name = market[group_id]["company_name"]
+                    delist_list.append((group_id,company_name))
+
+                    info = f'开始清算【{company_name}】'
+                    msg += info + "\n"
+                    logger.info(info)
                     for user_id in player[group_id].keys():
-                        info = f'账户：{group_id[0:4]}-{user_id[0:4]} 金币：{player[group_id][user_id]["gold"]}'
-                        msg += info + "\n"
-                        logger.info(info)
-                        for stock in player[group_id][user_id]["stock"].keys():
-                            count = player[group_id][user_id]["stock"][stock]
-                            if stock != "value" and count != 0:
+                        for stock,count in player[group_id][user_id]["stock"].items():
+                            if stock != "value":
                                 market[stock]["stock"] += count
                                 player[group_id][user_id]["stock"][stock] = 0
                                 if user_id in self.Stock_Exchange[stock]:
                                     del self.Stock_Exchange[stock][user_id]
+
+                                info = f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}"
+                                msg += info + "\n"
+                                logger.info(info)
+                    else:
+                        info = "清算完成"
+                        msg += info + "\n"
+                        logger.info(info)
+
+            # 删除公司
+            for company,company_name in delist_list:
+                info = f'删除公司【{company_name}】'
+                msg += info + "\n"
+                logger.info(info)
+                for group_id in group_list:
+                    for user_id in set(player[group_id].keys()):
+                        if company_name in player[group_id][user_id]["stock"].keys():
+                            del player[group_id][user_id]["stock"][company_name]
+                del market[company]
+                del market[company_name]
+                del self.Stock_Exchange[company_name]
+                try:
+                    del self.market_history[company_name]
+                except:
+                    pass
+
+            # 清理无效账户
+            for group_id in group_list:
+                if group_id in delist_group:
+                    for user_id in player[group_id].keys():
+                        info = f'账户：{group_id[0:4]}-{user_id[0:4]} 金币：{player[group_id][user_id]["gold"]}'
+                        msg += info + "\n"
+                        logger.info(info)
+                        for stock, count in player[group_id][user_id]["stock"].items():
+                            if stock == "value":
+                                pass
+                            else:
+                                market[stock]["stock"] += count
+                                player[group_id][user_id]["stock"][stock] = 0
+                                if user_id in self.Stock_Exchange[stock]:
+                                    del self.Stock_Exchange[stock][user_id]
+
                                 info = f'账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}'
                                 msg += info + "\n"
                                 logger.info(info)
                     del player[group_id]
                 else:
                     tmp = await bot.get_group_member_list(group_id = int(group_id), no_cache = True)
-                    live_group_member_list = []
                     if tmp:
+                        live_group_member_list = []
+                        repurchase_member_list = []
                         for group_member in tmp:
-                            live_group_member_list.append(str(group_member["user_id"]))
-
-                        group_member_list = player[group_id].keys()
-                        logoff_group_member = set(group_member_list) - set(live_group_member_list)
+                            user_id = str(group_member["user_id"])
+                            live_group_member_list.append(user_id)
+                            if group_member["last_sent_time"] > time.time() - 604800:
+                                repurchase_member_list.append(user_id)
+                        # 注册过的账户
+                        group_member_list = set(player[group_id].keys())
+                        # 股票回收账户
+                        repurchase_member_list = group_member_list & set(repurchase_member_list)
+                        repurchase_member_list -= {str(event.self_id)}
+                        # 已注册但不存在的账户
+                        logoff_group_member = group_member_list - set(live_group_member_list)
                         logoff_group_member -= {str(event.self_id)}
-
-                        for user_id in logoff_group_member:
-                            info = f'账户：{group_id[0:4]}-{user_id[0:4]} 金币：{player[group_id][user_id]["gold"]}'
-                            msg += info + "\n"
-                            logger.info(info)
-                            for stock in player[group_id][user_id]["stock"].keys():
-                                count = player[group_id][user_id]["stock"][stock]
-                                if stock != "value" and count != 0:
+                        # 回收股票
+                        for user_id in repurchase_member_list|logoff_group_member:
+                            for stock, count in player[group_id][user_id]["stock"].items():
+                                if stock != "value":
                                     market[stock]["stock"] += count
                                     player[group_id][user_id]["stock"][stock] = 0
                                     if user_id in self.Stock_Exchange[stock]:
                                         del self.Stock_Exchange[stock][user_id]
-                                    info += f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}"
+                                    info = f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}"
                                     msg += info + "\n"
                                     logger.info(info)
+                        # 删除账户
+                        for user_id in logoff_group_member:
+                            info = f'账户：{group_id[0:4]}-{user_id[0:4]} 金币：{player[group_id][user_id]["gold"]}'
+                            msg += info + "\n"
+                            logger.info(info)
                             del player[group_id][user_id]
             if msg:
                 russian_manager.save()
                 self.market_data_save()
                 self.Stock_Exchange_save()
-                return MessageSegment.image(text_to_png(msg[:-1]))
+                self.market_history_save()
+                with open(Path(russian_path/"清理账户列表.txt"),"w") as f:
+                    f.write(msg)
+                return "清理完成"
             else:
                 return "没有待清理的账户"
-
-    async def repurchase(self, bot:Bot):
-        """
-        回收股票
-        """
-        tmp = await bot.get_group_list()
-        live_group_list = []
-        if not tmp:
-            return "群组获取失败"
-        else:
-            market = self._market_data
-            player = russian_manager._player_data
-
-            for group in tmp:
-                live_group_list.append(str(group["group_id"]))
-
-            group_list = player.keys()
-            repurchase_group = set(group_list) - set(live_group_list)
-
-            msg = ""
-            for group_id in group_list:
-                if group_id in repurchase_group:
-                    for user_id in player[group_id].keys():
-                        for stock in player[group_id][user_id]["stock"].keys():
-                            count = player[group_id][user_id]["stock"][stock]
-                            if stock != "value" and count != 0:
-                                market[stock]["stock"] += count
-                                player[group_id][user_id]["stock"][stock] = 0
-                                if user_id in self.Stock_Exchange[stock]:
-                                    del self.Stock_Exchange[stock][user_id]
-                                info = f'账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}'
-                                msg += info + "\n"
-                                logger.info(info)
-                else:
-                    tmp = await bot.get_group_member_list(group_id = int(group_id), no_cache = True)
-                    live_group_member_list = []
-                    if tmp:
-                        for group_member in tmp:
-                            if group_member["last_sent_time"] > time.time() - 604800:
-                                live_group_member_list.append(str(group_member["user_id"]))
-
-                        group_member_list = player[group_id].keys()
-                        repurchase_group_member = set(group_member_list) - set(live_group_member_list)
-
-                        for user_id in repurchase_group_member:
-                            for stock in player[group_id][user_id]["stock"].keys():
-                                count = player[group_id][user_id]["stock"][stock]
-                                if stock != "value" and count != 0:
-                                    market[stock]["stock"] += count
-                                    player[group_id][user_id]["stock"][stock] = 0
-                                    if user_id in self.Stock_Exchange[stock]:
-                                        del self.Stock_Exchange[stock][user_id]
-                                    info = f'账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}'
-                                    msg += info + "\n"
-                                    logger.info(info)
-            if msg:
-                russian_manager.save()
-                self.market_data_save()
-                self.Stock_Exchange_save()
-                return MessageSegment.image(text_to_png(msg[:-1]))
-            else:
-                return "没有待回收的股票"
-
-    async def delist(self, bot:Bot):
-        """
-        公司退市
-        """
-        tmp = await bot.get_group_list()
-        live_group_list = []
-        if not tmp:
-            return "群组获取失败"
-        else:
-            market = self._market_data
-            player = russian_manager._player_data
-
-            for group in tmp:
-                live_group_list.append(str(group["group_id"]))
-
-            company_list = []
-            for group_id in market.keys():
-                if "time" in market[group_id]:
-                    company_list.append(group_id)
-
-            delist_company = set(company_list) - set(live_group_list)
-
-            if not delist_company:
-                msg = "没有待退市的公司"
-            else:
-                delist_list = []
-                for group_id in delist_company:
-                    company_name = market[group_id]["company_name"]
-                    delist_list.append((group_id,company_name))
-                    logger.info(f'开始清算【{company_name}】')
-                    for user_id in player[group_id].keys():
-                        for stock in player[group_id][user_id]["stock"].keys():
-                            count = player[group_id][user_id]["stock"][stock]
-                            if stock != "value" and count != 0:
-                                market[stock]["stock"] += count
-                                player[group_id][user_id]["stock"][stock] = 0
-                                if user_id in self.Stock_Exchange[stock]:
-                                    del self.Stock_Exchange[stock][user_id]
-                                logger.info(f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{stock} 数量：{count}")
-                    else:
-                        logger.info(f'清算完成。')
-                else:
-                    msg = ""
-                    for company,company_name in delist_list:
-                        msg += f'删除公司【{company_name}】\n'
-                        logger.info(f'删除公司【{company_name}】')
-                        del market[company]
-                        del market[company_name]
-                        del self.Stock_Exchange[company_name]
-                        del self.market_history[company_name]
-                    else:
-                        msg = msg[:-1]
-
-            logger.info("清理散户")
-            company_list = set(self.Stock_Exchange.keys())
-            for group_id in player.keys():
-                for user_id in player[group_id].keys():
-                    delist_list = set(player[group_id][user_id]["stock"].keys()) - company_list - {"value"}
-                    for company_name in delist_list:
-                        count = player[group_id][user_id]["stock"][company_name]
-                        del player[group_id][user_id]["stock"][company_name]
-                        logger.info(f"账户：{group_id[0:4]}-{user_id[0:4]} 名称：{company_name} 数量：{count}")
-
-            logger.info("退市程序已完成。")
-            russian_manager.save()
-            self.market_data_save()
-            self.Stock_Exchange_save()
-            self.market_history_save()
-
-            return msg
 
     def company_info(self,company_name:str):
         """

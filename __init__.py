@@ -866,6 +866,7 @@ Market_info = on_command("市场信息",aliases={"查看市场","市场行情","
 async def _(bot:Bot, event: MessageEvent,arg: Message = CommandArg()):
     cmd = event.raw_message
     if "市场行情" in cmd or "市场走势" in cmd:
+        await Market_info.send("正在生成走势图。")
         company_name = "pro"
     else:
         company_name = arg.extract_plain_text().strip()
@@ -949,29 +950,12 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
         await intergroup_transfer.finish(msg, at_sender=True)
 
 # 清理无效账户
-logoff = on_command("清理无效账户", rule = to_me() , permission = SUPERUSER, priority=5, block = True)
-
-@logoff.handle()
-async def _(bot:Bot, event:MessageEvent):
-    await repurchase.send("正在启动清理程序。")
-    msg = await market_manager.logoff(bot,event)
-    await logoff.finish(msg)
-
-# 股票回收
-repurchase = on_command("股票回收",aliases={"回收股票"} ,rule = to_me() , permission = SUPERUSER, priority=5, block = True)
-
-@repurchase.handle()
-async def _(bot:Bot):
-    await repurchase.send("正在启动回收程序。")
-    msg = await market_manager.repurchase(bot)
-    await repurchase.finish(msg)
-
-# 公司退市
-delist = on_command("公司退市", aliases={"清理市场", "市场清理"} ,rule = to_me() , permission = SUPERUSER, priority=5, block = True)
+delist = on_command("清理无效账户", rule = to_me() , permission = SUPERUSER, priority=5, block = True)
 
 @delist.handle()
-async def _(bot:Bot):
-    msg = await market_manager.delist(bot)
+async def _(bot:Bot, event:MessageEvent):
+    await delist.send("正在启动清理程序。")
+    msg = await market_manager.delist(bot,event)
     await delist.finish(msg)
 
 # 刷新每日签到和每日补贴

@@ -2270,7 +2270,7 @@ class MarketManager:
                         for group_member in tmp:
                             user_id = str(group_member["user_id"])
                             live_group_member_list.append(user_id)
-                            if group_member["last_sent_time"] > time.time() - 604800:
+                            if group_member["last_sent_time"] < time.time() - 604800:
                                 repurchase_member_list.append(user_id)
                         # 注册过的账户
                         group_member_list = set(player[group_id].keys())

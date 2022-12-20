@@ -23,6 +23,7 @@ import subprocess
 
 from .config import Config
 from .utils import text_to_png, img_Splicing, ohlc_Splicing, company_info_Splicing
+
 try:
     import ujson as json
 except ModuleNotFoundError:
@@ -59,17 +60,31 @@ max_bet_gold = russian_config.max_bet_gold
 race_bet_gold = russian_config.race_bet_gold
 gacha_gold = russian_config.gacha_gold
 
-# 赌注读取2
-russian_config = Config.parse_obj(nonebot.get_driver().config.dict())
-
-max_bet_gold = russian_config.max_bet_gold
-race_bet_gold = russian_config.race_bet_gold
-
 # 自定义标记
 lucky_clover = russian_config.lucky_clover
 
 # 定义永久道具
 constant_props = ("钻石","路灯挂件标记")
+
+with open(os.path.dirname(__file__) + "/props_library.json", "r", encoding="utf8") as f:
+    props_library = json.load(f)
+
+def set_type(old:str, line:int) -> str:
+    new = ""
+    flag = 0
+    for x in old:
+        new += x
+        if x == "\n":
+            flag = 0
+        elif flag > line:
+            new += "\n"
+            flag = 0
+        else:
+            if ord(x) < 0x200:
+                flag += 1
+            else:
+                flag += 2
+    return new
 
 async def rank(player_data: dict, group_id: int, type_: str) -> str:
     """
@@ -1460,6 +1475,33 @@ class GameManager:
             rank += f"◆◇ 连败 {level}{(6-len(level))*' '} ◆◇\n"
 
         return rank
+
+    def my_props(self, event: MessageEvent):
+        user_data, group_id, user_id = self.try_get_user_data(event)
+        if user_data == None:
+            return 0
+        props = user_data["props"]
+        props_info = "[font=simsun.ttc]"
+        for x in props.keys():
+            if props[x] != 0:
+                if x in constant_props:
+                    quant =  "个"
+                else:
+                    quant =  "天"
+            prop = props_library.get(x,{"color": "black","rare": 1,"intro": "未知","des": "未知"})
+            props_info += (
+                f"[size=60][align=left][color={prop['color']}]【{x}】{prop['rare']*'☆'}[/align][align=right]{props[x]}{quant}[/color][/align][/size]\n" +
+                f"[size=60][align=left][color=gray]——————————————[/color][/align][/size]\n" +
+                f"[size=40][align=left][color=gray]{set_type(prop['intro'],38)}[/color][/align][/size]" +
+                f"[size=40][align=right][color=gray]{set_type(prop['des'],38)}[/color][/align][/size]" +
+                f"[size=60][align=left][color=gray]——————————————[/color][/align][/size]\n"
+                )
+        else:
+            props_info += "[/font]"
+        if props_info == "[font=simsun.ttc][/font]":
+            return 1
+        else:
+            return props_info
 
     def my_info(self, event: MessageEvent) -> str:
         """

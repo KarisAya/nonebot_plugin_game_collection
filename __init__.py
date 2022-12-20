@@ -26,6 +26,7 @@ import random
 
 import shutil
 import os
+import io
 
 from .utils import is_number, get_message_at, text_to_png
 from .data_source import (
@@ -38,12 +39,13 @@ from .data_source import (
     linechart_cache,
     candlestick_cache
     )
-from .data_source import constant_props
 from .utils import company_info_Splicing
 
 from .start import *
 from .race_group import race_group
 from .setting import  *
+
+from nonebot_plugin_imageutils import text2image
 
 scheduler = require("nonebot_plugin_apscheduler").scheduler
 
@@ -671,24 +673,20 @@ async def _(bot: Bot, event: MessageEvent,arg: Message = CommandArg()):
     await gacha.finish(msg, at_sender=True)
 
 # 我的
-my_props = on_command("我的道具", aliases={"我的仓库"}, permission=GROUP, priority=5, block=True)
+my_props = on_command("我的道具", aliases={"我的仓库"}, priority=5, block=True)
 
 @my_props.handle()
-async def _(event: GroupMessageEvent):
-    user = russian_manager.get_user_data(event)
-    props = user["props"]
-    props_info = '\n'
-    for x in props.keys():
-        if props[x] != 0:
-            if x in constant_props:
-                props_info += f'『{x}』 {props[x]}个\n'
-            else:
-                props_info += f'『{x}』 {props[x]}天\n'
-
-    props_info = props_info[:-1]
-    if not props_info:
-        props_info = "你的仓库空空如也..."
-    await my_props.finish(props_info,at_sender=True)
+async def _(event: MessageEvent):
+    msg = russian_manager.my_props(event)
+    if msg == 0:
+        msg = "私聊未关联账户，请先关联群内账户。"
+    elif msg == 1:
+        msg = "您的仓库空空如也。"
+    else:
+        output = io.BytesIO()
+        text2image(msg).save(output, format="png")
+        msg = MessageSegment.image(output)
+    await my_props.finish(msg)
 
 my_gold = on_command("我的金币", priority=5, block=True)
 

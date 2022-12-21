@@ -1488,14 +1488,14 @@ class GameManager:
                     quant =  "个"
                 else:
                     quant =  "天"
-            prop = props_library.get(x,{"color": "black","rare": 1,"intro": "未知","des": "未知"})
-            props_info += (
-                f"[size=60][align=left][color={prop['color']}]【{x}】{prop['rare']*'☆'}[/align][align=right]{props[x]}{quant}[/color][/align][/size]\n" +
-                f"[size=60][align=left][color=gray]——————————————[/color][/align][/size]\n" +
-                f"[size=40][align=left][color=gray]{set_type(prop['intro'],38)}[/color][/align][/size]" +
-                f"[size=40][align=right][color=gray]{set_type(prop['des'],38)}[/color][/align][/size]" +
-                f"[size=60][align=left][color=gray]——————————————[/color][/align][/size]\n"
-                )
+                prop = props_library.get(x,{"color": "black","rare": 1,"intro": "未知","des": "未知"})
+                props_info += (
+                    f"[size=60][align=left][color={prop['color']}]【{x}】{prop['rare']*'☆'}[/align][align=right]{props[x]}{quant}[/color][/align][/size]\n" +
+                    f"[size=60][align=left][color=gray]——————————————[/color][/align][/size]\n" +
+                    f"[size=40][align=left][color=gray]{set_type(prop['intro'],38)}[/color][/align][/size]" +
+                    f"[size=40][align=right][color=gray]{set_type(prop['des'],38)}[/color][/align][/size]" +
+                    f"[size=60][align=left][color=gray]——————————————[/color][/align][/size]\n"
+                    )
         else:
             props_info += "[/font]"
         if props_info == "[font=simsun.ttc][/font]":

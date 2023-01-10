@@ -970,7 +970,8 @@ survey = on_command("资产调查", permission=SUPERUSER | GROUP_ADMIN | GROUP_O
 async def _(bot:Bot, event:MessageEvent):
     at = get_message_at(event.json())
     if at:
-        msg = await market_manager.survey(bot,event)
+        await russian_manager._init_at_player_data(bot,event,at[0])
+        msg = await market_manager.survey(bot,event,str(at[0]))
         await survey.send(msg)
     else:
         msg = await market_manager.survey(bot,event,None)

@@ -11,6 +11,9 @@ from typing import Optional, Tuple, Union, List, Dict
 from datetime import datetime
 from nonebot.log import logger
 from pathlib import Path
+from collections import Counter
+
+
 
 import nonebot
 import asyncio
@@ -22,7 +25,7 @@ import unicodedata
 import subprocess
 
 from .config import Config
-from .utils import text_to_png, img_Splicing, ohlc_Splicing, company_info_Splicing
+from .utils import text_to_png, img_Splicing, ohlc_Splicing, company_info_Splicing, survey_result
 
 try:
     import ujson as json
@@ -1310,7 +1313,7 @@ class GameManager:
         first_name = player_data[group_id][first_id]["nickname"]
         if all_user:
             sum = self.total_gold(group_id,10)
-            if first > 8000 and first >= sum - first:
+            if first > (5 * max_bet_gold) and first >= sum - first:
                 for _ in range(len(all_user) if len(all_user) < 10 else 10):
                     _max = max(all_user_data)
                     _max_id = all_user[all_user_data.index(_max)]
@@ -1331,7 +1334,7 @@ class GameManager:
                 market_manager.market_data_save()
                 return f"重置成功\n恭喜{first_name}进入路灯挂件榜~☆！"
             else:
-                return f"{first_name}的金币需要达到{round(8000 if sum - first < 8000 else sum - first, 2)}才可以发起重置。"
+                return f"{first_name}的金币需要达到{round((5 * max_bet_gold) if sum - first < (5 * max_bet_gold) else sum - first, 2)}才可以发起重置。"
         else:
             return None
 
@@ -1928,6 +1931,8 @@ class MarketManager:
         company = self._market_data.get(company_name)
         if company == None:
             return f"公司名：{company_name} 未注册"
+        elif company["gold"] <= (5 * max_bet_gold) or company["float_gold"] <= 0:
+            return f"【{company_name}】 被冻结，无法买入。"
         else:
             stock = stock if stock < company["stock"] else company["stock"]
             if stock > 0:
@@ -2244,7 +2249,7 @@ class MarketManager:
             # 公司破产结算
             delist_list = []
             for group_id in company_list:
-                if group_id in delist_group or russian_manager.total_gold(group_id,1000) < 10000:
+                if group_id in delist_group or russian_manager.total_gold(group_id,1000) < (5 * max_bet_gold):
                     company_name = market[group_id]["company_name"]
                     delist_list.append((group_id,company_name))
 
@@ -2350,6 +2355,81 @@ class MarketManager:
             else:
                 return "没有待清理的账户"
 
+    async def survey(self, bot:Bot, event:MessageEvent, at:str = None):
+        """
+        资产调查
+        """
+        survey_dict = {}
+        data = russian_manager._player_data
+        for group_id in data.keys():
+            for user_id in data[group_id].keys():
+                player = data[group_id][user_id]
+                survey_dict.setdefault(user_id,{"gold":0,"stock":Counter(),"all":0,"DIST":[]})
+                survey_dict[user_id]["gold"] += player["gold"]
+                survey_dict[user_id]["stock"] += Counter(player["stock"])
+                sum = (player["gold"] + player["stock"]["value"])
+                survey_dict[user_id]["all"] += sum
+                survey_dict[user_id]["DIST"].append([group_id,sum])
+
+        data = sorted(survey_dict.items(),key=lambda x:x[1]["all"],reverse=True)
+        
+        if at:
+            user_id = at
+            result = survey_dict[user_id]
+            result["rank"] = data.index((user_id,survey_dict[user_id]))
+            try:
+                tmp = await bot.get_stranger_info(user_id = int(user_id))
+                nickname = tmp["nickname"]
+            except:
+                nickname = data[i][0]
+            result["user_id"] = user_id
+            result["nickname"] = nickname
+            n = 1
+            for seg in result["DIST"]:
+                if seg[0] in self._market_data.keys():
+                    seg[0] = self._market_data[seg[0]]["company_name"]
+                else:
+                    seg[0] = f"未注册{n}（{seg[0][-4:]}）"
+                    n += 1
+            return MessageSegment.image(await survey_result(result))
+        else:
+            msg = []
+            for i in range(10):
+                user_id = data[i][0]
+                result = survey_dict[user_id]
+                result["rank"] = i+1
+                try:
+                    tmp = await bot.get_stranger_info(user_id = int(user_id))
+                    nickname = tmp["nickname"]
+                except:
+                    nickname = data[i][0]
+
+                result["user_id"] = user_id
+                result["nickname"] = nickname
+            
+
+                n = 1
+                for seg in result["DIST"]:
+                    if seg[0] in self._market_data.keys():
+                        seg[0] = self._market_data[seg[0]]["company_name"]
+                    else:
+                        seg[0] = f"未注册{n}（{seg[0][-4:]}）"
+                        n += 1
+
+                msg.append(
+                    {
+                        "type": "node",
+                        "data": {
+                            "name": f"{bot_name}",
+                            "uin": str(event.self_id),
+                            "content": MessageSegment.image(await survey_result(result))
+                            }
+                        }
+                    )
+            return msg
+
+    def freeze(self, bot:Bot, event:MessageEvent):
+        pass
     def company_info(self,company_name:str):
         """
         公司信息
@@ -2510,23 +2590,24 @@ class MarketManager:
             first = russian_manager.total_gold(company_id,1)
             sum = russian_manager.total_gold(company_id,10)
 
-            if first > 8000 and first >= sum - first:
+            if first > (5 * max_bet_gold) and first >= sum - first:
                 return f"【{company_name}】不稳定，不可转入。"
-            
-            flag = russian_manager._player_data[group_id][user_id]["props"].get("钻石会员卡",0)
-            if flag > 0:
-                fee = 0
-            else:
-                fee = int(gold * 0.01)
+            if gold > first:
+                return f"【{company_name}】最多可转入 {first} 金币"
 
+            if gold <= (5 * max_bet_gold):
+                flag = russian_manager._player_data[group_id][user_id]["props"].get("钻石会员卡",0)
+                if flag > 0:
+                    fee = 0
+                else:
+                    fee = int(gold * 0.01)
+            else:
+                fee = int(gold * 0.2)
             russian_manager._player_data[company_id][user_id]["gold"] += gold - fee
             russian_manager._player_data[group_id][user_id]["gold"] -= gold
             russian_manager.save()
             
-            return (
-                f"向 【{company_name}】 转移 {gold}金币\n"+
-                ("『钻石会员卡』免手续费" if flag > 0 else f"扣除1％手续费：{fee}，实际到账金额{gold - fee}")
-                )
+            return f"向 【{company_name}】 转移 {gold}金币，扣除手续费：{fee}，实际到账金额{gold - fee}"
         else:
             return f"【{company_name}】未注册"
 

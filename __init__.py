@@ -956,6 +956,37 @@ async def _(bot:Bot, event:MessageEvent):
     msg = await market_manager.delist(bot,event)
     await delist.finish(msg)
 
+# 我的资产
+self_survey = on_command("我的资产", priority=5, block = True)
+@self_survey.handle()
+async def _(bot:Bot, event:MessageEvent):
+    msg = await market_manager.survey(bot,event,str(event.user_id))
+    await survey.send(msg)
+
+# 资产调查
+survey = on_command("资产调查", permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER, priority=5, block = True)
+
+@survey.handle()
+async def _(bot:Bot, event:MessageEvent):
+    at = get_message_at(event.json())
+    if at:
+        msg = await market_manager.survey(bot,event)
+        await survey.send(msg)
+    else:
+        msg = await market_manager.survey(bot,event,None)
+        if isinstance(event, GroupMessageEvent):
+            await bot.send_group_forward_msg(group_id = event.group_id, messages = msg)
+        else:
+            await bot.send_private_forward_msg(user_id = event.user_id, messages = msg)
+
+# 冻结个人资产
+freeze = on_command("冻结个人资产", rule = to_me() , permission = SUPERUSER, priority=5, block = True)
+
+@survey.handle()
+async def _(bot:Bot, event:MessageEvent):
+    msg = market_manager.freeze(bot,event)
+    await freeze.finish(msg)
+
 # 刷新每日签到和每日补贴
 reset_sign = on_command("reset_sign", permission=SUPERUSER, priority=5, block=True) # 重置每日签到和每日补贴
 

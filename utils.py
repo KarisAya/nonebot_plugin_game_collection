@@ -1,6 +1,7 @@
 from nonebot_plugin_imageutils import BuildImage,Text2Image
 import os
 import io
+
 try:
     import ujson as json
 except ModuleNotFoundError:
@@ -8,7 +9,17 @@ except ModuleNotFoundError:
 
 from PIL import Image
 
+import matplotlib.pyplot as plt
+import numpy as np
+
+from matplotlib.font_manager import FontProperties
+import seaborn as sns
+
+from .avatar import download_user_img
+
 fname = os.path.dirname(__file__) + '/fonts/simsun.ttc'
+
+sns.set(font = FontProperties(fname = fname, size=14).get_name())
 
 def get_message_at(data: str) -> list:
     qq_list = []
@@ -107,4 +118,78 @@ def company_info_Splicing(info, ohlc) -> io.BytesIO:
 
     output = io.BytesIO()
     image.save(output, format="png")
+    return output
+
+async def survey_result(result):
+    """
+    生成调查结果
+    result:调查结果原数据
+    """
+    nickname = result["nickname"]
+    rank = result["rank"]
+    all = round(result["all"],2)
+    gold = result["gold"]
+    stock = result["stock"]
+    value = round(stock["value"],2)
+    DIST = sorted(result["DIST"], key=lambda x:x[1],reverse=True)
+    stock_info = ""
+    for company in stock.keys():
+        if company != "value":
+            stock_info += f'{company}：{stock[company]}\n'
+    bg_str = (
+        f"           {nickname}\n"
+        f"           金币：{gold}\n"
+        f"           股票：{value}\n"
+        f"           总计：{all}\n"
+        f"           总排名：{rank}\n"
+        "[color=gray][size=40]—————————————————————\n[/color][/size]"
+        f"持股信息：\n"
+        f"[color=gray][size=40]{stock_info}[/color][/size]"
+        "[color=gray][size=40]—————————————————————\n[/color][/size]"
+        f"资产分布：\n"
+        "\n\n\n\n\n\n\n\n"
+        )
+    output = io.BytesIO()
+    bg = Text2Image.from_bbcode_text(bg_str, 60, spacing = 10, fontname = fname).to_image("white", (20,20))
+    avatar = Image.open(await download_user_img(result["user_id"]))
+    avatar = avatar.resize((300,300))
+    bg.paste(avatar, (20, 20))
+
+    labels =[]
+    x = []
+
+    N = len(DIST)
+    for i in range(N):
+        seg = DIST[i]
+        if i == 5:
+            y = 0
+            for j in range(i,N):
+                y += seg[1]
+            labels.append("其他")
+            x.append(y)
+            break
+        else:
+            labels.append(seg[0])
+            x.append(seg[1])
+            continue
+
+    x = np.array(x)
+
+    N = 6 if N > 6 else N
+
+    colors = ["#6699CC","#6699FF","#66CCCC","#66CCFF","#66FFFF","#66FFCC"]
+
+    output = io.BytesIO()
+
+    plt.figure(figsize = (8.4,4.2))
+    plt.pie(x,labels = labels, autopct='%1.1f%%',colors = colors[0:N], wedgeprops = {'width': 0.4}, pctdistance = 0.8, labeldistance = 1.1)
+    plt.legend(edgecolor='#336699',facecolor='#EEFFFF')
+    plt.axis('equal')
+    plt.subplots_adjust(top = 1, bottom = 0.05, right = 1, left = 0, hspace = 0, wspace = 0)
+    plt.savefig(output,format='png', dpi = 100)
+
+    pie = Image.open(output)
+    bg.paste(pie, (20, (bg.size[1]) - 440))
+    output = io.BytesIO()
+    bg.save(output, format="png")
     return output

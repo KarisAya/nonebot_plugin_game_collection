@@ -2429,7 +2429,7 @@ class MarketManager:
             return msg
 
     def freeze(self, bot:Bot, event:MessageEvent):
-        pass
+        return "冻结个人资产"
     def company_info(self,company_name:str):
         """
         公司信息

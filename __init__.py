@@ -982,7 +982,7 @@ async def _(bot:Bot, event:MessageEvent):
 # 冻结个人资产
 freeze = on_command("冻结个人资产", rule = to_me() , permission = SUPERUSER, priority=5, block = True)
 
-@survey.handle()
+@freeze.handle()
 async def _(bot:Bot, event:MessageEvent):
     msg = market_manager.freeze(bot,event)
     await freeze.finish(msg)

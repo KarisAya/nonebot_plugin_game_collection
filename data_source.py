@@ -2369,7 +2369,7 @@ class MarketManager:
                 survey_dict[user_id]["stock"] += Counter(player["stock"])
                 sum = (player["gold"] + player["stock"]["value"])
                 survey_dict[user_id]["all"] += sum
-                survey_dict[user_id]["DIST"].append([group_id,sum])
+                survey_dict[user_id]["DIST"].append([group_id,0 if sum < 0 else sum])
 
         data = sorted(survey_dict.items(),key=lambda x:x[1]["all"],reverse=True)
         

@@ -2603,8 +2603,8 @@ class MarketManager:
                     if stock != "value":
                         market[stock]["stock"] += count
                         player["stock"][stock] = 0
-                        if user_id in self.Stock_Exchange[stock]:
-                            del self.Stock_Exchange[stock][user_id]
+                        if at in self.Stock_Exchange[stock]:
+                            del self.Stock_Exchange[stock][at]
             else:
                 continue
 

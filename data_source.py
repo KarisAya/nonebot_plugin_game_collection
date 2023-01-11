@@ -25,7 +25,7 @@ import unicodedata
 import subprocess
 
 from .config import Config
-from .utils import text_to_png, img_Splicing, ohlc_Splicing, company_info_Splicing, survey_result
+from .utils import text_to_png, bbcode_to_png, img_Splicing, ohlc_Splicing, company_info_Splicing, survey_result
 
 try:
     import ujson as json
@@ -66,11 +66,19 @@ gacha_gold = russian_config.gacha_gold
 # 自定义标记
 lucky_clover = russian_config.lucky_clover
 
-# 定义永久道具
-constant_props = ("钻石","路灯挂件标记")
-
 with open(os.path.dirname(__file__) + "/props_library.json", "r", encoding="utf8") as f:
     props_library = json.load(f)
+
+props_index = {}
+
+for prop_code in props_library.keys():
+    props_index.update(
+        {
+            props_library[prop_code]["name"]:prop_code,
+            prop_code:prop_code
+            }
+        )
+
 
 def set_type(old:str, line:int) -> str:
     new = ""
@@ -191,14 +199,14 @@ class GameManager:
             with open(file, "r", encoding="utf8") as f:
                 self._player_data = json.load(f)
 
-        self.connect_data = {}
-        file = russian_path / "data" / "russian" / "connect.json"
-        self.connect_file = file
+        self.global_data = {}
+        file = russian_path / "data" / "russian" / "global_data.json"
+        self.global_data_file = file
         if file.exists():
             with open(file, "r", encoding="utf8") as f:
-                self.connect_data = json.load(f)
+                self.global_data = json.load(f)
 
-    def sign(self, event: MessageEvent) -> Tuple[str, int]:
+    def sign(self, event:MessageEvent) -> str:
         """
         签到
         :param event: event
@@ -206,20 +214,22 @@ class GameManager:
         user_data, group_id, user_id = self.try_get_user_data(event)
 
         if user_data == None:
-            return None
+            return "私聊未关联账户，请发送【关联账户】关联群内账户。"
         else:
             pass
 
         if user_data["is_sign"]:
-            return "你已经签过到了哦", -1, group_id, user_id
-        gold = random.randint(sign_gold[0], sign_gold[1])
-        user_data["gold"] += gold
-        user_data["make_gold"] += gold
-        user_data["is_sign"] = True
-        self.save()
-        return random.choice(["祝你好运~", "可别花光了哦~"]) + f"\n你获得了 {gold} 金币", gold, group_id, user_id
+            return "你已经签过到了哦"
+        else:
+            gold = random.randint(sign_gold[0], sign_gold[1])
+            user_data["gold"] += gold
+            user_data["make_gold"] += gold
+            user_data["is_sign"] = True
+            self.save()
+            logger.info(f"USER {user_id} | GROUP {group_id} 获取 {gold} 金币")
+            return random.choice(["祝你好运~", "可别花光了哦~"]) + f"\n你获得了 {gold} 金币"
 
-    def revolt_sign(self, event: GroupMessageEvent) -> Tuple[str, int]:
+    def revolt_sign(self, event:MessageEvent) -> str:
         """
         revolt签到
         :param event: event
@@ -227,18 +237,20 @@ class GameManager:
         user_data, group_id, user_id = self.try_get_user_data(event)
 
         if user_data == None:
-            return None
+            return "私聊未关联账户，请发送【关联账户】关联群内账户。"
         else:
             pass
 
         if user_data["revolution"]:
-            return "你没有待领取的金币", -1, group_id, user_id
-        gold = random.randint(revolt_sign_gold[0], revolt_sign_gold[1])
-        user_data["gold"] += gold
-        user_data["make_gold"] += gold
-        user_data["revolution"] = True
-        self.save()
-        return "这是你重置获得的金币~"+f"\n你获得了 {gold} 金币", gold, group_id, user_id
+            return "你没有待领取的金币"
+        else:
+            gold = random.randint(revolt_sign_gold[0], revolt_sign_gold[1])
+            user_data["gold"] += gold
+            user_data["make_gold"] += gold
+            user_data["revolution"] = True
+            self.save()
+            logger.info(f"USER {user_id} | GROUP {group_id} 获取 {gold} 金币")
+            return f"这是你重置获得的金币，你获得了 {gold} 金币"
 
     def accept(self, event: GroupMessageEvent) -> Union[str, Message]:
         """
@@ -313,7 +325,7 @@ class GameManager:
                     else:
                         return Message("error")
 
-    async def refuse(self, bot: Bot, event: GroupMessageEvent) -> Union[str, Message]:
+    def refuse(self, bot: Bot, event: GroupMessageEvent) -> Union[str, Message]:
         """
         拒绝决斗请求
         :param event: event
@@ -997,10 +1009,13 @@ class GameManager:
                     return None
 
     def try_get_user_data(self, event: MessageEvent):
+        """
+        获取用户信息，兼容私聊
+        """
         user_id = str(event.user_id)
         if isinstance(event,PrivateMessageEvent):
-            group_id = self.connect_data.get(user_id)
-            if not group_id:
+            group_id = self.get_global_data(user_id)["connect"]
+            if (not group_id) or (group_id not in self._player_data.keys()):
                 return None, None, user_id
             else:
                 return self._player_data[group_id][user_id], group_id, user_id
@@ -1009,6 +1024,22 @@ class GameManager:
             group_id = str(event.group_id)
             return self._player_data[group_id][user_id], group_id, user_id
 
+    def get_global_data(self, user_id:str) -> dict:
+        """
+        获取用户全局数据
+        """
+        self.global_data.setdefault(
+            user_id,
+            {
+                "connect": None,
+                "props": {}
+                }
+            )
+        return self.global_data[user_id]
+
+    def global_data_save(self):
+        with open(self.global_data_file, "w", encoding="utf8") as f:
+            json.dump(self.global_data, f, ensure_ascii=False, indent=4)
 
     def get_user_data(self, event: GroupMessageEvent) -> Dict[str, Union[str, int]]:
         """
@@ -1423,25 +1454,86 @@ class GameManager:
 
         user_data = self._player_data[group_id][user_id]
         at_user_data = self._player_data[group_id][at_player_id]
-        if props == "路灯挂件标记":
-            if user_data["Achieve_revolution"] + user_data["props"].get(props,0) < count:
-                return "数量不足"
-            else:
-                user_data["props"].setdefault(props,0)
-                user_data["props"][props] -= count
-                at_user_data["props"].setdefault(props,0)
-                at_user_data["props"][props] += count
-                self.save()
-                return f"{count} 个 {props} 已送出"
+
+        global_props = self.get_global_data(user_id)["props"]
+        at_global_props = self.get_global_data(at_player_id)["props"]
+
+        prop_code = props_index.get(props)
+        if not prop_code:
+            return f"没有【{props}】这种道具。"
+
+        if prop_code == "02101":    # 路灯挂件的特例
+            n = user_data["Achieve_revolution"] + user_data["props"].get(prop_code,0)
+        elif prop_code[1] == "3":
+            n = global_props.get(prop_code,0)
         else:
-            if user_data["props"].get(props,0) < count:
+            n = user_data["props"].get(prop_code,0)
+
+        if n < count:
+            return "数量不足"
+        else:
+            if prop_code[1] == "3":
+                global_props[prop_code] -= count
+                at_global_props.setdefault(prop_code,0)
+                at_global_props[prop_code] += count
+                self.global_data_save()
+            else:
+                user_data["props"][prop_code] -= count
+                at_user_data["props"].setdefault(prop_code,0)
+                at_user_data["props"][prop_code] += count
+                self.save()
+            return f"{count} 个 {props} 已送出"
+
+    class Use_props:
+        def __init__(self):
+            pass
+        def main(
+            self,
+            event: GroupMessageEvent,
+            props: str,
+            count: int,
+            ) -> str:
+            """
+            使用道具
+            :param event: event
+            :param props: 道具名
+            :param count: 道具数量
+            """
+            prop_code = props_index.get(props)
+            if not prop_code:
+                return f"没有【{props}】这种道具。"
+            elif prop_code == "03101":
+                return self.use_03101(event,count)
+            else:
+                return f"【{props}】不是可用道具。"
+
+        def use_03101(
+            self,
+            event: GroupMessageEvent,
+            count: int,
+            ) -> str:
+            """
+            使用道具：被冻结的资产
+            """
+            user_data, group_id, user_id = russian_manager.try_get_user_data(event)
+            if user_data == None:
+                return "私聊未关联账户，请发送【关联账户】关联群内账户。"
+            else:
+                pass
+
+            global_props = russian_manager.get_global_data(user_id)["props"]
+            n = global_props.get(prop_code,0)
+            if n < count:
                 return "数量不足"
             else:
-                user_data["props"][props] -= count
-                at_user_data["props"].setdefault(props,0)
-                at_user_data["props"][props] += count
-                self.save()
-                return f"{count} 个 {props} 已送出"
+                gold = count * max_bet_gold
+                global_props[prop_code] -= count
+                user_data["gold"] += gold
+                russian_manager.save()
+                russian_manager.global_data_save()
+                return f"你获得了{gold}金币。"
+            
+    use_props = Use_props()
 
     def Achieve_list(self,user_data):
         """
@@ -1481,30 +1573,41 @@ class GameManager:
 
     def my_props(self, event: MessageEvent):
         user_data, group_id, user_id = self.try_get_user_data(event)
+
         if user_data == None:
-            return 0
-        props = user_data["props"]
-        props_info = "[font=simsun.ttc]"
-        for x in props.keys():
-            if props[x] != 0:
-                if x in constant_props:
-                    quant =  "个"
-                else:
-                    quant =  "天"
-                prop = props_library.get(x,{"color": "black","rare": 1,"intro": "未知","des": "未知"})
-                props_info += (
-                    f"[size=60][align=left][color={prop['color']}]【{x}】{prop['rare']*'☆'}[/align][align=right]{props[x]}{quant}[/color][/align][/size]\n" +
-                    f"[size=60][align=left][color=gray]——————————————[/color][/align][/size]\n" +
-                    f"[size=40][align=left][color=gray]{set_type(prop['intro'],38)}[/color][/align][/size]" +
-                    f"[size=40][align=right][color=gray]{set_type(prop['des'],38)}[/color][/align][/size]" +
-                    f"[size=60][align=left][color=gray]——————————————[/color][/align][/size]\n"
-                    )
+            return "私聊未关联账户，请发送【关联账户】关联群内账户。"
         else:
-            props_info += "[/font]"
-        if props_info == "[font=simsun.ttc][/font]":
-            return 1
+            pass
+
+        group_props = user_data["props"]
+        
+        global_props = self.get_global_data(user_id)["props"]
+
+        special_props = {"02101":(user_data["Achieve_revolution"] + user_data["props"].get("02101",0))} # 路灯挂件的特例
+
+        props = Counter(group_props) + Counter(global_props) + Counter(special_props)
+
+        data = sorted(props.items(),key=lambda x:int(x[0]))
+
+        props_info = ""
+        for seg in data:
+            prop_code = seg[0]
+            n = seg[1]
+            quant = "天" if prop_code[2] == 0 else "个"
+            prop = props_library.get(prop_code,{"name": prop_code, "color": "black","rare": 1,"intro": "未知","des": "未知"})
+            props_info += (
+                f"[size=60][align=left][color={prop['color']}]【{prop['name']}】{prop['rare']*'☆'}[/align][align=right]{n}{quant}\n[/color][/align][/size]"
+                f"[size=60][align=left][color=gray]——————————————\n[/color][/align][/size]"
+                f"[size=40][align=left][color=gray]{set_type(prop['intro'],38)}[/color][/align][/size]"
+                f"[size=40][align=right][color=gray]{set_type(prop['des'],38)}[/color][/align][/size]"
+                f"[size=60][align=left][color=gray]——————————————\n[/color][/align][/size]"
+                )
+        if props_info:
+            output = bbcode_to_png(props_info)
+            return MessageSegment.image(output)
         else:
-            return props_info
+            return "您的仓库空空如也。"
+
 
     def my_info(self, event: MessageEvent) -> str:
         """
@@ -1585,10 +1688,6 @@ class GameManager:
             )
         return info
 
-    def connect_save(self):
-        with open(self.connect_file, "w", encoding="utf8") as f:
-            json.dump(self.connect_data, f, ensure_ascii=False, indent=4)
-
     def slot(self, event: PrivateMessageEvent, gold:int):
         """
         幸运花色
@@ -1596,11 +1695,13 @@ class GameManager:
         :param gold: 金币
         """
         user_data = self.try_get_user_data(event)[0]
+        if user_data == None:
+            return "私聊未关联账户，请发送【关联账户】关联群内账户。"
+        else:
+            pass
 
-        if not user_data:
-            return f'私聊未关联账户，请先关联群内账户。'
         if gold < 50:
-            return f'抽取幸运花色每次至少50金币。'
+            return '抽取幸运花色每次至少50金币。'
         elif gold > max_bet_gold:
             return f'抽取幸运花色每次最多{max_bet_gold}金币。'
         elif gold > user_data["gold"]:
@@ -1645,61 +1746,98 @@ class GameManager:
         self.save()
         return msg
 
-    def gacha(self, event: MessageEvent):
+    def gacha(self, event:MessageEvent, N:int):
         """
-        十连
-        :param event: event
+        抽卡
         """
-        user_data = self.try_get_user_data(event)[0]
-        
-        if user_data["gold"] < gacha_gold:
-            return f'10连抽卡需要{gacha_gold}金币，你的金币：{user_data["gold"]}。'
+        user_data, group_id, user_id = self.try_get_user_data(event)
+
+        if user_data == None:
+            return "私聊未关联账户，请发送【关联账户】关联群内账户。"
         else:
-            user_data["gold"] -= gacha_gold
-            msg = '你获得了道具\n'
-            for _ in range(10):
-                props = random.randint(1,200)
-                if props in range(1,21):
-                    user_data["props"].setdefault("四叶草标记",0)
-                    if user_data["props"]["四叶草标记"] < 7:
-                        user_data["props"]["四叶草标记"] += 1
-                    msg += "『四叶草标记』 ☆☆☆\n"
-                elif props in range(21,31):
-                    user_data["props"].setdefault("钻石会员卡",0)
-                    if user_data["props"]["钻石会员卡"] < 7:
-                        user_data["props"]["钻石会员卡"] += 1
-                    msg += "『钻石会员卡』 ☆☆☆☆\n"
-                elif props in range(31,41):
-                    msg += "『高级空气』 ☆☆☆☆\n"
-                elif props in range(41,46):
-                    user_data["props"].setdefault("20%结算补贴",0)
-                    if user_data["props"]["20%结算补贴"] < 7:
-                        user_data["props"]["20%结算补贴"] += 1
-                    msg += "『20%结算补贴』 ☆☆☆☆☆\n"
-                elif props in range(46,51):
-                    user_data["props"].setdefault("20%额外奖励",0)
-                    if user_data["props"]["20%额外奖励"] < 7:
-                        user_data["props"]["20%额外奖励"] += 1
-                    msg += "『20%额外奖励』 ☆☆☆☆☆\n"
-                elif props in range(51,56):
-                    msg += "『进口空气』 ☆☆☆☆☆\n"
-                elif props in range(56,61):
-                    msg += "『特级空气』 ☆☆☆☆☆\n"
-                elif props in range(61,81):
-                    msg += "『优质空气』 ☆☆☆\n"
-                elif props == 100:
-                    user_data["props"].setdefault("钻石",0)
-                    user_data["props"]["钻石"] += 1
-                    msg += "『钻石』 ☆☆☆☆☆☆\n"
-                elif props == 200:
-                    msg += "『纯净空气』 ☆☆☆☆☆☆\n"
+            pass
+
+        props_data = self.get_global_data(user_id)["props"]
+
+        if user_data["gold"] < N * gacha_gold:
+            return f'{N}连抽卡需要{N * gacha_gold}金币，你的金币：{user_data["gold"]}。'
+        else:
+            user_data["gold"] -= N * gacha_gold
+            res = {}
+            for i in range(N):
+                code = random.randint(1,100)
+                if 0 < code <= 20:
+                    rare = 3
+                elif 20 < code <= 30:
+                    rare = 4
+                elif 30 < code <= 40:
+                    rare = 5
+                elif code == 100:
+                    rare = 6
                 else:
-                    msg += "『空气』 ☆\n"
-                    pass
+                    rare = 1
+                prop_code = self.random_props(rare)
+                res.setdefault(prop_code,0)
+                res[prop_code] += 1
             else:
-                msg = msg[:-1]
+                data = sorted(res.items(),key=lambda x:int(x[0]),reverse=True)
+                nickname = event.sender.card or event.sender.nickname
+                msg = f"[size=60][align=left]{nickname}\n{N}连抽卡结果：\n[color=gray]——————————————\n[/color][/align][/size]"
+                for seg in data:
+                    prop_code = seg[0]
+                    n = seg[1]
+                    if prop_code[1] == "2":
+                        user_data["props"].setdefault(prop_code,0)
+                        user_data["props"][prop_code] += n
+                        if prop_code[2] == "0":
+                            quant =  "天"
+                            user_data["props"][prop_code] = 7 if user_data["props"][prop_code] > 7 else user_data["props"][prop_code]
+                        else:
+                            quant =  "个"
+                    elif prop_code[1] == "3":
+                        props_data.setdefault(prop_code,0)
+                        props_data[prop_code] += n
+                        quant =  "个"
+                    else:
+                        quant =  "次"
+
+                    prop = props_library.get(prop_code,{"name": prop_code, "color": "black","rare": 1,"intro": "未知","des": "未知"})
+                    msg += (
+                        f"[size=60][align=left][color={prop['color']}]【{prop['name']}】{prop['rare']*'☆'}[/align][align=right]{n}{quant}[/color][/align][/size]\n"
+                        f"[size=60][align=left][color=gray]——————————————[/color][/align][/size]\n"
+                        )
                 self.save()
-        return msg
+                self.global_data_save()
+                output = bbcode_to_png(msg)
+                return MessageSegment.image(output)
+
+    def random_props(self, rare:int) -> str:
+        """
+        根据稀有度随机获取道具。
+        param: rare: 稀有度
+        return: 道具代码
+        道具代码规则：
+        第1位：稀有度
+        第2位：道具性质：
+            1：空气
+            2：群内道具
+            3：全局道具
+        第3位：道具时效：
+            0：时效道具
+            1：永久道具
+        4,5位：本稀有度下的道具编号
+        """
+        if rare == 3:
+            props = random.choice([31001,32001])
+        elif rare == 4:
+            props = random.choice([41001,42001])
+        elif rare == 5:
+            props = random.choice([51001,51002,52001,52002])
+        elif rare == 6:
+            props = random.choice([61001,62101])
+        else:
+            props = 11001
+        return str(props)
 
 
 
@@ -1788,7 +1926,7 @@ class MarketManager:
         with open(self.market_history_file, "w", encoding="utf8") as f:
             json.dump(self.market_history, f, ensure_ascii=False, indent=4)
 
-    def Market_sell(self, event: GroupMessageEvent, company_name: str, quote:float, stock:int) -> str:
+    def Market_sell(self, event:MessageEvent, company_name: str, quote:float, stock:int) -> str:
         """
         市场卖出
         :param event: event
@@ -1796,9 +1934,14 @@ class MarketManager:
         :param quote:报价
         :param stock:数量
         """
-        group_id = str(event.group_id)
-        user_id = str(event.user_id)
-        my_stock = russian_manager.get_user_data(event)["stock"].get(company_name,0)
+        user_data, group_id, user_id = russian_manager.try_get_user_data(event)
+        if user_data == None:
+            return "私聊未关联账户，请发送【关联账户】关联群内账户。"
+        else:
+            pass
+
+        my_stock = user_data["stock"].get(company_name,0)
+
         if not company_name in self.Stock_Exchange.keys():
             return f"【{company_name}】未注册"
         elif my_stock < stock:
@@ -1838,15 +1981,20 @@ class MarketManager:
                 "发布成功！"
                 )
 
-    def Market_buy(self, event: GroupMessageEvent, company_name: str, stock:int):
+    def Market_buy(self, event:MessageEvent, company_name: str, stock:int):
         """
         市场买入
         :param company_name:公司名
         :param stock:数量
         """
-        group_id = str(event.group_id)
-        user_id = str(event.user_id)
-        my_gold = russian_manager.get_user_data(event)["gold"]
+        user_data, group_id, user_id = russian_manager.try_get_user_data(event)
+        if user_data == None:
+            return "私聊未关联账户，请发送【关联账户】关联群内账户。"
+        else:
+            pass
+
+        my_gold = user_data["gold"]
+
         if self.Stock_Exchange.get(company_name) == None:
             return f"【{company_name}】未注册"
         else:
@@ -1918,17 +2066,23 @@ class MarketManager:
                         f"总计：{gold}"
                         )
 
-    def company_buy(self,event: GroupMessageEvent, company_name:str ,stock:int) -> str:
+    def company_buy(self,event:MessageEvent, company_name:str ,stock:int) -> str:
         """
         购买公司发行股票
         :param event: event
         :param company_name:公司名
         :param stock: 购买的股票数量
         """
-        group_id = str(event.group_id)
-        user_id = str(event.user_id)
-        my_gold = russian_manager.get_user_data(event)["gold"]
+        user_data, group_id, user_id = russian_manager.try_get_user_data(event)
+        if user_data == None:
+            return "私聊未关联账户，请发送【关联账户】关联群内账户。"
+        else:
+            pass
+
+        my_gold = user_data["gold"]
+
         company = self._market_data.get(company_name)
+
         if company == None:
             return f"公司名：{company_name} 未注册"
         elif company["gold"] <= (5 * max_bet_gold) or company["float_gold"] <= 0:
@@ -1976,17 +2130,23 @@ class MarketManager:
             else:
                 return "已售空，请等待清算或在交易市场购买。"
 
-    def company_clear(self,event: GroupMessageEvent, company_name:str ,stock:int) -> str:
+    def company_clear(self,event:MessageEvent, company_name:str ,stock:int) -> str:
         """
         股权债务清算
         :param event: event
         :param company_name:公司名
         :param stock: 清算的数量
         """ 
-        group_id = str(event.group_id)
-        user_id = str(event.user_id)
-        my_stock = russian_manager.get_user_data(event)["stock"].get(company_name)
+        user_data, group_id, user_id = russian_manager.try_get_user_data(event)
+        if user_data == None:
+            return "私聊未关联账户，请发送【关联账户】关联群内账户。"
+        else:
+            pass
+
+        my_stock = user_data["stock"].get(company_name)
+
         company = self._market_data.get(company_name)
+
         if company == None:
             return f"【{company_name}】未注册"
         elif my_stock == None:
@@ -2031,7 +2191,6 @@ class MarketManager:
             if self.Stock_Exchange[company_name].get(user_id,{"stock":0})["stock"] > 0:
                 return True
         return False
-
 
     global ohlc
 
@@ -2376,7 +2535,7 @@ class MarketManager:
         if at:
             user_id = at
             result = survey_dict[user_id]
-            result["rank"] = data.index((user_id,survey_dict[user_id]))
+            result["rank"] = data.index((user_id,survey_dict[user_id])) + 1
             try:
                 tmp = await bot.get_stranger_info(user_id = int(user_id))
                 nickname = tmp["nickname"]
@@ -2428,8 +2587,45 @@ class MarketManager:
                     )
             return msg
 
-    def freeze(self, bot:Bot, event:MessageEvent):
-        return "冻结个人资产"
+    def freeze(self, bot:Bot, event:MessageEvent, at:str):
+        """
+        冻结个人资产
+        """
+        data = russian_manager._player_data
+        market = self._market_data
+        sum = 0
+        for group_id in data.keys():
+            if at in data[group_id].keys():
+                player = data[group_id][at]
+                sum += (player["gold"] + player["stock"]["value"])
+                player["gold"] = 0
+                for stock, count in player["stock"].items():
+                    if stock != "value":
+                        market[stock]["stock"] += count
+                        player["stock"][stock] = 0
+                        if user_id in self.Stock_Exchange[stock]:
+                            del self.Stock_Exchange[stock][user_id]
+            else:
+                continue
+
+        if sum > 500 * max_bet_gold:
+            Frozen_Assets = 500
+        elif sum > 50 * max_bet_gold:
+            Frozen_Assets = int (sum / max_bet_gold)
+        else:
+            Frozen_Assets = int (sum / max_bet_gold) + 1
+
+        props_data = russian_manager.get_global_data(at)["props"]
+        props_data.setdefault(prop_code,0)
+        props_data[prop_code] += Frozen_Assets
+
+        russian_manager.save()
+        russian_manager.global_data_save()
+        self.market_data_save()
+        self.Stock_Exchange_save()
+
+        return f"【冻结】清算完成，总价值为{int(sum)}金币"
+
     def company_info(self,company_name:str):
         """
         公司信息

@@ -1,6 +1,7 @@
 from nonebot_plugin_imageutils import BuildImage,Text2Image
 import os
 import io
+import unicodedata
 
 try:
     import ujson as json
@@ -39,12 +40,21 @@ def is_number(s) -> bool:
     except ValueError:
         pass
     try:
-        import unicodedata
         unicodedata.numeric(s)
         return True
     except (TypeError, ValueError):
         pass
     return False
+
+def number(N) -> int:
+    try:
+        n = int(N)
+    except ValueError:
+        try:
+            n = int(unicodedata.numeric(N))
+        except (TypeError, ValueError):
+            n = None
+    return n
 
 def text_to_png(msg, spacing: int = 10):
     '''
@@ -52,6 +62,14 @@ def text_to_png(msg, spacing: int = 10):
     '''
     output = io.BytesIO()
     Text2Image.from_text(msg, 50, spacing = spacing, fontname = fname).to_image("white", (20,20)).save(output, format="png")
+    return output
+
+def bbcode_to_png(msg, spacing: int = 10):
+    '''
+    bbcode文字转png
+    '''
+    output = io.BytesIO()
+    Text2Image.from_bbcode_text(msg, 50, spacing = spacing, fontname = fname).to_image("white", (20,20)).save(output, format="png")
     return output
 
 def img_Splicing(image_list:list) -> io.BytesIO:
@@ -185,7 +203,7 @@ async def survey_result(result):
     plt.pie(x,labels = labels, autopct='%1.1f%%',colors = colors[0:N], wedgeprops = {'width': 0.4}, pctdistance = 0.8, labeldistance = 1.1)
     plt.legend(edgecolor='#336699',facecolor='#EEFFFF')
     plt.axis('equal')
-    plt.subplots_adjust(top = 1, bottom = 0.05, right = 1, left = 0, hspace = 0, wspace = 0)
+    plt.subplots_adjust(top = 0.95, bottom = 0.05, right = 1, left = 0, hspace = 0, wspace = 0)
     plt.savefig(output,format='png', dpi = 100)
 
     pie = Image.open(output)

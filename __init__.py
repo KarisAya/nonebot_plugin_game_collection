@@ -1,4 +1,4 @@
-from nonebot import on_command, on_fullmatch, require
+from nonebot import on_command, on_fullmatch, on_regex, require
 from nonebot.adapters.onebot.v11 import (
     GROUP,
     GROUP_ADMIN,
@@ -27,8 +27,9 @@ import random
 import shutil
 import os
 import io
+import re
 
-from .utils import is_number, get_message_at, text_to_png
+from .utils import is_number, number, get_message_at, text_to_png
 from .data_source import (
     bot_name,
     russian_manager,
@@ -304,14 +305,8 @@ sign = on_command("金币签到",aliases = {"轮盘签到"}, priority = 5, block
 
 @sign.handle()
 async def _(event: MessageEvent):
-    flag =  russian_manager.sign(event)
-    if flag:
-        msg, gold, group_id, user_id = flag
-        if gold != -1:
-            logger.info(f"USER {user_id} | GROUP {group_id} 获取 {gold} 金币")
-        await sign.finish(msg, at_sender=True)
-    else:
-        await sign.finish(f'私聊未关联账户，请先关联群内账户。')
+    msg =  russian_manager.sign(event)
+    await sign.finish(msg, at_sender=True)
 
 # 发动革命
 revolt = on_command("发起重置", aliases={"发起revolt","发动revolt", "revolution", "Revolution"},permission=GROUP, priority=5, block=True)
@@ -328,14 +323,8 @@ revolt_sign = on_command("重置签到",aliases = {"revolt签到"}, priority = 5
 
 @revolt_sign.handle()
 async def _(event: MessageEvent):
-    flag = russian_manager.revolt_sign(event)
-    if flag:
-        msg, gold, group_id, user_id = flag
-        if gold != -1:
-            logger.info(f"USER {user_id} | GROUP {group_id} 获取 {gold} 金币")
-        await sign.finish(msg, at_sender=True)
-    else:
-        await sign.finish(f'私聊未关联账户，请先关联群内账户。')
+    msg = russian_manager.revolt_sign(event)
+    await revolt_sign.finish(msg, at_sender=True)
 
 # 发红包
 give_gold = on_command("打钱", aliases={"发红包", "赠送金币"},permission=GROUP, priority=5, block=True)
@@ -376,14 +365,36 @@ async def _(bot: Bot,event: GroupMessageEvent,arg: Message = CommandArg(),):
                 count = 1
             else:
                 props = msg[0]
-                if is_number(msg[1]):
-                    count = abs(int(msg[1])) or 1
+                n = number(msg[1])
+                if n and n > 1:
+                    count = int(n)
                 else:
                     count = 1
             russian_manager._init_player_data(event)
             await russian_manager._init_at_player_data(bot,event,at_player_id)
             msg = russian_manager.give_props(event, at_player_id, props, count)
             await give_props.finish(msg, at_sender=True)
+
+# 使用道具
+use_props = on_command("使用道具", priority=5, block=True)
+
+@use_props.handle()
+async def _(bot:Bot, event: MessageEvent, arg:Message = CommandArg(),):
+    msg = arg.extract_plain_text().strip()
+    if msg:
+        msg = msg.split()
+        if len(msg) == 1:
+            props = msg[0]
+            count = 1
+        else:
+            props = msg[0]
+            n = number(msg[1])
+            if n and n > 1:
+                count = int(n)
+            else:
+                count = 1
+        msg = russian_manager.use_props.main(event,props,count)
+        await use_props.finish(msg, at_sender=True)
 
 # 状态处理
 accept = on_command("接受挑战", aliases={"接受决斗", "接受对决"}, permission=GROUP, priority=5, block=True)
@@ -400,7 +411,7 @@ refuse = on_command("拒绝挑战", aliases={"拒绝决斗", "拒绝对决"}, pe
 
 @refuse.handle()
 async def _(bot: Bot, event: GroupMessageEvent):
-    msg = await russian_manager.refuse(bot, event)
+    msg = russian_manager.refuse(bot, event)
     if msg:
         await refuse.send(msg, at_sender=True)        
     else:
@@ -619,8 +630,9 @@ async def _(bot: Bot, event: MessageEvent, matcher: Matcher):
     user_id = str(event.user_id)
     if isinstance(event,GroupMessageEvent):
         russian_manager._init_player_data(event)
-        russian_manager.connect_data[user_id] = str(event.group_id)
-        russian_manager.connect_save()
+        global_data = russian_manager.get_global_data(user_id)
+        global_data["connect"] = str(event.group_id)
+        russian_manager.global_data_save()
         await connect.finish("私聊账户已关联到本群", at_sender=True)
     else:
         player = russian_manager._player_data
@@ -642,8 +654,9 @@ async def _(bot:Bot, event: MessageEvent, matcher: Matcher, group_id : Message =
     group_id = str(group_id).strip()
     group_list = matcher.get_arg("group_list")
     if group_id in group_list:
-        russian_manager.connect_data[str(event.user_id)] = group_id
-        russian_manager.connect_save()
+        global_data = russian_manager.get_global_data(str(event.user_id))
+        global_data["connect"] = group_id
+        russian_manager.global_data_save()
         await connect.finish(f"私聊账户已关联到{group_id}")
     else:
         await connect.finish(f"未关联")
@@ -664,28 +677,24 @@ async def _(bot: Bot, event: PrivateMessageEvent,arg: Message = CommandArg()):
     msg = russian_manager.slot(event,gold)
     await slot.finish(msg, at_sender=True)
 
-# 十连抽卡
-gacha = on_command("十连", aliases = {"10连"}, rule = to_me(), priority = 5, block = True)
+# 抽卡
+gacha = on_regex("^.*连抽?卡?$", rule = to_me(), priority = 5, block = True)
 
 @gacha.handle()
-async def _(bot: Bot, event: MessageEvent,arg: Message = CommandArg()):
-    msg = russian_manager.gacha(event)
-    await gacha.finish(msg, at_sender=True)
-
+async def _(bot: Bot, event: MessageEvent):
+    cmd = event.get_plaintext()
+    N = re.search(r"^(.*)连抽?卡?$",cmd).group(1)
+    print(f"N = {N}")
+    N = number(N)
+    if N and N > 0:
+        msg = russian_manager.gacha(event,N)
+        await gacha.finish(msg)
 # 我的
 my_props = on_command("我的道具", aliases={"我的仓库"}, priority=5, block=True)
 
 @my_props.handle()
 async def _(event: MessageEvent):
     msg = russian_manager.my_props(event)
-    if msg == 0:
-        msg = "私聊未关联账户，请先关联群内账户。"
-    elif msg == 1:
-        msg = "您的仓库空空如也。"
-    else:
-        output = io.BytesIO()
-        text2image(msg).save(output, format="png")
-        msg = MessageSegment.image(output)
     await my_props.finish(msg)
 
 my_gold = on_command("我的金币", priority=5, block=True)
@@ -696,7 +705,7 @@ async def _(event: MessageEvent):
     if user_data:
         await my_gold.finish(f'你还有 {user_data["gold"]} 枚金币', at_sender=True)
     else:
-        await my_gold.finish(f'私聊未关联账户，请先关联群内账户。')
+        await my_gold.finish('私聊未关联账户，请发送【关联账户】关联群内账户。')
 
 my_info = on_command("我的信息", aliases={"我的资料"}, priority=5, block=True)
 
@@ -707,7 +716,7 @@ async def _(event: MessageEvent):
         output = text_to_png(info[:-1], 12)
         await my_info.finish(MessageSegment.image(output))
     else:
-        await my_info.finish(f'私聊未关联账户，请先关联群内账户。')
+        await my_info.finish('私聊未关联账户，请发送【关联账户】关联群内账户。')
 
 # 查看排行榜
 russian_rank = on_command(
@@ -776,10 +785,10 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
         await Market_public.finish("错误：未设置公司名称")
 
 # 发行购买
-company_buy = on_command("发行购买",aliases={"发行买入"},permission=GROUP, priority=5, block=True)
+company_buy = on_command("发行购买",aliases={"发行买入"}, priority=5, block=True)
 
 @company_buy.handle()
-async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
+async def _(event: MessageEvent, arg:Message = CommandArg()):
     msg = arg.extract_plain_text().strip()
     if msg:
         msg = msg.split()
@@ -796,10 +805,10 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
                 await company_buy.finish()
 
 # 债务清算
-company_clear = on_command("官方结算",permission=GROUP, priority=5, block=True)
+company_clear = on_command("官方结算", priority=5, block=True)
 
 @company_clear.handle()
-async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
+async def _(event:MessageEvent, arg:Message = CommandArg()):
     msg = arg.extract_plain_text().strip()
     if msg:
         msg = msg.split()
@@ -816,10 +825,10 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
                 await company_clear.finish()
 
 # 市场买入
-Market_buy = on_command("买入",aliases={"购买","购入"},permission=GROUP, priority=5, block=True)
+Market_buy = on_command("买入",aliases={"购买","购入"}, priority=5, block=True)
 
 @Market_buy.handle()
-async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
+async def _(event:MessageEvent, arg: Message = CommandArg()):
     msg = arg.extract_plain_text().strip()
     if msg:
         msg = msg.split()
@@ -836,10 +845,10 @@ async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
                 await Market_buy.finish()
 
 # 市场卖出
-Market_sell = on_command("卖出",aliases={"出售","上架"},permission=GROUP, priority=5, block=True)
+Market_sell = on_command("卖出",aliases={"出售","上架"}, priority=5, block=True)
 
 @Market_sell.handle()
-async def _(event: GroupMessageEvent,arg: Message = CommandArg()):
+async def _(event:MessageEvent, arg: Message = CommandArg()):
     msg = arg.extract_plain_text().strip()
     if msg:
         msg = msg.split()
@@ -981,12 +990,30 @@ async def _(bot:Bot, event:MessageEvent):
             await bot.send_private_forward_msg(user_id = event.user_id, messages = msg)
 
 # 冻结个人资产
-freeze = on_command("冻结个人资产", rule = to_me() , permission = SUPERUSER, priority=5, block = True)
+freeze = on_command("冻结资产", permission = SUPERUSER, priority = 5, block = True)
 
 @freeze.handle()
-async def _(bot:Bot, event:MessageEvent):
-    msg = market_manager.freeze(bot,event)
-    await freeze.finish(msg)
+async def _(bot: Bot, event: MessageEvent, matcher: Matcher):
+    at = get_message_at(event.json())
+    if at:
+        at = at[0]
+        nickname = (await bot.get_group_member_info(group_id = event.group_id, user_id = at))["nickname"]
+        code = random.randint(1000,9999)
+        matcher.set_arg("freeze", [str(at),str(code)])
+        await freeze.send(f"您即将冻结 {nickname}（{at}），请输入{code}来确认。")
+    else:
+        await freeze.finish("没有选择冻结对象。")
+
+@freeze.got("code")
+
+async def _(bot:Bot, event: MessageEvent, matcher: Matcher, code : Message = Arg()):
+    confirm = matcher.get_arg("freeze")
+    if confirm[1] == str(code):
+        await freeze.send("【冻结】已确认。")
+        msg = market_manager.freeze(bot,event,confirm[0])
+        await freeze.finish(msg)
+    else:
+        await freeze.finish("【冻结】已取消。")
 
 # 刷新每日签到和每日补贴
 reset_sign = on_command("reset_sign", permission=SUPERUSER, priority=5, block=True) # 重置每日签到和每日补贴
@@ -1049,3 +1076,6 @@ async def _():
     if os.path.isfile(f"{path}/Stock_Exchange.json"):
         shutil.copy(f"{path}/Stock_Exchange.json",f"{path}/backup/Stock_Exchange {now}.json")
         logger.info(f'Stock_Exchange.json备份成功！')
+    if os.path.isfile(f"{path}/global_data.json"):
+        shutil.copy(f"{path}/global_data.json",f"{path}/backup/global_data {now}.json")
+        logger.info(f'global_data.json备份成功！')

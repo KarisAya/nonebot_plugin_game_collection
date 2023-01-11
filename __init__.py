@@ -1009,7 +1009,6 @@ async def _(bot: Bot, event: MessageEvent, matcher: Matcher):
 async def _(bot:Bot, event: MessageEvent, matcher: Matcher, code : Message = Arg()):
     confirm = matcher.get_arg("freeze")
     if confirm[1] == str(code):
-        await freeze.send("【冻结】已确认。")
         msg = market_manager.freeze(bot,event,confirm[0])
         await freeze.finish(msg)
     else:

@@ -401,7 +401,7 @@ accept = on_command("接受挑战", aliases={"接受决斗", "接受对决"}, pe
 
 @accept.handle()
 async def _(event: GroupMessageEvent):
-    msg = russian_manager.accept(event) 
+    msg = russian_manager.accept(event)
     if msg:
         await accept.send(msg)       
     else:
@@ -621,6 +621,51 @@ poker_play = on_command("出牌", permission=GROUP, priority=5, block=True)
 async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
     card = arg.extract_plain_text().strip()
     await russian_manager.poker_play(bot, event, card)
+
+# 随机对战
+random_game = on_command("随机对战", permission=GROUP, priority=5, block=True)
+
+@random_game.handle()
+async def _(bot: Bot, event: GroupMessageEvent, arg: Message = CommandArg()):
+    try:
+        _msg = await russian_manager.check_current_game(bot, event)
+        if _msg:
+            await random_game.finish(_msg)
+    except KeyError:
+        pass
+
+    user_data = russian_manager.get_user_data(event)
+    
+    if user_data["props"].get("32002",0) < 1:
+        await random_game.finish("只有持有挑战徽章的用户才可发起随机对战。", at_sender=True)
+
+    money = user_data["gold"]
+
+    if money < 200:
+        await random_game.finish("你没有足够的金币支撑这场挑战", at_sender=True)
+
+    player1_name = event.sender.card or event.sender.nickname
+    at_ = get_message_at(event.json())
+    if at_:
+        at_ = at_[0]
+        at_player_name = await bot.get_group_member_info(group_id=event.group_id, user_id=int(at_))
+        at_player_name = at_player_name["card"] or at_player_name["nickname"]
+        msg = (
+            f"{player1_name} 向 {MessageSegment.at(at_)} 发起随机对战！\n"
+            f"请 {at_player_name} 回复 接受挑战 or 拒绝挑战\n"
+            "【30秒内有效】"
+            )
+    else:
+        at_ = 0
+        msg = (
+            f"{player1_name} 发起随机对战！\n"
+            "回复 接受挑战 即可开始对局。\n"
+            "【30秒内有效】"
+            )
+    info = random.choice([{"game":"russian","bullet_num":random.randint(1,6)},{"game":"dice"},{"game":"poker"}])
+    russian_manager.ready_game(event, msg, player1_name, at_, -money, info)
+    await random_game.send(Message(msg))
+
 
 # 关联账户
 connect = on_command("连接账户", aliases = {"关联账户"}, rule = to_me(), priority = 5, block = True)

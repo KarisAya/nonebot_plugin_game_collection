@@ -207,6 +207,13 @@ class GameManager:
             with open(file, "r", encoding="utf8") as f:
                 self.global_data = json.load(f)
 
+        self.alchemy_data = {}
+        file = russian_path / "data" / "russian" / "alchemy_data.json"
+        self.alchemy_data_file = file
+        if file.exists():
+            with open(file, "r", encoding="utf8") as f:
+                self.alchemy_data = json.load(f)
+
     def sign(self, event:MessageEvent) -> str:
         """
         签到
@@ -275,14 +282,29 @@ class GameManager:
             else:
                 if self._current_player[event.group_id]["game"] ==  "russian":
                     money = self._current_player[event.group_id]["money"]
+                    tips = ["本场对决为【俄罗斯轮盘】\n","money"]
                 elif self._current_player[event.group_id]["game"] == "dice":
                     money = self._current_player[event.group_id]["money_max"]
+                    tips = ["本场对决为【掷色子】\n","money_max"]
                 elif self._current_player[event.group_id]["game"] == "poker":
                     money = self._current_player[event.group_id]["money"]
+                    tips = ["本场对决为【扑克对战】\n","money"]
                 else:
                     return None
 
-                if self._player_data[str(event.group_id)][str(event.user_id)]["gold"] < money:
+                gold = self.get_user_data(event)["gold"]
+
+                if money < 0:
+                    if gold < 200:
+                        return Message(MessageSegment.at(event.user_id) + "你的金币不足以接受这场对决！")
+                    else:
+                        money = random.randint(200, min(-money,gold))
+                        self._current_player[event.group_id][tips[1]] = money
+                        tips[0] += f"赌注为 {money} 金币\n"
+                else:
+                    tips = ("","")
+
+                if gold < money:
                     return Message(MessageSegment.at(event.user_id) + "你的金币不足以接受这场对决！")
                 else:
                     player2_name = event.sender.card or event.sender.nickname
@@ -292,6 +314,7 @@ class GameManager:
                     if self._current_player[event.group_id]["game"] == "russian":
                         return Message(
                             f"{player2_name}接受了对决！\n"
+                            + tips[0] + 
                             f"请{MessageSegment.at(self._current_player[event.group_id][1])}开枪！"
                             )
                     elif self._current_player[event.group_id]["game"] == "dice":
@@ -299,6 +322,7 @@ class GameManager:
                         self._current_player[event.group_id]["lose_name"] = player2_name
                         return Message(
                             f"{player2_name}接受了对决！\n"
+                            + tips[0] + 
                             f"请{MessageSegment.at(self._current_player[event.group_id][1])}开数！"
                             )
                     elif self._current_player[event.group_id]["game"] == "poker":
@@ -1042,6 +1066,17 @@ class GameManager:
         with open(self.global_data_file, "w", encoding="utf8") as f:
             json.dump(self.global_data, f, ensure_ascii=False, indent=4)
 
+    def get_alchemy_data(self, user_id:str) -> dict:
+        """
+        获取用户炼金数据
+        """
+        self.alchemy_data.setdefault(user_id,{})
+        return self.alchemy_data[user_id]
+
+    def alchemy_data_save(self):
+        with open(self.cards_data_file, "w", encoding="utf8") as f:
+            json.dump(self.alchemy_data, f, ensure_ascii=False, indent=4)
+
     def get_user_data(self, event: GroupMessageEvent) -> Dict[str, Union[str, int]]:
         """
         获取用户数据
@@ -1505,6 +1540,8 @@ class GameManager:
                 return f"没有【{props}】这种道具。"
             elif prop_code == "03101":
                 return self.use_03101(event,count)
+            elif prop_code == "33101":
+                return self.use_33101(event,count)
             elif prop_code == "42101":
                 return self.use_42101(event)
             elif prop_code == "52101":
@@ -1539,6 +1576,36 @@ class GameManager:
                 russian_manager.save()
                 russian_manager.global_data_save()
                 return f"你获得了{gold}金币。"
+
+        def use_33101(
+            self,
+            event: MessageEvent,
+            count: int,
+            ) -> str:
+            """
+            使用道具：初级元素
+            """
+            user_data, group_id, user_id = russian_manager.try_get_user_data(event)
+            if user_data == None:
+                return "私聊未关联账户，请发送【关联账户】关联群内账户。"
+            else:
+                pass
+
+            global_props = global_data["props"]
+            n = global_props.get("33101",0)
+            if n < count:
+                return "数量不足"
+            else:
+                global_props["03101"] -= count
+                alchemy_data = russian_manager.get_alchemy_data(user_id)
+                for i in range(4 * count):
+                    element_code = f"0{random.randint(1,4)}01"
+                    alchemy_data.setdefault(element_code,0)
+                    alchemy_data[element_code] += 1
+
+                russian_manager.alchemy_data_save()
+                russian_manager.global_data_save()
+                return "ok"
 
         def use_42101(
             self,
@@ -1575,13 +1642,15 @@ class GameManager:
                                 pass
                             else:
                                 t = int(count * N / 100)
-                                user_data["stock"].setdefault(stock,0)
-                                user_data["stock"][stock] += t
-                                at_data["stock"][stock] -= t
-
-                                if at in market_manager.Stock_Exchange[stock]:
-                                    del market_manager.Stock_Exchange[stock][at]
-                                info += f"{stock}：{t}\n"
+                                if t > 0:
+                                    user_data["stock"].setdefault(stock,0)
+                                    user_data["stock"][stock] += t
+                                    at_data["stock"][stock] -= t
+                                    if at in market_manager.Stock_Exchange[stock]:
+                                        del market_manager.Stock_Exchange[stock][at]
+                                    info += f"{stock}：{t}\n"
+                                else:
+                                    pass
                         else:
                             info += f"（{N/10}%）" 
                         return info
@@ -1610,7 +1679,7 @@ class GameManager:
                 user_data["props"]["52101"] -= 1
                 group_data = russian_manager._player_data[group_id]
                 data = sorted(group_data.items(),key=lambda x:x[1]["gold"])
-                target_id = random.choice(data[:20])[0]
+                target_id = random.choice(data[:10])[0]
 
                 if target_id == user_id:
                     return f"道具使用失败，你损失了一个『{props_library['52101']['name']}』"
@@ -1976,7 +2045,7 @@ class GameManager:
         4,5位：本稀有度下的道具编号
         """
         if rare == 3:
-            props = random.choice([31001,32001])
+            props = random.choice([31001,32001,32002,33101])
         elif rare == 4:
             props = random.choice([41001,42001,42101])
         elif rare == 5:

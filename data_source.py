@@ -1678,8 +1678,8 @@ class GameManager:
             else:
                 user_data["props"]["52101"] -= 1
                 group_data = russian_manager._player_data[group_id]
-                data = sorted(group_data.items(),key=lambda x:x[1]["gold"])
-                target_id = random.choice(data[:10])[0]
+                data = sorted(group_data.items(),key=lambda x:x[1]["gold"],reverse = True)
+                target_id = random.choice(data[:20])[0]
 
                 if target_id == user_id:
                     return f"道具使用失败，你损失了一个『{props_library['52101']['name']}』"

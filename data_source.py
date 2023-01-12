@@ -25,6 +25,7 @@ import unicodedata
 import subprocess
 
 from .config import Config
+from .utils import get_message_at
 from .utils import text_to_png, bbcode_to_png, img_Splicing, ohlc_Splicing, company_info_Splicing, survey_result
 
 try:
@@ -1182,7 +1183,7 @@ class GameManager:
         else:
             pass
 
-        flag = self._player_data[str(event.group_id)][str(win_user_id)]["props"].get("钻石会员卡",0)
+        flag = self._player_data[str(event.group_id)][str(win_user_id)]["props"].get("42001",0)
         gold = self._current_player[event.group_id]["money"]
         if flag > 0:
             rand = -1
@@ -1224,7 +1225,7 @@ class GameManager:
             f"结算：\n"
             "——————————————\n"+
             self.Achieve_list(win_user)+
-            (f"◆『20%额外奖励』\n"if extra != 0 else "")+
+            (f"◆『{props_library['52002']['name']}』\n"if extra != 0 else "")+
             f"◆胜者：{win_name}\n"
             f'◆结算：{win_user["gold"]}（+{gold + extra - fee}）\n'
             f'◆胜场∶败场：{win_user["win_count"]}∶{win_user["lose_count"]}\n'
@@ -1232,14 +1233,14 @@ class GameManager:
             "——————————————\n" +
             self.Achieve_list(lose_user)+
             (f"◇『金币补贴』\n"if security != 0 else "")+
-            (f"◇『20%结算补贴』\n"if off != 0 else "")+
+            (f"◇『{props_library['52001']['name']}』\n"if off != 0 else "")+
             f"◇败者：{lose_name}\n"
             f'◇结算：{lose_user["gold"] - security}（-{gold - off}）\n'+
             (f"◇已领取补贴：{security}\n"if security else "")+
             f'◇胜场∶败场：{lose_user["win_count"]}∶{lose_user["lose_count"]}\n'
             f'◇胜率：{str(lose_user["win_count"]/(lose_user["win_count"] + lose_user["lose_count"])*100)[:5]}%\n'
             "——————————————\n"+
-            f"手续费：{fee} " + ("『钻石会员卡』"if rand == -1 else f"({float(rand)}%)")
+            f"手续费：{fee} " + (f"『{props_library['42001']['name']}』"if rand == -1 else f"({float(rand)}%)")
             )
         
         output = text_to_png(message)
@@ -1276,7 +1277,7 @@ class GameManager:
         self._player_data[group_id][win_user_id]["Achieve_victory"] += 1
         self._player_data[group_id][win_user_id]["Achieve_lose"] = 0
 
-        flag = self._player_data[group_id][win_user_id]["props"].get("20%额外奖励",0)
+        flag = self._player_data[group_id][win_user_id]["props"].get("52002",0)
         if flag > 0:
             extra = int(gold *0.2)
             self._player_data[group_id][win_user_id]["gold"] += extra
@@ -1298,7 +1299,7 @@ class GameManager:
             security = 0
 
         
-        flag = self._player_data[group_id][lose_user_id]["props"].get("20%结算补贴",0)
+        flag = self._player_data[group_id][lose_user_id]["props"].get("52001",0)
         if flag > 0:
             off = int(gold *0.2)
             self._player_data[group_id][lose_user_id]["gold"] += off
@@ -1420,7 +1421,7 @@ class GameManager:
         user_id = str(event.user_id)
         group_id = str(event.group_id)
         at_player_id = str(at_player_id)
-        flag = self._player_data[group_id][user_id]["props"].get("钻石会员卡",0)
+        flag = self._player_data[group_id][user_id]["props"].get("42001",0)
         if flag > 0:
             fee = 0
         else:
@@ -1431,7 +1432,7 @@ class GameManager:
         self.save()
         return (
             f"{self._player_data[group_id][user_id]['nickname']} 向 {self._player_data[group_id][at_player_id]['nickname']} 转账{unsettled}金币\n"+
-            ("『钻石会员卡』免手续费" if flag > 0 else f"扣除2%手续费：{fee}，实际到账金额{unsettled - fee}")
+            (f"『{props_library['42001']['name']}』免手续费" if flag > 0 else f"扣除2%手续费：{fee}，实际到账金额{unsettled - fee}")
             )
 
     def give_props(
@@ -1463,7 +1464,7 @@ class GameManager:
             return f"没有【{props}】这种道具。"
 
         if prop_code == "02101":    # 路灯挂件的特例
-            n = user_data["Achieve_revolution"] + user_data["props"].get(prop_code,0)
+            n = user_data["Achieve_revolution"] + user_data["props"].setdefault(prop_code,0)
         elif prop_code[1] == "3":
             n = global_props.get(prop_code,0)
         else:
@@ -1489,9 +1490,9 @@ class GameManager:
             pass
         def main(
             self,
-            event: GroupMessageEvent,
-            props: str,
-            count: int,
+            event:MessageEvent,
+            props:str,
+            count:int,
             ) -> str:
             """
             使用道具
@@ -1504,12 +1505,18 @@ class GameManager:
                 return f"没有【{props}】这种道具。"
             elif prop_code == "03101":
                 return self.use_03101(event,count)
+            elif prop_code == "42101":
+                return self.use_42101(event)
+            elif prop_code == "52101":
+                return self.use_52101(event)
+            elif prop_code == "52102":
+                return self.use_52102(event,count)
             else:
                 return f"【{props}】不是可用道具。"
 
         def use_03101(
             self,
-            event: GroupMessageEvent,
+            event: MessageEvent,
             count: int,
             ) -> str:
             """
@@ -1522,17 +1529,155 @@ class GameManager:
                 pass
 
             global_props = russian_manager.get_global_data(user_id)["props"]
-            n = global_props.get(prop_code,0)
+            n = global_props.get("03101",0)
             if n < count:
                 return "数量不足"
             else:
+                global_props["03101"] -= count
                 gold = count * max_bet_gold
-                global_props[prop_code] -= count
                 user_data["gold"] += gold
                 russian_manager.save()
                 russian_manager.global_data_save()
                 return f"你获得了{gold}金币。"
-            
+
+        def use_42101(
+            self,
+            event: MessageEvent,
+            ) -> str:
+            """
+            使用道具：调查凭证
+            """
+            user_data, group_id, user_id = russian_manager.try_get_user_data(event)
+            if user_data == None:
+                return "私聊未关联账户，请发送【关联账户】关联群内账户。"
+            else:
+                pass
+
+            n = user_data["props"].get("42101",0)
+            if n < 1:
+                return "数量不足"
+            else:
+                at = get_message_at(event.json())
+                if at:
+                    at = str(at[0])
+                    if at in russian_manager._player_data[group_id].keys():
+                        at_data = russian_manager._player_data[group_id][at]
+                        user_data["props"]["42101"] -= 1
+                        N = random.randint(0,50)
+                        gold = int(at_data["gold"] * N / 1000)
+                        user_data["gold"] += gold
+                        at_data["gold"] -= gold
+
+                        info = f"你获得了{gold}枚金币\n"
+
+                        for stock, count in at_data["stock"].items():
+                            if stock == "value":
+                                pass
+                            else:
+                                t = int(count * N / 100)
+                                user_data["stock"].setdefault(stock,0)
+                                user_data["stock"][stock] += t
+                                at_data["stock"][stock] -= t
+
+                                if at in market_manager.Stock_Exchange[stock]:
+                                    del market_manager.Stock_Exchange[stock][at]
+                                info += f"{stock}：{t}\n"
+                        else:
+                            info += f"（{N/10}%）" 
+                        return info
+                    else:
+                        return "对方没有账户。"
+                else:
+                    return "没有指定用户。"
+
+        def use_52101(
+            self,
+            event: MessageEvent,
+            ) -> str:
+            """
+            使用道具：神秘天平
+            """
+            user_data, group_id, user_id = russian_manager.try_get_user_data(event)
+            if user_data == None:
+                return "私聊未关联账户，请发送【关联账户】关联群内账户。"
+            else:
+                pass
+
+            n = user_data["props"].get("52101",0)
+            if n < 1:
+                return "数量不足"
+            else:
+                user_data["props"]["52101"] -= 1
+                group_data = russian_manager._player_data[group_id]
+                data = sorted(group_data.items(),key=lambda x:x[1]["gold"])
+                target_id = random.choice(data[:20])[0]
+
+                if target_id == user_id:
+                    return f"道具使用失败，你损失了一个『{props_library['52101']['name']}』"
+                target_data = group_data[target_id]
+                user_data["gold"]
+                sum = target_data["gold"] + user_data["gold"]
+                gold = int(sum/2)
+                fee = int(gold/20)
+
+                flag = target_data["props"].get("42001",0)
+                if flag > 0:
+                    target_data["gold"] = gold
+                    msg1 = f"\n对方获得了{gold}金币『{props_library['42001']['name']}』。"
+                else:
+                    target_data["gold"] = gold - fee
+                    msg1 = f"\n对方获得了{gold - fee}金币(扣除5%手续费：{fee})。"
+
+                flag = user_data["props"].get("42001",0)
+                if flag > 0:
+                    user_data["gold"] = gold
+                    msg2 = f"\n你获得了{gold}金币『{props_library['42001']['name']}』。"
+                else:
+                    user_data["gold"] = gold - fee
+                    msg2 = f"\n你获得了{gold - fee}金币(扣除5%手续费：{fee})。"
+
+                russian_manager.save()
+
+                return f"你与{target_data['nickname']}平分了金币。" + msg1 + msg2
+
+        def use_52102(
+            self,
+            event: MessageEvent,
+            count: int,
+            ) -> str:
+            """
+            使用道具：幸运硬币
+            """
+            user_data, group_id, user_id = russian_manager.try_get_user_data(event)
+            if user_data == None:
+                return "私聊未关联账户，请发送【关联账户】关联群内账户。"
+            else:
+                pass
+
+            n = user_data["props"].get("52102",0)
+            if n < 1:
+                return "数量不足"
+            else:
+                user_data["props"]["52102"] -= 1
+                gold = user_data["gold"]
+                if count == 2:
+                    n = user_data["props"].get("62101",0)
+                    if n > 1:
+                        user_data["props"]["62101"] -= 1
+                    else:
+                        return "钻石数量不足"
+                else:
+                    gold = gold if gold < (50 * max_bet_gold) else (50 * max_bet_gold)
+
+                if random.randint(0,1) == 1:
+                    user_data["gold"] += gold
+                    st = "获得"
+                else:
+                    user_data["gold"] -= gold
+                    st = "失去"
+                russian_manager.save()
+                return f"你{st}了{gold}金币"
+
     use_props = Use_props()
 
     def Achieve_list(self,user_data):
@@ -1541,14 +1686,14 @@ class GameManager:
         :param user_data: russian_manager.get_user_data(event)
         """
         rank = ""
-        count = user_data["Achieve_revolution"] + user_data["props"].get("路灯挂件标记",0)
+        count = user_data["Achieve_revolution"] + user_data["props"].get("02101",0)
         if count > 0:
             if count <= 4:
                 rank += f"{(4-count)*'  '}{count*'☆'}  路灯挂件  {count*'☆'}{(4-count)*'  '}\n"
             else: 
                 rank += f"☆☆☆☆☆路灯挂件☆☆☆☆☆\n"
             rank += "——————————————\n"
-        count = user_data["props"].get("四叶草标记",0)
+        count = user_data["props"].get("32001",0)   # 四叶草标记
         if count > 0:
             rank += f"{lucky_clover}\n"
             rank += "——————————————\n"
@@ -1583,7 +1728,7 @@ class GameManager:
         
         global_props = self.get_global_data(user_id)["props"]
 
-        special_props = {"02101":(user_data["Achieve_revolution"] + user_data["props"].get("02101",0))} # 路灯挂件的特例
+        special_props = {"02101":(user_data["Achieve_revolution"])} # 路灯挂件的特例
 
         props = Counter(group_props) + Counter(global_props) + Counter(special_props)
 
@@ -1607,7 +1752,6 @@ class GameManager:
             return MessageSegment.image(output)
         else:
             return "您的仓库空空如也。"
-
 
     def my_info(self, event: MessageEvent) -> str:
         """
@@ -1766,12 +1910,14 @@ class GameManager:
             res = {}
             for i in range(N):
                 code = random.randint(1,100)
-                if 0 < code <= 20:
+                if 0 < code <= 30:
                     rare = 3
-                elif 20 < code <= 30:
-                    rare = 4
                 elif 30 < code <= 40:
+                    rare = 4
+                elif 40 < code <= 50:
                     rare = 5
+                elif code == 90:
+                    rare = 0
                 elif code == 100:
                     rare = 6
                 else:
@@ -1794,6 +1940,8 @@ class GameManager:
                             user_data["props"][prop_code] = 7 if user_data["props"][prop_code] > 7 else user_data["props"][prop_code]
                         else:
                             quant =  "个"
+                            if prop_code[0] not in ["0","6"]:
+                                user_data["props"][prop_code] = 10 if user_data["props"][prop_code] > 10 else user_data["props"][prop_code]
                     elif prop_code[1] == "3":
                         props_data.setdefault(prop_code,0)
                         props_data[prop_code] += n
@@ -1830,9 +1978,9 @@ class GameManager:
         if rare == 3:
             props = random.choice([31001,32001])
         elif rare == 4:
-            props = random.choice([41001,42001])
+            props = random.choice([41001,42001,42101])
         elif rare == 5:
-            props = random.choice([51001,51002,52001,52002])
+            props = random.choice([51001,51002,52001,52002,52101,52102])
         elif rare == 6:
             props = random.choice([61001,62101])
         else:
@@ -2791,19 +2939,23 @@ class MarketManager:
             if gold > first:
                 return f"【{company_name}】最多可转入 {first} 金币"
 
+            tab = ""
             if gold <= (5 * max_bet_gold):
-                flag = russian_manager._player_data[group_id][user_id]["props"].get("钻石会员卡",0)
+                flag = russian_manager._player_data[group_id][user_id]["props"].get("42001",0)
                 if flag > 0:
                     fee = 0
+                    tab = f"【{props_library['42001']['name']}】"
                 else:
                     fee = int(gold * 0.01)
+                    tab = ""
             else:
                 fee = int(gold * 0.2)
+                tab = ""
+
             russian_manager._player_data[company_id][user_id]["gold"] += gold - fee
             russian_manager._player_data[group_id][user_id]["gold"] -= gold
             russian_manager.save()
-            
-            return f"向 【{company_name}】 转移 {gold}金币，扣除手续费：{fee}，实际到账金额{gold - fee}"
+            return f"向 【{company_name}】 转移 {gold}金币，扣除手续费：{fee}{tab}，实际到账金额{gold - fee}"
         else:
             return f"【{company_name}】未注册"
 

@@ -684,9 +684,8 @@ gacha = on_regex("^.*连抽?卡?$", rule = to_me(), priority = 5, block = True)
 async def _(bot: Bot, event: MessageEvent):
     cmd = event.get_plaintext()
     N = re.search(r"^(.*)连抽?卡?$",cmd).group(1)
-    print(f"N = {N}")
     N = number(N)
-    if N and N > 0:
+    if N and 0 < N <= 200:
         msg = russian_manager.gacha(event,N)
         await gacha.finish(msg)
 # 我的
@@ -1031,7 +1030,7 @@ async def _():
     for group_id in russian_manager._player_data.keys():
         for user_id in russian_manager._player_data[group_id].keys():
             for props in russian_manager._player_data[group_id][user_id]["props"].keys():
-                if russian_manager._player_data[group_id][user_id]["props"][props] > 0 and props not in constant_props:
+                if russian_manager._player_data[group_id][user_id]["props"][props] > 0 and props[2] == "0":
                     russian_manager._player_data[group_id][user_id]["props"][props] -= 1
     else:
         logger.info("道具时间已刷新...")

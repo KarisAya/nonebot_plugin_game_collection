@@ -723,16 +723,22 @@ async def _(bot: Bot, event: PrivateMessageEvent,arg: Message = CommandArg()):
     await slot.finish(msg, at_sender=True)
 
 # 抽卡
-gacha = on_regex("^.*连抽?卡?$", rule = to_me(), priority = 5, block = True)
+gacha = on_regex("^.+连抽?卡?|单抽", rule = to_me(), priority = 5, block = True)
 
 @gacha.handle()
 async def _(bot: Bot, event: MessageEvent):
     cmd = event.get_plaintext()
-    N = re.search(r"^(.*)连抽?卡?$",cmd).group(1)
-    N = number(N)
+    N = re.search(r"^(.*)连抽?卡?$",cmd)
+    if N:
+        N = N.group(1)
+        N = number(N)
+    else:
+        N = 1
+
     if N and 0 < N <= 200:
         msg = russian_manager.gacha(event,N)
         await gacha.finish(msg)
+
 # 我的
 my_props = on_command("我的道具", aliases={"我的仓库"}, priority=5, block=True)
 

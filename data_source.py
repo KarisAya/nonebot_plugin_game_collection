@@ -80,6 +80,9 @@ for prop_code in props_library.keys():
             }
         )
 
+with open(os.path.dirname(__file__) + "/element_library.json", "r", encoding="utf8") as f:
+    element_library = json.load(f)
+
 
 def set_type(old:str, line:int) -> str:
     new = ""
@@ -1074,7 +1077,7 @@ class GameManager:
         return self.alchemy_data[user_id]
 
     def alchemy_data_save(self):
-        with open(self.cards_data_file, "w", encoding="utf8") as f:
+        with open(self.alchemy_data_file, "w", encoding="utf8") as f:
             json.dump(self.alchemy_data, f, ensure_ascii=False, indent=4)
 
     def get_user_data(self, event: GroupMessageEvent) -> Dict[str, Union[str, int]]:
@@ -1591,21 +1594,30 @@ class GameManager:
             else:
                 pass
 
-            global_props = global_data["props"]
+            global_props = russian_manager.get_global_data(user_id)["props"]
             n = global_props.get("33101",0)
             if n < count:
                 return "数量不足"
             else:
-                global_props["03101"] -= count
+                global_props["33101"] -= count
                 alchemy_data = russian_manager.get_alchemy_data(user_id)
+                res = {}
                 for i in range(4 * count):
                     element_code = f"0{random.randint(1,4)}01"
+
+                    res.setdefault(element_code,0)
+                    res[element_code] += 1
+
+                msg = "你获得了\n"
+                for element_code in res.keys():
+                    n = res[element_code]
                     alchemy_data.setdefault(element_code,0)
-                    alchemy_data[element_code] += 1
+                    alchemy_data[element_code] += n
+                    msg += f'{element_library[element_code]["name"]}：{n}个\n' 
 
                 russian_manager.alchemy_data_save()
                 russian_manager.global_data_save()
-                return "ok"
+                return msg + "祝你好运"
 
         def use_42101(
             self,
@@ -1631,28 +1643,33 @@ class GameManager:
                         at_data = russian_manager._player_data[group_id][at]
                         user_data["props"]["42101"] -= 1
                         N = random.randint(0,50)
-                        gold = int(at_data["gold"] * N / 1000)
-                        user_data["gold"] += gold
-                        at_data["gold"] -= gold
-
-                        info = f"你获得了{gold}枚金币\n"
-
-                        for stock, count in at_data["stock"].items():
-                            if stock == "value":
-                                pass
-                            else:
-                                t = int(count * N / 100)
-                                if t > 0:
-                                    user_data["stock"].setdefault(stock,0)
-                                    user_data["stock"][stock] += t
-                                    at_data["stock"][stock] -= t
-                                    if at in market_manager.Stock_Exchange[stock]:
-                                        del market_manager.Stock_Exchange[stock][at]
-                                    info += f"{stock}：{t}\n"
-                                else:
-                                    pass
+                        if N < 20:
+                            gold = int(user_data["gold"] * N / 1000)
+                            at_data["gold"] += gold
+                            user_data["gold"] -= gold
+                            info = f"调查没有发现问题。你赔偿了对方{gold}枚金币"
                         else:
-                            info += f"（{N/10}%）" 
+                            gold = int(at_data["gold"] * N / 1000)
+                            user_data["gold"] += gold
+                            at_data["gold"] -= gold
+
+                            info = f"你获得了{gold}枚金币\n"
+
+                            for stock, count in at_data["stock"].items():
+                                if stock == "value":
+                                    pass
+                                else:
+                                    t = int(count * N / 100)
+                                    if t > 0:
+                                        user_data["stock"].setdefault(stock,0)
+                                        user_data["stock"][stock] += t
+                                        at_data["stock"][stock] -= t
+                                        if at in market_manager.Stock_Exchange[stock]:
+                                            del market_manager.Stock_Exchange[stock][at]
+                                        info += f"{stock}：{t}\n"
+                                    else:
+                                        pass
+                        info += f"（{N/10}%）" 
                         return info
                     else:
                         return "对方没有账户。"
@@ -1679,7 +1696,7 @@ class GameManager:
                 user_data["props"]["52101"] -= 1
                 group_data = russian_manager._player_data[group_id]
                 data = sorted(group_data.items(),key=lambda x:x[1]["gold"],reverse = True)
-                target_id = random.choice(data[:20])[0]
+                target_id = random.choice(data[:50])[0]
 
                 if target_id == user_id:
                     return f"道具使用失败，你损失了一个『{props_library['52101']['name']}』"
@@ -2833,8 +2850,8 @@ class MarketManager:
             Frozen_Assets = int (sum / max_bet_gold) + 1
 
         props_data = russian_manager.get_global_data(at)["props"]
-        props_data.setdefault(prop_code,0)
-        props_data[prop_code] += Frozen_Assets
+        props_data.setdefault("03101",0)
+        props_data["03101"] += Frozen_Assets
 
         russian_manager.save()
         russian_manager.global_data_save()

@@ -1824,7 +1824,7 @@ class GameManager:
         for seg in data:
             prop_code = seg[0]
             n = seg[1]
-            quant = "天" if prop_code[2] == 0 else "个"
+            quant = "天" if prop_code[2] == "0" else "个"
             prop = props_library.get(prop_code,{"name": prop_code, "color": "black","rare": 1,"intro": "未知","des": "未知"})
             props_info += (
                 f"[size=60][align=left][color={prop['color']}]【{prop['name']}】{prop['rare']*'☆'}[/align][align=right]{n}{quant}\n[/color][/align][/size]"

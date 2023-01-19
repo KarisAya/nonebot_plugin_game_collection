@@ -67,6 +67,7 @@ def market_linechart(figsize: Tuple[int,int], market_history:list, title:str) ->
     plt.grid(True, linestyle='-', alpha=0.3)
     output = BytesIO()
     plt.savefig(output)
+    plt.close()
     return output
 
 def market_candlestick(figsize: Tuple[int,int],datalenth: int, market_history:list, title:str) -> BytesIO:
@@ -126,6 +127,7 @@ def market_candlestick(figsize: Tuple[int,int],datalenth: int, market_history:li
     plt.grid(True, linestyle='--', alpha=0.3)
     output = BytesIO()
     plt.savefig(output)
+    plt.close()
     return output
 
 if __name__ == "__main__":

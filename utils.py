@@ -205,6 +205,7 @@ async def survey_result(result):
     plt.axis('equal')
     plt.subplots_adjust(top = 0.95, bottom = 0.05, right = 1, left = 0, hspace = 0, wspace = 0)
     plt.savefig(output,format='png', dpi = 100)
+    plt.close()
 
     pie = Image.open(output)
     bg.paste(pie, (20, (bg.size[1]) - 440))

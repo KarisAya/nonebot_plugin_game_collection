@@ -975,12 +975,8 @@ class GameManager:
                     f"{hand_msg}\n"
                     )
                 output = text_to_png(message,30)
-
-                try:
-                    await bot.send(event,message = MessageSegment.image(output))
-                except Exception as error :
-                    await bot.send_private_msg(user_id = list(bot.config.superusers)[0], message = MessageSegment.image(output))
-                    await bot.send_private_msg(user_id = list(bot.config.superusers)[0], message = str(error))
+                
+                await bot.send(event, message = MessageSegment.image(output))
 
                 self._current_player[event.group_id]["act"] = 1
                 if next_name == "游戏结束":

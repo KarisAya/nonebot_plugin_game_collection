@@ -52,6 +52,25 @@ __注意：2.0版本与1.7版本在道具部分不兼容__
     REVOLT_SIGN_GOLD = [800, 1200]        # 重置签到可得到的金币范围
     SECURITY_GOLD = [50, 200]             # 每日补贴可得到的金币范围
 
+## 使用其他插件修改本插件用户数据
+
+用户数据结构请参照 russian_data.json
+
+    from nonebot.plugin.on import on_command
+    from nonebot.adapters.onebot.v11 import GroupMessageEvent
+    from nonebot_plugin_game_collection.api import russian_data,russian_data_save # 加载 nonebot_plugin_game_collection.api
+
+    test = on_command("测试", priority = 5, block = True)
+    
+    @test.handle()
+    async def _(event: GroupMessageEvent):
+        group_id = str(event.group_id) 
+        user_id = str(event.user_id)
+        russian_data()[group_id][user_id]["gold"] += 100 # 用户数据金币加100
+        russian_data()[group_id][user_id]["make_gold"] += 100 # 用户数据获得金币加100
+        russian_data_save() # 保存用户数据
+        await test.send("你好")
+
 ## 功能介绍
 
 里面的所有游戏都需要使用金币作为赌注！

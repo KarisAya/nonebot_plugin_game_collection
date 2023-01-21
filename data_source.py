@@ -1311,14 +1311,6 @@ class GameManager:
         self._player_data[group_id][win_user_id]["Achieve_victory"] += 1
         self._player_data[group_id][win_user_id]["Achieve_lose"] = 0
 
-        flag = self._player_data[group_id][win_user_id]["props"].get("52002",0)
-        if flag > 0:
-            extra = int(gold *0.2)
-            self._player_data[group_id][win_user_id]["gold"] += extra
-        else:
-            extra = 0
-            
-
         self._player_data[group_id][lose_user_id]["gold"] -= gold
         self._player_data[group_id][lose_user_id]["lose_gold"] += gold
         self._player_data[group_id][lose_user_id]["lose_count"] += 1
@@ -1332,13 +1324,22 @@ class GameManager:
         else:
             security = 0
 
-        
-        flag = self._player_data[group_id][lose_user_id]["props"].get("52001",0)
-        if flag > 0:
-            off = int(gold *0.2)
-            self._player_data[group_id][lose_user_id]["gold"] += off
-        else:
+        if gold > (2 * max_bet_gold):
+            extra = 0
             off = 0
+        else:
+            flag = self._player_data[group_id][win_user_id]["props"].get("52002",0)
+            if flag > 0:
+                extra = int(gold *0.2)
+                self._player_data[group_id][win_user_id]["gold"] += extra
+            else:
+                extra = 0        
+            flag = self._player_data[group_id][lose_user_id]["props"].get("52001",0)
+            if flag > 0:
+                off = int(gold *0.2)
+                self._player_data[group_id][lose_user_id]["gold"] += off
+            else:
+                off = 0
 
         self.save()
 

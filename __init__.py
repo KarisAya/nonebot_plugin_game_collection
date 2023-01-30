@@ -46,6 +46,28 @@ from .start import *
 from .race_group import race_group
 from .setting import  *
 
+try:
+    import ujson as json
+except ModuleNotFoundError:
+    import json
+
+try:
+    from nonebot.plugin import PluginMetadata
+    with open(os.path.dirname(__file__) + "/menu_data.json", "r", encoding="utf8") as f:
+        menu_data = json.load(f)
+    __plugin_meta__ = PluginMetadata(
+        name = "小游戏合集",
+        description = "各种群内小游戏",
+        usage = "",
+        extra = {
+            'menu_data': menu_data,
+            'menu_template': 'default'
+            }
+        )
+except ModuleNotFoundError:
+    logger.info("当前nonebot版本无法使用插件元数据。")
+
+
 from nonebot_plugin_imageutils import text2image
 
 scheduler = require("nonebot_plugin_apscheduler").scheduler

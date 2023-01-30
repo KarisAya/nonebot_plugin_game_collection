@@ -2509,19 +2509,19 @@ class MarketManager:
                                     }
                                 )
                             output = []
-                            i = 0
+                            output.append(company_info_Splicing(info,[Path(linechart_cache / x[0]),Path(candlestick_cache / x[0])]))
+                            i = 1
                     else:
-                        if i:
-                            msg.append(
-                                {
-                                    "type": "node",
-                                    "data": {
-                                        "name": f"{bot_name}",
-                                        "uin": str(event.self_id),
-                                        "content": MessageSegment.image(img_Splicing(output))
-                                        }
+                        msg.append(
+                            {
+                                "type": "node",
+                                "data": {
+                                    "name": f"{bot_name}",
+                                    "uin": str(event.self_id),
+                                    "content": MessageSegment.image(img_Splicing(output))
                                     }
-                                )
+                                }
+                            )
                 else:
                     output = ""
                     i = 0
@@ -2554,20 +2554,28 @@ class MarketManager:
                                         }
                                     }
                                 )
-                            output = ""
-                            i = 0
-                    else:
-                        if i:
-                            msg.append(
-                                {
-                                    "type": "node",
-                                    "data": {
-                                        "name": f"{bot_name}",
-                                        "uin": str(event.self_id),
-                                        "content": MessageSegment.image(text_to_png(output[:-1]))
-                                        }
-                                    }
+                            output = (
+                                f'【{x[0]}】\n'
+                                "——————————————\n"
+                                f'固定资产：{round(self._market_data[x[0]]["gold"], 2)} 金币\n'
+                                f'市场流动：{int(x[1])} 金币\n'
+                                f'发行价格：{round(price/20000,2)} 金币\n'
+                                f'结算价格：{round(self._market_data[x[0]]["float_gold"] / 20000, 2)} 金币\n'
+                                f'剩余数量：{self._market_data[x[0]]["stock"]} 株\n'
+                                "——————————————\n"
                                 )
+                            i = 1
+                    else:
+                        msg.append(
+                            {
+                                "type": "node",
+                                "data": {
+                                    "name": f"{bot_name}",
+                                    "uin": str(event.self_id),
+                                    "content": MessageSegment.image(text_to_png(output[:-1]))
+                                    }
+                                }
+                            )
                 return msg
             else:
                 return "市场不存在..."

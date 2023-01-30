@@ -1,0 +1,198 @@
+[
+    {
+        "func": "获取金币",
+        "trigger_method": "1.金币签到 2.重置签到",
+        "trigger_condition": "无",
+        "brief_des": "获取金币",
+        "detail_des": "金币签到：\n玩家每日可签到一次，每日0点刷新。\n重置签到：\n每次重置后可领取一次。"
+    },
+    {
+        "func": "发起重置",
+        "trigger_method": "发起重置",
+        "trigger_condition": "无",
+        "brief_des": "清空前十名的金币。",
+        "detail_des": "当金币排行榜第一名的金币超过第二名到第十名的总和，可以发起重置。"
+    },
+    {
+        "func": "个人账户",
+        "trigger_method": "1.我的金币 2.我的仓库 3.我的资料卡",
+        "trigger_condition": "无",
+        "brief_des": "查看个人账户资料",
+        "detail_des": "我的金币：\n查看自己的金币数量\n我的仓库：\n查看自己获得的的道具\n我的资料卡：\n查看个人账户详细资料\n我的资产：\n查看自己的全局资产分布"
+    },
+    {
+        "func": "发红包",
+        "trigger_method": "发红包 【金额】 【at】",
+        "trigger_condition": "无",
+        "brief_des": "给at的用户发金币",
+        "detail_des": ""
+    },
+    {
+        "func": "送道具",
+        "trigger_method": "送道具 【道具名】 【道具数量】 【at】",
+        "trigger_condition": "无",
+        "brief_des": "给at的用户送道具",
+        "detail_des": "可以不填道具数量，默认为1"
+    },
+    {
+        "func": "金币转移",
+        "trigger_method": "金币转移 【公司名】 【金额】",
+        "trigger_condition": "转移目标已注册公司。",
+        "brief_des": "跨群转移金币",
+        "detail_des": "转移目标已注册公司，你在目标群内有账户。"
+    },
+    {
+        "func": "抽卡",
+        "trigger_method": "单抽\/10连",
+        "trigger_condition": "需要@bot或叫bot的名字。",
+        "brief_des": "获取道具\n可指定抽卡次数\n例如： @bot 30连",
+        "detail_des": "道具分为全局道具和群内道具\n也可分为永久道具和时效道具\n时效道具最长叠加7天\n永久道具最多叠10个\n部分道具可使用：\n使用方法：使用道具 【道具名】 【数量\/参数】"
+    },
+    {
+        "func": "使用道具",
+        "trigger_method": "使用道具 【道具名】 【数量\/参数】",
+        "trigger_condition": "无",
+        "brief_des": "部分道具无法使用",
+        "detail_des": ""
+    },
+    {
+        "func": "排行榜",
+        "trigger_method": "金币排行",
+        "trigger_condition": "无",
+        "brief_des": "查看排行榜",
+        "detail_des": "金币排行\n胜场排行\n败场排行\n欧洲人排行\n慈善家排行\n查看路灯挂件"
+    },
+    {
+        "func": "连接账户",
+        "trigger_method": "1.群内：@bot关联账户 2.私聊：关联账户\n",
+        "trigger_condition": "无",
+        "brief_des": "私聊指令关联到群。",
+        "detail_des": "你可以在私聊完成以下操作：\n签到\n抽卡\n查看个人账户：\n查看排行\n购买或结算股票"
+    },
+    {
+        "func": "俄罗斯轮盘",
+        "trigger_method": "装弹 【子弹数】 【金额】 【at】",
+        "trigger_condition": "赌注上限为一倍赌注上限",
+        "brief_des": "发起俄罗斯轮盘",
+        "detail_des": "通过 装弹 来对其他人发起决斗\n不@则所有群友都可接受\n轮流开枪，直到运气不好的人先去世。\n【特殊技能】：开枪0\n\n【开始游戏】\n装弹 【子弹数】 【金额】 【at】（为空则所有群友都可接受）\n【回应】\n接受挑战\/拒绝挑战\n【回合中】\n开枪\/咔\/嘭\/嘣 [子弹数]（默认1)（轮流开枪）\n【结算】\n结算 （当某一方60秒未开枪，可使用该命令结束对决并胜利）"
+    },
+    {
+        "func": "掷骰子",
+        "trigger_method": "摇骰子\/掷色子 【金额】 【at】",
+        "trigger_condition": "赌注上限为五倍赌注上限",
+        "brief_des": "发起掷骰子",
+        "detail_des": "通过 掷骰子 来对其他人发起决斗\n轮流开数比大小\n中途可结束\n轮流开数，先比组合，再比点数。\n组合：\n役满 > 串 > 条 > 两对 > 对 > 散\n\n【开始游戏】\n摇骰子\/掷色子 【金额】 【at】（为空则所有群友都可接受）\n【回应】\n接受挑战\/拒绝挑战\n【回合中】\n开数\/开点\/取出（轮流开数）\n【结束】\n结束（只有暂败方可发起）\n【结算】\n结算（当某一方60秒没有回应，以目前比分结算）"
+    },
+    {
+        "func": "扑克对战",
+        "trigger_method": "扑克对战 【金额】 【at】",
+        "trigger_condition": "赌注上限为一倍赌注上限",
+        "brief_des": "发起扑克对战",
+        "detail_des": "通过 扑克对战 来对其他人对战\n打出自己的手牌\n当对方的血量小于1或者在自己回合出牌前血量>40即可获胜\n牌库一共52张牌，当牌库没有牌了就以目前血量结算，结束游戏。\n\n先手初始点数：HP 20 SP 0 DEF 0\n后手初始点数：HP 25 SP 2 DEF 0\n每回合抽三张牌，打出其中的一张作为行动牌，弃掉剩余手牌。\n（特别注意：防御牌作为行动牌是攻击）\n之后对方摇一个20面骰子，\n如果点数小于对方SP则从牌库翻出一张牌作为技能牌打出。\n按照技能牌点数扣除对方SP点。\n\n<ft size=30 color=black>黑桃<\/ft>\n描述：防御\n行动牌效果：打出攻击\n技能牌效果：增加DEF\n<ft size=30 color=red>红桃<\/ft>\n描述：生命\n行动牌效果：恢复HP\n技能牌效果：恢复HP\n<ft size=30 color=black>梅花<\/ft>\n描述：技能\n行动牌效果：主动技能\n技能牌效果：增加SP\n<ft size=30 color=red>方片<\/ft>\n描述：攻击行动牌效果：打出攻击\n技能牌效果：打出反击\n\n主动技能：\n摇一个20面骰子\n如果点数小于自身SP则把剩余两张手牌作为技能牌全部打出\n按照技能牌点数扣除自身SP点ACE技能：\n摇一个6面骰子\n把打出的ACE牌点替换成摇出的点数\n再把三张手牌全部作为技能牌打出\n按照技能牌点数扣除自身SP点\n\n【开始游戏】\n扑克对战 【金额】 【at】（为空则所有群友都可接受）\n【回应】\n接受挑战\/拒绝挑战\n【回合中】\n出牌 1\/2\/3（轮流出牌）\n【结算】\n结算（当某一方60秒没有回应，以目前血量结算）"
+    },
+    {
+        "func": "赛马小游戏",
+        "trigger_method": "赛马创建",
+        "trigger_condition": "无",
+        "brief_des": "创建赛马小游戏",
+        "detail_des": "流程：\n赛马创建：第一位玩家发起活动 →\n赛马加入 【你的马儿名称】：玩家参赛 →\n赛马开始：游戏进行 →\n进行中 →\n结算\n\n当遇到错误或其他情况可使用赛马重置来重置马场。"
+    },
+    {
+        "func": "市场信息",
+        "trigger_method": "市场信息",
+        "trigger_condition": "无",
+        "brief_des": "查看市场信息",
+        "detail_des": "查看市场上所有公司的官方结算价格"
+    },
+    {
+        "func": "玩家市场信息",
+        "trigger_method": "市场信息 【公司名称】",
+        "trigger_condition": "无",
+        "brief_des": "查看【公司名称】股份报价",
+        "detail_des": ""
+    },
+    {
+        "func": "市场行情",
+        "trigger_method": "市场行情",
+        "trigger_condition": "无",
+        "brief_des": "查看市场行情",
+        "detail_des": ""
+    },
+    {
+        "func": "公司信息",
+        "trigger_method": "公司信息 【公司名称】",
+        "trigger_condition": "无",
+        "brief_des": "查看公司的详细信息",
+        "detail_des": ""
+    },
+    {
+        "func": "发行购买",
+        "trigger_method": "发行购买 【公司名称】 【N】",
+        "trigger_condition": "无",
+        "brief_des": "从官方购买股票",
+        "detail_des": "以发行价格从 【公司名称】购买N股本公司股份。"
+    },
+    {
+        "func": "官方结算",
+        "trigger_method": "官方结算 【公司名称】 【N】",
+        "trigger_condition": "无",
+        "brief_des": "从官方结算股票",
+        "detail_des": "以结算价格向【公司名称】卖出N股本公司股份。"
+    },
+    {
+        "func": "购买股票",
+        "trigger_method": "购买 【公司名称】 【N】",
+        "trigger_condition": "无",
+        "brief_des": "从玩家市场购买股票",
+        "detail_des": "以从低到高的报价买入N股市场中的【公司名称】。"
+    },
+    {
+        "func": "出售股票",
+        "trigger_method": "出售 【公司名称】 【报价】 【N】",
+        "trigger_condition": "无",
+        "brief_des": "从玩家市场出售股票",
+        "detail_des": "将自己手中的【公司名称】 以【报价】发布到市场N股。"
+    },
+    {
+        "func": "市场注册",
+        "trigger_method": "市场注册 【公司名称】",
+        "trigger_condition": "需要@bot或叫bot的名字，指令权限：管理员。",
+        "brief_des": "成立公司",
+        "detail_des": "将本群以【公司名称】注册到市场，\n如果全群金币数小于两万则会注册失败。"
+    },
+    {
+        "func": "更新公司简介",
+        "trigger_method": "更新公司简介 【简介内容】",
+        "trigger_condition": "指令权限：管理员",
+        "brief_des": "更新公司简介",
+        "detail_des": "将【简介内容】添加到本群公司资料的简介中"
+    },
+    {
+        "func": "管理员更新公司简介",
+        "trigger_method": "管理员更新公司简介 【公司名称】 【简介内容】",
+        "trigger_condition": "指令权限：超管",
+        "brief_des": "更新公司简介",
+        "detail_des": "将【简介内容】添加到【公司名称】资料的简介中。"
+    },
+    {
+        "func": "资产调查",
+        "trigger_method": "1.资产调查 2.资产调查@someone\n",
+        "trigger_condition": "指令权限：管理员",
+        "brief_des": "调查用户的资产分布情况。",
+        "detail_des": "如果未指定用户，则调查玩家总资产前十名的资产分布情况。"
+    },
+    {
+        "func": "冻结资产",
+        "trigger_method": "冻结资产@someone",
+        "trigger_condition": "指令权限：超管",
+        "brief_des": "查封at的群友的全部资产。",
+        "detail_des": "查封后的用户会持有最多500个全局道具【被冻结的资产】，\n此道具可以在任意群使用，\n每个【被冻结的资产】使用后会在使用的群获得一倍赌注上限的金币。"
+    },
+    {
+        "func": "清理无效账户",
+        "trigger_method": "清理无效账户",
+        "trigger_condition": "指令权限：超管",
+        "brief_des": "清理无效账户",
+        "detail_des": "无效账户范围：\nbot不在的群\n退群的用户\n长期不冒泡的群友\n资产过小的公司"
+    }
+]

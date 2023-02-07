@@ -217,7 +217,7 @@ class GameManager:
             with open(file, "r", encoding="utf8") as f:
                 self.alchemy_data = json.load(f)
 
-    def sign(self, event:MessageEvent) -> str:
+    def sign(self, event: MessageEvent) -> str:
         """
         签到
         :param event: event
@@ -229,16 +229,18 @@ class GameManager:
         else:
             pass
 
-        if user_data["is_sign"]:
+        today_string: str = datetime.now().strftime("%Y-%m-%d")
+
+        if user_data["sign_date"] == today_string:
             return "你已经签过到了哦"
         else:
-            gold = random.randint(sign_gold[0], sign_gold[1])
+            gold = randint(sign_gold[0], sign_gold[1])
             user_data["gold"] += gold
             user_data["make_gold"] += gold
-            user_data["is_sign"] = True
+            user_data["sign_date"] = today_string
             self.save()
             logger.info(f"USER {user_id} | GROUP {group_id} 获取 {gold} 金币")
-            return random.choice(["祝你好运~", "可别花光了哦~"]) + f"\n你获得了 {gold} 金币"
+            return choice(["祝你好运~", "可别花光了哦~"]) + f"\n你获得了 {gold} 金币"
 
     def revolt_sign(self, event:MessageEvent) -> str:
         """

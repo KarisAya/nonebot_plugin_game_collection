@@ -9,7 +9,9 @@
 
 </div>
 
-## 需要安装（通过pip安装无视本段。）
+## 需要安装
+
+通过pip安装无视本段。
 
 [nonebot_plugin_imageutils](https://github.com/noneplugin/nonebot-plugin-imageutils) PIL工具插件，方便图片操作，支持文字转图片
 
@@ -28,6 +30,8 @@ seaborn 数据可视化拓展
 ## 使用
 
     nonebot.load_plugin('nonebot_plugin_game_collection')
+    
+## 注意
 
 __注意：本插件与nonebot_plugin_russian不兼容！__
 
@@ -177,7 +181,9 @@ __每日补贴(不是指令)__
     
 ### 抽卡
 
-    @bot十连抽卡/@bot100连抽  # 也可以把at换成bot的名字。
+`@bot十连抽卡` `@bot100连抽`
+
+也可以把at换成bot的名字。
     
 ### 道具
 
@@ -187,9 +193,7 @@ __每日补贴(不是指令)__
 
 也可分为永久道具和时效道具
 
-时效道具最长叠加10天
-
-永久道具最多叠10个
+群内道具最多叠 10 天/个
     
 __部分道具可使用：__
     
@@ -445,7 +449,7 @@ __超管__
 
 如有建议，bug反馈，以及讨论新玩法，新机制（或者单纯没有明白怎么用）可以来加群哦~
 
-![群号](https://github.com/KarisAya/nonebot_plugin_game_collection/blob/master/%E9%99%84%E4%BB%B6/qrcode_1665028285876.jpg)
+![群号](https://github.com/KarisAya/nonebot_plugin_game_collection/blob/master/%E9%99%84%E4%BB%B6/qrcode_1676538742221.jpg)
 
 当然也可以发issue...
 

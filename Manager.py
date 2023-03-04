@@ -279,7 +279,7 @@ def Newday():
         user.props = {k:v for k, v in props.items() if v > 0}
         group_accounts = user.group_accounts
         gold = 0
-        for group_id in set(group_accounts.keys()):
+        for group_id in list(group_accounts.keys()):
             if group_id not in group_check:
                 log += f"{user.nickname} 群账户{group_id}无效，已删除。\n"
                 del group_accounts[group_id]
@@ -320,9 +320,5 @@ def Newday():
                     "数据已修正。\n"
                     )
                 company.stock = company.issuance - stock_check[group_id]
-
-    del group_check
-    del company_ids
-    del stock_check
     data.save()
     return log[:-1] if log else "数据一切正常！"

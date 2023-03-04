@@ -442,27 +442,24 @@ async def delist(bot:Bot):
         for user_id in user_data:
             user = user_data[user_id]
             group_accounts = user.group_accounts
-            delist_group_accounts = set(group_accounts.keys()) & delist_group
-            for group_id in group_accounts:
+            accountset = set(group_accounts.keys())
+            delist_group_accounts = accountset & delist_group
+            for group_id in accountset:
                 group_account = group_accounts[group_id]
-                # 删除不存在的群账户
                 if group_id in delist_group_accounts:
+                    # 删除不存在的群账户
                     log += f'删除群账户：{user_id} - {group_id}\n'
                     del group_account
-                # 删除不存在的股票
                 else:
-                    for stock, count in group_account.stocks.items():
-                        if stock in delist_group:
-                            log += f'删除股票：{user_id} - {group_id} - {group_data[group_id].company.company_name} {count}'
-                            del group_account.stocks[stock]
+                    # 删除不存在的股票
+                    group_account.stocks = {stock:count for stock, count in group_account.stocks.items() if stock not in delist_group_accounts}
         # 删除不存在的群
         for group_id in delist_group:
             log += f'删除群：{group_id}\n'
             del group_data[group_id]
 
         # 已注册且存在的群
-        live_group = set(group_data.keys())
-        for group_id in live_group:
+        for group_id in list(group_data.keys()):
             users = await bot.get_group_member_list(group_id = group_id, no_cache = True)
             if users:
                 users = set(x["user_id"] for x in users)

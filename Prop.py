@@ -308,40 +308,32 @@ class Prop(str):
             return "数量不足"
 
         gold = group_account.gold
-
-        if count == 2:
+        if count == 1 or count == 2:
+            gold = int(gold/2)
+        if count == 2 or count == 4:
             if props.get("62101",0) > 1:
                 props["62101"] -= 1
                 if props["62101"] < 1:
                     del props["62101"]
-                flag = 0
             else:
                 return "钻石数量不足"
         else:
-            flag = 50 * max_bet_gold
+            gold = gold if gold < (limit := 50 * max_bet_gold) else limit
 
         props["52102"] -= 1
         if props["52102"] < 1:
             del props["52102"]
 
         if random.randint(0,1) == 1:
-            bet = gold
+            user.gold += gold
+            group_account.gold += gold
             x = "获得"
         else:
-            bet = int(-gold/2)
+            user.gold -= gold
+            group_account.gold -= gold
             x = "失去"
 
-        if flag:
-            if bet > flag:
-                bet = flag
-            elif bet < -flag:
-                bet = -flag
-        else:
-            pass
-
-        user.gold += bet
-        group_account.gold += bet
-        return f"你{x}了{bet}金币"
+        return f"你{x}了{gold}金币"
 
     @classmethod
     def use_53101(cls, event:MessageEvent, count:int) -> str:

@@ -496,7 +496,7 @@ my_gold = on_command("我的金币", priority = 20, block = True)
 @my_gold.handle()
 async def _(event:MessageEvent):
     msg = Account.my_gold(event)
-    await my_gold.finish(msg)
+    await my_gold.finish(msg, at_sender = True)
 
 # 我的资料卡
 my_info = on_command("我的信息", aliases = {"我的资料"}, priority = 20, block = True)
@@ -520,7 +520,7 @@ add_BG_image = on_command("设置背景图片", aliases = {"add_BG"}, priority =
 @add_BG_image.handle()
 async def _(event:MessageEvent):
     msg = await Manager.add_BG_image(event)
-    await add_BG_image.finish(msg)
+    await add_BG_image.finish(msg, at_sender = True)
 
 # 删除背景图片
 del_BG_image = on_command("删除背景图片", aliases = {"del_BG"}, priority = 20, block = True)
@@ -528,7 +528,7 @@ del_BG_image = on_command("删除背景图片", aliases = {"del_BG"}, priority =
 @del_BG_image.handle()
 async def _(event:MessageEvent):
     msg = await Manager.del_BG_image(event)
-    await del_BG_image.finish(msg)
+    await del_BG_image.finish(msg, at_sender = True)
 
 # 查看排行榜
 russian_rank = on_regex(

@@ -215,7 +215,7 @@ class Prop(str):
         target_user = user_data[at]
         target_group_account = target_user.group_accounts[group_id]
         N = random.randint(0,50)
-        if N < 20:
+        if N < 30:
             gold = int(group_account.gold * N / 1000)
             user.gold -= gold
             group_account.gold -= gold
@@ -314,26 +314,34 @@ class Prop(str):
                 props["62101"] -= 1
                 if props["62101"] < 1:
                     del props["62101"]
+                flag = 0
             else:
                 return "钻石数量不足"
         else:
-            gold = gold if gold < (50 * max_bet_gold) else (50 * max_bet_gold)
+            flag = 50 * max_bet_gold
 
         props["52102"] -= 1
         if props["52102"] < 1:
             del props["52102"]
 
-
         if random.randint(0,1) == 1:
-            user.gold += gold
-            group_account.gold += gold
-            st = "获得"
+            bet = gold
+            x = "获得"
         else:
-            gold = int(gold/2)
-            user.gold -= gold
-            group_account.gold -= gold
-            st = "失去"
-        return f"你{st}了{gold}金币"
+            bet = int(-gold/2)
+            x = "失去"
+
+        if flag:
+            if bet > flag:
+                bet = flag
+            elif bet < -flag:
+                bet = -flag
+        else:
+            pass
+
+        user.gold += bet
+        group_account.gold += bet
+        return f"你{x}了{bet}金币"
 
     @classmethod
     def use_53101(cls, event:MessageEvent, count:int) -> str:

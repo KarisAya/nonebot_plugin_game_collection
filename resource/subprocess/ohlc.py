@@ -59,16 +59,13 @@ def market_candlestick(figsize:Tuple[int,int], lenth:int, history:list, savefig)
         )
 
 if __name__ == "__main__":
-    #russian_path = Path(sys.argv[1])
-    #company_id = sys.argv[2]
-    russian_path = Path("D:\\testbot\\data\\russian")
-    company_id = "546421320"
+    russian_path = Path(sys.argv[1])
+    company_id = sys.argv[2]
     candlestick_cache = russian_path / "candlestick"
     candlestick_cache.mkdir(parents = True, exist_ok = True)
     candlestick = Path(candlestick_cache / f"{company_id}.png")
     if candlestick.exists() and time.time() - candlestick.stat().st_ctime < 600:
-        pass
-        #sys.exit(0)
+        sys.exit(0)
     history_file = russian_path / "market_history.json"
     with open(history_file, "r", encoding="utf8") as f:
         market_history = json.load(f)

@@ -265,20 +265,17 @@ def Newday():
     刷新每日
     """
     log = ""
-
     group_check = {k:set() for k in group_data}
-
     global company_index
     update_company_index(company_index)
     company_ids = company_index.values()
     stock_check = {k:0 for k in company_ids}
-
     # 检查user_data
     for user_id in user_data:
         user = user_data[user_id]
         user.transfer_limit = 0
         props = user.props
-        props = {k:v-1 if k[2] == '0' else v for k, v in props.items()}
+        props = {k:(v - 1 if v < 10 else 10) if k[2] == '0' else v for k, v in props.items()}
         user.props = {k:v for k, v in props.items() if v > 0}
         group_accounts = user.group_accounts
         gold = 0
@@ -292,7 +289,7 @@ def Newday():
                 group_account.is_sign = False
                 gold += group_account.gold
                 props = group_account.props
-                props = {k:v-1 if k[2] == '0' else v for k, v in props.items()}
+                props = {k:v - 1 if k[2] == '0' else v for k, v in props.items()}
                 group_account.props = {k:v for k, v in props.items() if v > 0}
                 stocks = group_account.stocks
                 for company_id in stocks:

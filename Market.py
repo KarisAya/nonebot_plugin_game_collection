@@ -557,7 +557,7 @@ def update():
     """
     log = ""
 
-    company_ids = list(set([company_index[x] for x in company_index]))
+    company_ids = set(company_index.values())
     for company_id in company_ids:
         company = group_data[company_id].company
         company_update(company)

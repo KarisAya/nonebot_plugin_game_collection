@@ -56,8 +56,6 @@ def props_create(event:MessageEvent, prop_name:str, count:int) -> str:
     account.props[prop_code] += count
     return f"你获得了{count}个【{prop_name}】！"
 
-
-
 def sign(event:MessageEvent) -> str:
     """
     签到

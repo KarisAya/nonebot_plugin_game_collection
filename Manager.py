@@ -282,17 +282,21 @@ def Newday():
         user.props = {k:v for k, v in props.items() if v > 0}
         group_accounts = user.group_accounts
         gold = 0
-        for group_id in group_accounts:
-            group_check[group_id].add(user_id)
-            group_account = group_accounts[group_id]
-            group_account.is_sign = False
-            gold += group_account.gold
-            props = group_account.props
-            props = {k:v-1 if k[2] == '0' else v for k, v in props.items()}
-            group_account.props = {k:v for k, v in props.items() if v > 0}
-            stocks = group_account.stocks
-            for company_id in stocks:
-                stock_check[company_id] += stocks[company_id]
+        for group_id in set(group_accounts.keys()):
+            if group_id not in group_check:
+                log += f"{user.nickname} 群账户{group_id}无效，已删除。\n"
+                del group_accounts[group_id]
+            else:
+                group_check[group_id].add(user_id)
+                group_account = group_accounts[group_id]
+                group_account.is_sign = False
+                gold += group_account.gold
+                props = group_account.props
+                props = {k:v-1 if k[2] == '0' else v for k, v in props.items()}
+                group_account.props = {k:v for k, v in props.items() if v > 0}
+                stocks = group_account.stocks
+                for company_id in stocks:
+                    stock_check[company_id] += stocks[company_id]
         if user.gold != gold:
             log += f"{user.nickname} 金币总数异常。记录值：{user.gold} 实测值：{gold} 数据已修正。\n"
             user.gold = gold

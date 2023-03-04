@@ -799,7 +799,7 @@ async def _(bot:Bot, event:MessageEvent, matcher:Matcher, code :Message = Arg())
 delist = on_command("清理无效账户", rule = to_me(), permission = SUPERUSER, priority = 20, block = True)
 
 @delist.handle()
-async def _(bot:Bot, event:MessageEvent):
+async def _(bot:Bot):
     await delist.send("正在启动清理程序。")
     log = await Account.delist(bot)
     logger.info("\n" + log)

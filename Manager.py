@@ -292,8 +292,12 @@ def Newday():
                 props = {k:v - 1 if k[2] == '0' else v for k, v in props.items()}
                 group_account.props = {k:v for k, v in props.items() if v > 0}
                 stocks = group_account.stocks
-                for company_id in stocks:
-                    stock_check[company_id] += stocks[company_id]
+                for company_id in list(stocks.keys()):
+                    if company_id in stock_check:
+                        stock_check[company_id] += stocks[company_id]
+                    else:
+                        log += f"{user.nickname} 群账户{group_id}内股票{company_id}回收异常，数据已修正。\n"
+                        del stocks[company_id]
         if user.gold != gold:
             log += f"{user.nickname} 金币总数异常。记录值：{user.gold} 实测值：{gold} 数据已修正。\n"
             user.gold = gold

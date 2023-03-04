@@ -1,0 +1,35 @@
+[
+  {
+  "event_name":"刷新选手数据1",
+  "target":0,
+  "describe":"赫尔随手一点，用神秘力量加快了<0>的Buffs速度，所有的效果持续时间-1",
+  "buff_time_add":-1
+  },
+  {
+  "event_name":"刷新选手数据2",
+  "target":2,
+  "describe":"赫尔随手一点，用神秘力量加快了<0>的Buffs速度，所有的效果持续时间-1",
+  "buff_time_add":-1
+  },
+  {
+  "event_name":"赋予选手眩晕Buff",
+  "target":0,
+  "describe":"赫尔找不到男朋友也找不到女朋友，非常生气，随便给了<0>一个3回合的眩晕Buff",
+  "rounds":3,
+  "name":"眩晕",
+  "vertigo":1
+  },
+  {
+  "event_name":"我将!扭转万象!",
+  "target":2,
+  "describe":"赫尔因为抽不出识宝，气愤的大喊，我将!!扭转万象!!",
+  "track_random_location":1
+  },
+  {
+  "event_name":"我将!扭转万象!",
+  "target":2,
+  "describe":"赫尔抽出了识宝，开心的大喊，我将!!扭转一切!!(所有选手复活）",
+  "live":1
+  }
+]
+

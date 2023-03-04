@@ -1,0 +1,50 @@
+[
+    {
+    "event_name":"崩坏能侵蚀_退1-3",
+    "target":0,
+    "describe":"<0>被崩坏能侵蚀，丧失理智，",
+    "random_event_once":[
+        [40, {
+            "event_name":"崩坏能侵蚀_退1",
+            "describe":"后退了1步",
+            "target":0,
+            "move":-1
+            }
+        ],
+        [80, {
+            "event_name":"崩坏能侵蚀_退2",
+            "describe":"后退了2步",
+            "target":0,
+            "move":-2
+        }
+        ],
+        [120, {
+            "event_name":"崩坏能侵蚀_退3",
+            "describe":"后退了3步",
+            "target":0,
+            "move":-3
+        }
+        ]
+      ]
+    },
+    {
+    "event_name":"崩坏能侵蚀2_退4",
+    "target":0,
+    "describe":"<0>被崩坏能侵蚀，丧失自我，后退了4步",
+    "move":-4
+    },
+    {
+    "event_name":"崩坏能侵蚀2_退4",
+    "target":0,
+    "describe":"<0>触碰到了大量的崩坏能，晕了过去（2回合）",
+    "rounds":2,
+    "name":"眩晕",
+    "vertigo":1
+    },
+    {
+    "event_name":"崩坏能侵蚀4_退回起点",
+    "target":0,
+    "describe":"<0>看了一眼西琳，被崩坏能送回了起点",
+    "move":-100
+    }
+]

@@ -1,0 +1,549 @@
+[
+    {
+        "event_name":"别在这理发店！",
+        "describe":"<0>砸碎了理发店的三色柱（驱赶所有人前进3步）",
+        "target":2,
+        "move":3
+    },
+    {
+        "event_name":"禁止色色！",
+        "describe":"<0>：都说了几遍，不能色色！（除了自己全员戒色眩晕一回合）",
+        "target":3,
+        "vertigo":1,
+        "rounds":1,
+        "name":"不准涩涩"
+    },
+    {
+        "event_name":"群主私发了女装！",
+        "describe":"<0>收到了群主私发的女装(前进10步但冲晕一回合）",
+        "target":0,
+        "vertigo":1,
+        "rounds":1,
+        "move":10,
+        "name":"群主女装"
+    },
+    {
+        "event_name":"群主请了每个人疯狂星期四",
+        "describe":"<0>群主V了我50（所有人止步一回合去了KFC）",
+        "target":3,
+        "locate_lock":1,
+        "rounds":1,
+        "name":"Crazy Thursday!"
+    },
+    {
+        "event_name":"我发了色图",
+        "describe":"<0>发了1-10张色图（随机目标眩晕对应色图数的回合，若为5、6、7张提高最大速）",
+        "target":4,
+        "random_event_once":[
+                [10, {
+                    "event_name":"我发了1张色图",
+                    "describe":"好诶！1张色图！（<1>拿到了一张色图，且体力不支晕了1回合）",
+                    "target":1,
+                    "vertigo":1,
+                    "rounds":1,
+                    "name":"冲晕了"
+                    }
+                ],
+                [20, {
+                    "event_name":"我发了2张色图",
+                    "describe":"好诶！2张色图！（<1>拿到了2张色图，且体力不支晕了2回合）",
+                    "target":1,
+                    "vertigo":1,
+                    "rounds":2,
+                    "name":"冲晕了"
+                    }
+                ],
+                [30, {
+                    "event_name":"我发了3张色图",
+                    "describe":"好诶！3张色图！（<1>拿到了3张色图，且体力不支晕了3回合）",
+                    "target":1,
+                    "vertigo":1,
+                    "rounds":3,
+                    "name":"冲晕了"
+                    }
+                ],
+                [40, {
+                    "event_name":"我发了4张色图",
+                    "describe":"好诶！4张色图！（<1>拿到了4张色图，且体力不支晕了4回合）",
+                    "target":1,
+                    "vertigo":1,
+                    "rounds":4,
+                    "name":"冲晕了"
+                    }
+                ],
+                [50, {
+                    "event_name":"我发了5张色图",
+                    "describe":"好诶！5张色图！（<1>拿到了5张色图，且体力不支晕了5回合，但他的兽性被小激发了，速度最大变为2）",
+                    "target":1,
+                    "vertigo":1,
+                    "rounds":5,
+                    "move_max":2,
+                    "move_min":2,
+                    "name":"冲晕了但爽"
+                    }
+                ],
+                [60, {
+                    "event_name":"我发了6张色图",
+                    "describe":"好诶！6张色图！（<1>拿到了6张色图，且体力不支晕了6回合，但他的兽性被中激发了，速度最大变为3）",
+                    "target":1,
+                    "vertigo":1,
+                    "rounds":6,
+                    "move_max":3,
+                    "move_min":3,
+                    "name":"冲晕了但爽"
+                    }
+                ],
+                [70, {
+                    "event_name":"我发了7张色图",
+                    "describe":"好诶！7张色图！（<1>拿到了7张色图，且体力不支晕了7回合，但他的兽性被大激发了，速度最大变为4）",
+                    "target":1,
+                    "vertigo":1,
+                    "rounds":7,
+                    "move_max":4,
+                    "move_min":4,
+                    "name":"冲晕了但爽"
+                    }
+                ],
+                [80, {
+                    "event_name":"我发了8张色图",
+                    "describe":"好诶！8张色图！（<1>拿到了8张色图，且冲过头晕了8回合）",
+                    "target":1,
+                    "vertigo":1,
+                    "rounds":8,
+                    "name":"冲过头了"
+                    }
+                ],
+                [90, {
+                    "event_name":"我发了9张色图",
+                    "describe":"好诶！9张色图！（<1>拿到了9张色图，且冲过头晕了9回合）",
+                    "target":1,
+                    "vertigo":1,
+                    "rounds":9,
+                    "name":"冲过头了"
+                    }
+                ],
+                [100, {
+                    "event_name":"我发了10张色图",
+                    "describe":"好诶！10张色图！（<1>拿到了8张色图，他冲死了）",
+                    "target":1,
+                    "die":1,
+                    "name":"冲死了"
+                    }
+                ]
+              ]
+
+    },
+    {
+        "event_name":"死宅真恶心",
+        "describe":"<0>:<1>你啊，四斋蒸鹅心！（与目标互换位置，前进3步并在三回合之后提高最大速2回合）",
+        "target":1,
+        "track_ exchange_ location":1,
+        "move":3,
+        "delay_event_self":[3,{
+            "event_name":"别靠近我，太恶心了",
+            "describe":"（提高最大速到2或3）",
+            "target":0,
+            "random_event_once":[
+                [50, {
+                    "event_name":"受不了，block了！",
+                    "describe":"心里稍微受不了，跑的稍微快了快一点（<0>最大速到2）",
+                    "target":0,
+                    "move_max":2,
+                    "move_min":2,
+                    "rounds":2,
+                    "name":"真鹅心!"
+                    }
+                ],
+                [100, {
+                    "event_name":"不劳烦您赶我，我马上溜！",
+                    "describe":"人和马有一个能润就行了（<0>最大速到3）",
+                    "target":0,
+                    "move_max":3,
+                    "move_min":3,
+                    "rounds":2,
+                    "name":"真鹅心！！"
+                    }
+                ]
+        ]
+    }]
+
+    },
+    {
+        "event_name":"大佬又在说我听不懂的东西了",
+        "describe":"<0>大佬又在说我听不懂的东西了（开始潜水，进入隐身状态，并获得一些奇怪的buff）",
+        "target":0,
+        "hiding":1,
+        "name":"潜水中",
+        "delay_event_self":[3, {
+            "event_name":"智慧之眼",
+            "describe":"<0>的智慧之眼（随机的buff）",
+            "target":0,
+            "random_event_once":[
+                [25, {
+                    "event_name":"你们在说什么？",
+                    "describe":"<0>:你们在说什么？",
+                    "target":0,
+                    "vertigo":1,
+                    "rounds":5,
+                    "name":"?"
+                    }
+                ],
+                [50, {
+                    "event_name":"我无法理解",
+                    "describe":"<0>:我无法理解",
+                    "target":0,
+                    "die" :1                  
+                    }
+                ],
+                [75, {
+                    "event_name":"我和大佬之间，只有亿点距离",
+                    "describe":"<0>:我和大佬之间，只有亿点距离",
+                    "target":0,
+                    "move":-100
+                    }
+                ],
+                [100, {
+                    "event_name":"我觉得我以后会看得懂",
+                    "describe":"<0>:我觉得我以后会看得懂",
+                    "target":0,
+                    "vertigo":1,
+                    "rounds":2,
+                    "move":-10,
+                    "name":"?"
+                    }
+                ]
+              ]
+        }]
+    
+        
+
+    },
+        {
+        "event_name":"求涩涩",
+        "target":0,
+        "describe":"<0>:几点了，还不发色图（求取1-3张色图，并获得相应的位移）",
+        "random_event_once":[
+            [33, {
+                "event_name":"一张",
+                "describe":"<0>：求求啦！来一张吧！（冲一步）",
+                "target":0,
+                "move":1,
+                "name":"冲！"
+                }
+            ],
+            [67, {
+                "event_name":"两张",
+                "describe":"<0>：求求啦！来两张吧！（冲两步）",
+                "target":0,
+                "move":2,
+                "name":"冲！！"
+            }
+            ],
+            [100, {
+                "event_name":"三张",
+                "describe":"<0>：求求啦！来三张吧！（冲三步）",
+                "target":0,
+                "move":3,
+                "name":"冲！！！"
+            }
+            ]
+          ]
+        },
+        {
+            "event_name":"嘿嘿……我要开始发癫了！",
+            "describe":"<0>：嘿嘿……群主……群主的小jiojio……嘿嘿（自己止步于此3回合，并在下回合赶跑其他人向前4步）",
+            "target":0,
+            "locate_lock":1,
+            "rounds":3,
+            "name":"发癫中",
+            "delay_event_self":[2, {
+                "event_name":"嘿嘿……我要开始发癫了！",
+                "describe":"<0>忍不住了！要发癫了！！（赶跑其他人向前4步）",
+                "target":3,
+                "move":4
+            }]
+
+        
+            
+    
+        },
+        {
+            "event_name":"很抱歉，这里不欢迎你",
+            "target":4,
+            "describe":"<0>:很抱歉，这里不欢迎你（将<1>踢出赛道）",
+            "away":1,
+            "name":"您已被踢出群聊"
+        },
+        {
+            "event_name":"那是场误会",
+            "target":2,
+            "target_is_buff":"away",
+            "describe":"<0>:之前把<1>踢出去是场误会（消除离开buff，不过目标会踹一个人5步以示敬意）",
+            "del_buff":"您已被踢出群聊" ,
+            "another_event":{
+                "event_name":"我不觉得",
+                "describe":"<0>:我可不觉得（踹一个人5步以示敬意）",
+                "target":1,
+                "move":-5
+            } 
+        },
+        {
+            "event_name":"欢迎新成员",
+            "target":0,
+            "describe":"<0>:欢迎新成员入群，其实是小号（将一匹新马加入比赛并替换原马）",
+            "name":"小号",
+            "random_event_once":[
+                [10, {
+                    "event_name":"人活着就是为了樱岛麻衣",
+                    "describe":"人活着就是为了樱岛麻衣——加入了比赛（与一名随机目标换位，有可能会击杀另一目标）",
+                    "target":0,
+                    "add_horse":{"horsename":"人活着就是为了樱岛麻衣", "uid":1, "owner":"小号", "location":1 },
+                    "another_event_self":{
+                        "event_name":"换位",
+                        "target":4,
+                        "describe":"为了樱岛麻衣！！（换位）",
+                        "track_exchange_location":1,
+                        "random_event_once":[
+                            [50,{
+                                "event_name":"击杀",
+                                "target":2,
+                                "describe":"<1>击杀了樱岛麻衣,死吧",
+                                "die":1
+                            }],
+                            [100,{
+                                "event_name":"无事发生",
+                                "target":2,
+                                "describe":"无事发生"
+                            }
+                            ]
+                        ]
+                    }
+                    }
+                ],
+                [20, {
+                    "event_name":"一并超！芜湖起飞！",
+                    "describe":"一并超！芜湖起飞！——加入了比赛（有10%的概率起飞到终点）",
+                    "target":0,
+                    "add_horse":{"horsename":"一并超！芜湖起飞！", "uid":2, "owner":"小号", "location":1 },
+                    "random_event_once":[
+                        [10,{
+                            "event_name":"起飞！",
+                            "target":0,
+                            "describe":"<0>居然起飞了",
+                            "move":100
+                        }],
+                        [100,{
+                            "event_name":"无事发生",
+                            "target":0,
+                            "describe":"无事发生"
+                        }
+                        ]
+                    ]
+                    }
+                ],
+                [30, {
+                    "event_name":"二营长的意大利炮",
+                    "describe":"二营长的意大利炮——加入了比赛（10%击杀2名目标）",
+                    "target":0,
+                    "add_horse":{"horsename":"二营长的意大利炮", "uid":3, "owner":"小号", "location":1 },
+                    "random_event_once":[
+                        [50,{
+                                    "event_name":"随机击杀2",
+                                    "describe":"<0>要击杀总共2名目标",
+                                    "target":1,
+                                    "die" :1,
+                                    "delay_event":[2, {
+                                        "event_name":"随机击杀5",
+                                        "describe":"<0>要击杀1名目标",
+                                        "target":1,
+                                        "die":1
+                                    
+                                    }
+                                ]
+                                }
+                    ],
+                        [100,{
+                            "event_name":"无事发生",
+                            "target":0,
+                            "describe":"无事发生"
+                        }
+                        ]
+                    ]
+                    }
+                ],
+                [40, {
+                    "event_name":"房里有点好康的",
+                    "describe":"房里有点好康的——加入了比赛(眩晕其他玩家5回合并击退5步）",
+                    "target":0,
+                    "add_horse":{"horsename":"房里有点好康的", "uid":4, "owner":"小号", "location":1 },
+                    "another_event":{
+                        "event_name":"让我康康！",
+                        "describe":"<0>:听话，让我康康！（眩晕其他玩家5回合并一拳击退5步）",
+                        "target":3,
+                        "vertigo":1,
+                        "rounds":5,
+                        "move":-5,
+                        "name":"杰拳道"
+                        } 
+
+                    }
+                ],
+                [50, {
+                    "event_name":"色群友老实点！",
+                    "describe":"色群友老实点！——加入了比赛（将所有因色图得到的加速加成消除，保留debuff）",
+                    "target":0,
+                    "add_horse":{"horsename":"色群友老实点！", "uid":5, "owner":"小号", "location":1 },
+                    "another_event":{
+                        "event_name":"色群友老实点",
+                        "describe":"<0>:色图不准看！",
+                        "target":2,
+                        "target_is_buff":"冲晕了但爽",
+                        "move_max":1,
+                        "move_min":1
+                        }
+                    }
+                ],
+                [60, {
+                    "event_name":"抽卡又井了，我日！",
+                    "describe":"抽卡又井了，我日！——加入了比赛（将所有人拉入隐身状态且回到起点）",
+                    "target":0,
+                    "add_horse":{"horsename":"抽卡又井了，我日！！", "uid":6, "owner":"小号", "location":1 },
+                    "another_event":{
+                        "event_name":"抽卡又井了，我日！",
+                        "describe":"（将所有人拉入隐身状态且回到起点）",
+                        "target":2,
+                        "hiding":1,
+                        "move":-100,
+                        "name":"非气感染"
+                        }
+                    }
+                ],
+                [70, {
+                    "event_name":"需要立刻马上开导！",
+                    "describe":"需要立刻马上开导！——加入了比赛（对一个群友和自己进行10回合眩晕）",
+                    "target":0,
+                    "add_horse":{"horsename":"需要立刻马上开导！", "uid":7, "owner":"小号", "location":1 },
+                    "another_event":{
+                        "event_name":"需要立刻马上开导！",
+                        "describe":"（对一个群友和自己进行10回合眩晕）",
+                        "target":5,
+                        "vertigo":1,
+                        "rounds":10,
+                        "name":"正在开导人生"
+                        }
+                    }
+                ],
+                [80, {
+                    "event_name":"后排靠窗的王",
+                    "describe":"后排靠窗的王——加入了比赛（使所有人隐身，并止步10回合）",
+                    "target":0,
+                    "add_horse":{"horsename":"后排靠窗的王", "uid":8, "owner":"小号", "location":1 },
+                    "another_event":{
+                        "event_name":"王之力",
+                        "describe":"<0>有后宫佳丽三千（使所有人隐身，并止步10回合）",
+                        "target":3,
+                        "locate_lock":1,
+                        "rounds":10,
+                        "name":"成为后宫之一"
+                        }
+                    }
+                ],
+                [90, {
+                    "event_name":"dio的小面包",
+                    "describe":"dio的小面包——加入了比赛（自己隐身且最大速提高到2）",
+                    "target":0,
+                    "add_horse":{"horsename":"dio的小面包", "uid":9, "owner":"小号", "location":1 },
+                    "hiding":1,
+                    "move_max":2,
+                    "move_min":2
+                    }
+                ],
+                [100, {
+                    "event_name":"大和赤骥",
+                    "describe":"大和赤骥——加入了比赛（最大速到5）",
+                    "target":0,
+                    "move_max":5,
+                    "move_min":5,
+                    "add_horse":{"horsename":"大和赤骥", "uid":10, "owner":"小号", "location":1 }
+                    }
+                ]
+            ]
+        
+        },
+        {
+            "event_name":"我是二次元！！",
+            "target":0,
+            "describe":"<0>大喊:我是二次元！！（消除自身的隐身且提高最大速到2逃离现场）",
+            "del_buff":"hiding" ,
+            "move_max":2,
+            "move_min":2,
+            "name":"社死"
+        },
+        {
+            "event_name":"冻结",
+            "target":0,
+            "describe":"<0>账号因传播色情暴力被冻结（进局子咯！离开赛场）",
+            "away":1,
+            "name":"被冻结"
+        },
+        {
+            "event_name":"禁言",
+            "target":1,
+            "describe":"<0>:这种东西不能在群里说（止步5回合）",
+            "locate_lock":1,
+            "rounds":5,
+            "name":"被禁言"
+        },
+        {
+            "event_name":"我开摆了",
+            "target":0,
+            "describe":"<0>:我开摆了（表面上在摆但暗中卷的离谱，有几率速度到10，也有几率止步5回合）",
+            "random_event_once":[
+                [5,{
+                    "event_name":"其实我在卷",
+                    "target":0,
+                    "describe":"<0>:其实我在卷（速度到10）", 
+                    "move_max":10,
+                    "move_min":10,
+                    "name":"卷王"
+                    }
+                ],
+                [100,{
+                    "event_name":"真的在摆",
+                    "target":0,
+                    "describe":"<0>:我真在摆（止步5回合）", 
+                    "locate_lock":1,
+                    "rounds":5,
+                    "name":"开摆！"
+                    }
+               
+                ]
+            ]
+        },
+        {
+            "event_name":"明天周末",
+            "target":2,
+            "describe":"明天周末，不睡觉！（速度变为6持续2回合，但2回合之后眩晕5回合）",
+            "name":"周末！",
+            "move_max":6,
+            "move_min":6,
+            "rounds":2,
+            "delay_event_self":[3, 
+                {
+                "event_name":"该上班了",
+                "target":2,
+                "describe":"上班了，熬夜的后过来了（眩晕5回合）",
+                "rounds":5,
+                "vertigo":1,
+                "name":"上班"
+                }]
+        },
+        {
+            "event_name":"大佬教教",
+            "target":3,
+            "describe":"<0>大佬教会了<1>（复活目标）",
+            "target_is_buff":"away",
+            "del_buff":"away"
+        }
+
+]

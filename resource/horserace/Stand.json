@@ -1,0 +1,153 @@
+[
+    {
+        "event_name":"白金之星_Star Platinum",
+        "describe":"<0>白金之星_Star Platinum（击晕一回合并后退一侧的马10步）",
+        "target":6,
+        "vertigo":1,
+        "rounds":1,
+        "move":-10,
+        "name":"击晕"
+    },
+    {
+        "event_name":"世界_The World",
+        "describe":"<0>世界_The World（眩晕除自己以外的所有人10个回合）",
+        "target":3,
+        "vertigo":1,
+        "rounds":10,
+        "name":"击晕"
+    },
+    {
+        "event_name":"白金之星·世界_Star Platinum·The World",
+        "describe":"<0>白金之星·世界(击晕十回合并后退一侧的马10步）",
+        "target":6,
+        "vertigo":1,
+        "rounds":10,
+        "move":-10, 
+        "name":"击晕且后退"
+    },
+    {
+        "event_name":"黄金体验_Gold Experience",
+        "describe":"<0>黄金体验_Gold Experience（复活并眩晕一名两个回合，且后退三步）",
+        "target":1,
+        "other_buff":["live","vertigo"],
+        "rounds":2,
+        "move":-3,
+        "name":"复活、击晕且后退"
+    },
+    {
+        "event_name":"紫色隐者_Hermit Purple",
+        "describe":"<0>紫色隐者_Hermit Purple（将自己和任意一人互换位置）",
+        "target":1,
+        "track_ exchange_ location":1
+    },
+    {
+        "event_name":"石之自由_Stone Free",
+        "describe":"<0>石之自由_Stone Free(第一名被锁定的人）",
+        "target":1,
+        "delay_event":[3,{
+            "event_name":"石之自由_Stone Free",
+            "describe":"石之自由_Stone Free（将此目标在三回合后与第一名互换位置）",
+            "target":1,
+            "track_ exchange_ location":1
+        }]
+    },
+    {
+        "event_name":"疯狂钻石_Crazy Diamond",
+        "describe":"<0>疯狂钻石_Crazy Diamond（下回合复活并解除眩晕）",
+        "target":4,
+        "del_buff":"vertigo",
+        "delay_event_self":[3, {
+            "event_name":"疯狂钻石”_Crazy Diamond",
+            "describe":"疯狂钻石_Crazy Diamond（三回合后使一个随机目标退后3步）",
+            "target":1,
+            "move":-3,
+            "name":"后退"
+        }]
+    },
+    {
+        "event_name":"杀手皇后_Killer Queen_第1-3爆弹",
+        "target":1,
+        "describe":"<0>:杀手皇后 Killer Queen！我的名字叫<0>……",
+        "random_event_once":[
+            [40, {
+                "event_name":"第一爆弹",
+                "describe":"杀手皇后 Killer Queen第一炸弹！（一侧人后退一步）",
+                "target":6,
+                "move":-1,
+                "name":"后退"
+                }
+            ],
+            [80, {
+                "event_name":"第二爆弹",
+                "describe":"杀手皇后 Killer Queen第二炸弹！枯萎穿心攻击！（一个人后退5步）",
+                "target":1,
+                "move":-5,
+                "name":"后退"
+            }
+            ],
+            [120, {
+                "event_name":"第三爆弹",
+                "describe":"杀手皇后 Killer Queen第三炸弹！败者食尘！发动！(一人死亡）",
+                "target":1,
+                "die":1,
+                "name":"死亡"
+            }
+            ]
+          ]
+        },
+        {
+            "event_name":"绯红之王_King Crimson",
+            "describe":"<0>:【绯红之王 King Crimson】！帝王是我<0>哒！",
+            "target":1,
+            "track_ exchange_ location":1,
+            "die":1,
+            "name":"死亡"
+        },
+        {
+            "event_name":"新月_C-Moon",
+            "target":3,
+            "describe":"<0>:新月_C-Moon！现在你们已经杀不死我了！",
+            "random_event_once":[
+                [50, {
+                    "event_name":"滚前面去！",
+                    "describe":"往前推（除<0>之外的所有人前进5步）",
+                    "target":3,
+                    "move":5,
+                    "name":"前进"
+                    }
+                ],
+                [100, {
+                    "event_name":"不准越界！",
+                    "describe":"往后退（除<0>之外的所有人后退5步）",
+                    "target":3,
+                    "move":-5,
+                    "name":"后退"
+                }
+                ]
+              ]
+            },
+            {
+                "event_name":"天堂制造_Made In Heaven",
+                "target":3,
+                "describe":"<0>:天堂制造_Made In Heaven！",
+                "random_event_once":[
+                    [50, {
+                        "event_name":"进入新宇宙",
+                        "describe":"进入新宇宙（除<0>之外的所有人前进100步）",
+                        "target":3,
+                        "move":100,
+                        "name":"前进"
+                        }
+                    ],
+                    [100, {
+                        "event_name":"回归最初点",
+                        "describe":"回归最初点（除<0>之外的所有人后退100步）",
+                        "target":3,
+                        "move":-100,
+                        "name":"后退"
+                    }
+                    ]
+                  ]
+                }
+
+]

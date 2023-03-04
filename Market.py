@@ -246,6 +246,8 @@ def settle(event:MessageEvent, settle:int, company_name:str):
     company.gold -= value
     company.float_gold -= value
     company.group_gold = group_gold
+    if user.user_id in company.exchange:
+        del company.exchange[user.user_id]
     value_update(group_account)
 
     return (
@@ -345,6 +347,11 @@ def Exchange_buy(event:MessageEvent, buy:int, company_name:str):
         )
 
 def Exchange_sell(event:MessageEvent, info:Tuple[int,ExchangeInfo]):
+    """
+    从交易市场发布交易信息
+        buy:购买数量
+        company_name:股票名
+    """
     user,group_account = Manager.locate_user(event)
     if not group_account:
         return "私聊未关联账户，请发送【关联账户】关联群内账户。"

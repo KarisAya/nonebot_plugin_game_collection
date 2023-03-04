@@ -8,7 +8,7 @@ class Config(BaseModel, extra=Extra.ignore):
     security_gold:Tuple[int, int] = (100, 300)
     # 重置签到的范围
     revolt_gold:Tuple[int, int] = (1000, 2000)
-    # 重置冷却时间
+    # 重置冷却时间，设置为0禁用发起重置
     revolt_cd:int = 28800
     # 重置的基尼系数
     revolt_gini:float = 0.68
@@ -18,8 +18,8 @@ class Config(BaseModel, extra=Extra.ignore):
     bet_gold:int = 200
     # 单抽所需金币
     gacha_gold:int = 50
-    # 一张测试字体测试字符串（
-    lucky_clover= "• ＬＵＣＫＹ  ＣＬＯＶＥＲ •"
+    # 一个测试字符串，不要动（
+    lucky_clover = "• ＬＵＣＫＹ  ＣＬＯＶＥＲ •"
     # 默认显示字体
     game_fontname = "simsun"
 

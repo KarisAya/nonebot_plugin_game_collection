@@ -121,6 +121,7 @@ GameClear = on_command(
     "GameClear",
     aliases = {"清除游戏", "清除对局", "清除对决"},
     rule = lambda event:isinstance(event,GroupMessageEvent) and event.group_id in current_games,
+    permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER,
     priority = 20,
     block = True
     )
@@ -798,7 +799,7 @@ async def _(bot:Bot, event:MessageEvent, matcher:Matcher, code :Message = Arg())
 delist = on_command("清理无效账户", rule = to_me(), permission = SUPERUSER, priority = 20, block = True)
 
 @delist.handle()
-async def _(bot:Bot):
+async def _(bot:Bot, event:MessageEvent):
     await delist.send("正在启动清理程序。")
     log = await Account.delist(bot)
     logger.info("\n" + log)
@@ -865,14 +866,3 @@ async def _():
     with open(Market.market_history_file, "w", encoding = "utf8") as f:
         json.dump(Market.market_history, f, ensure_ascii = False, indent = 4)
     logger.info(f'游戏数据已保存！！')
-
-import asyncio
-
-market_test = on_command("市场测试",permission = SUPERUSER, priority = 20, block = True)
-
-@market_test.handle()
-async def _():
-    while True:
-        Market.update()
-        logger.info(f'模拟市场已更新')
-        await asyncio.sleep(0.5)

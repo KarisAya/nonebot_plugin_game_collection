@@ -790,7 +790,7 @@ async def _(bot:Bot, event:MessageEvent, matcher:Matcher, code :Message = Arg())
     at,confirm = matcher.get_arg("freeze")
     if confirm == str(code):
         target = await Manager.locate_user_at(bot, event, at)
-        msg = Account.freeze(event, target[0])
+        msg = Account.freeze(target[0])
         await freeze.finish(msg)
     else:
         await freeze.finish("【冻结】已取消。")

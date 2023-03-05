@@ -8,7 +8,7 @@ import random
 from .utils.utils import get_message_at
 from .utils.chart import bbcode_to_png
 from .data.data import props_library, props_index, element_library
-from .config import sign_gold, revolt_gold,max_bet_gold, gacha_gold
+from .config import bot_name, sign_gold, revolt_gold,max_bet_gold, gacha_gold
 
 from .Manager import data
 from . import Manager
@@ -92,6 +92,7 @@ def gacha(event:MessageEvent, N:int):
         msg += (f"[align=left][color={color}]【{name}】{rare*'☆'}[/align]\n"
                 f"[align=right]{n}{quant}[/color][/align][/size]\n"
                 f"[align=left][color=gray]——————————————[/color][/align]\n")
+        user.props = {k:10 if k[2] == '0' and v > 10 else v for k, v in user.props.items()}
         group_account.props = {k:v if v < 10 else 10 for k,v in group_account.props.items()}
     return MessageSegment.image(bbcode_to_png(msg[:-1]))
 
@@ -327,13 +328,16 @@ class Prop(str):
         if random.randint(0,1) == 1:
             user.gold += gold
             group_account.gold += gold
-            x = "获得"
+            return f"你获得了{gold}金币"
         else:
             user.gold -= gold
             group_account.gold -= gold
-            x = "失去"
-
-        return f"你{x}了{gold}金币"
+            if gold > group_account.gold and (count := int(gold/(5 * max_bet_gold))) > 0:
+                user.props.setdefault("53101",0)
+                user.props[53101] += count
+                return f"你失去了{gold}金币。\n{bot_name}送你{count}个『{props_library['53101']['name']}』，祝你好运~"
+            else:
+                return f"你失去了{gold}金币。"
 
     @classmethod
     def use_53101(cls, event:MessageEvent, count:int) -> str:

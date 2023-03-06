@@ -355,7 +355,7 @@ class Prop(str):
         if props["53101"] < 1:
             del props["53101"]
 
-        gold += random.randint(sign_gold[0] * count, revolt_gold[1] * count)
+        gold = random.randint(sign_gold[0] * count, revolt_gold[1] * count)
 
         user.gold += gold
         group_account.gold += gold

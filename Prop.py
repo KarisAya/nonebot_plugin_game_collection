@@ -332,10 +332,10 @@ class Prop(str):
         else:
             user.gold -= gold
             group_account.gold -= gold
-            if gold > group_account.gold and (count := int(gold/(5 * max_bet_gold))) > 0:
+            if gold > group_account.gold:
                 user.props.setdefault("53101",0)
-                user.props["53101"] += count
-                return f"你失去了{gold}金币。\n{bot_name}送你{count}个『{props_library['53101']['name']}』，祝你好运~"
+                user.props["53101"] += 1
+                return f"你失去了{gold}金币。\n{bot_name}送你1个『{props_library['53101']['name']}』，祝你好运~"
             else:
                 return f"你失去了{gold}金币。"
 
@@ -355,9 +355,7 @@ class Prop(str):
         if props["53101"] < 1:
             del props["53101"]
 
-        gold = 0
-        for i in range(count):
-            gold += random.randint(sign_gold[0], revolt_gold[1])
+        gold += random.randint(sign_gold[0] * count, revolt_gold[1] * count)
 
         user.gold += gold
         group_account.gold += gold

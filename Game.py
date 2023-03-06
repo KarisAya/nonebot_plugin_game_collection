@@ -210,7 +210,7 @@ def RaceReStart(event:GroupMessageEvent):
             user.gold += session.gold
             user.group_accounts[group_id].gold += session.gold
 
-    del race
+    del current_games[group_id]
     return "赛马场已重置。"
 
 

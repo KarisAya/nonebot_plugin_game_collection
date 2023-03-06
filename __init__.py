@@ -251,7 +251,7 @@ async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg()):
         msg = msg[0]
         if not msg.isdigit():
             return
-        if (msg := int(msg)) < 7:
+        if 0 < (msg := int(msg)) < 7:
             bullet_num = msg
             gold = bet_gold
         else:

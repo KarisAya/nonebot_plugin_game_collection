@@ -119,7 +119,7 @@ async def add_BG_image(event:MessageEvent):
             return "图片下载成功"
 
 async def del_BG_image(event:MessageEvent):
-    Path.unlink(BG_image / str(event.user_id),True)
+    Path.unlink(BG_image / f"{str(event.user_id)}.png", True)
     return "背景图片删除成功！"
 
 def Achieve_list(locate:Tuple[UserDict,GroupAccount]):

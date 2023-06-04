@@ -87,7 +87,7 @@ async def locate_user_at(bot:Bot, event:GroupMessageEvent, user_id:int) ->Tuple[
 
     return user,group_account
 
-def update_company_index(company_index):
+def update_company_index():
     """
     从群数据生成公司名查找群号的字典
     """
@@ -96,9 +96,10 @@ def update_company_index(company_index):
         if company_name := group_data[group_id].company.company_name:
             company_index[company_name] = group_id
             company_index[str(group_id)] = group_id
+    return company_index
 
 company_index:Dict[str,int] = {}
-update_company_index(company_index)
+company_index = update_company_index()
 
 def BG_path(event:MessageEvent):
     my_BG = BG_image / f"{str(event.user_id)}.png"
@@ -268,7 +269,7 @@ def Newday():
     log = ""
     group_check = {k:set() for k in group_data}
     global company_index
-    update_company_index(company_index)
+    company_index = update_company_index()
     company_ids = company_index.values()
     stock_check = {k:0 for k in company_ids}
     # 检查user_data

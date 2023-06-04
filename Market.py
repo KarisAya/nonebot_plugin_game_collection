@@ -37,7 +37,7 @@ def check_company_name(company_name:str):
     if not company_name:
         return f"公司名称不能为空"
     global company_index
-    update_company_index(company_index)
+    company_index = update_company_index()
     if company_name in company_index:
         return f"{company_name} 已被注册"
     if " " in company_name or "\n" in company_name:
@@ -104,7 +104,8 @@ def rename(event:GroupMessageEvent,company_name:str):
         return check
     old_company_name = company.company_name
     company.company_name = company_name
-    update_company_index(company_index)
+    global company_index
+    company_index = update_company_index()
     return f'【{old_company_name}】已重命名为【{company_name}】'
 
 def value_update(group_account:GroupAccount):

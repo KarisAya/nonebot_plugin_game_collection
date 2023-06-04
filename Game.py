@@ -335,7 +335,7 @@ class Session(BaseModel):
                 self.time = time.time()
                 self.player2_id = user_id
             else:
-                return f'现在是 {user_data[self.player2_id].group_accounts[event.group_id].nickname} 发起的对决，请等待比赛结束后再开始下一轮...'
+                return f'现在是 {user_data[self.player1_id].group_accounts[event.group_id].nickname} 发起的对决，请等待比赛结束后再开始下一轮...'
         else:
             return " "
     def nextround(self):
@@ -414,7 +414,7 @@ def acceptmessage(session:Session):
     elif game == "poker":
         gold = session.gold
         tip1 = "本场对决为【扑克对战】\n"
-        tip2 = "出牌！\n"
+        tip2 = "加注！\n"
         tip2 += MessageSegment.image(text_to_png(
             "P1初始状态\n"
             f'HP {session.info["P1"]["HP"]} SP {session.info["P1"]["SP"]} DEF {session.info["P1"]["DEF"]}\n'
@@ -429,9 +429,25 @@ def acceptmessage(session:Session):
         gold = session.gold
         tip1 = "本场对决为【猜数字】\n"
         tip2 = "发送数字"
+    elif game == "cantrell":
+        gold = session.gold
+        tip1 = "本场对决为【港式五张】\n"
+        tip2 = "开牌！\n"
+        tip2 += MessageSegment.image(text_to_png(
+                "P1初始手牌：\n"
+                "|"
+                + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in session.info["hand1"][0:3]]) +
+                "   |   |"
+                "\n——————————————\n"
+                'P2初始手牌\n'
+                "|"
+                + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in session.info["hand2"][0:3]]) +
+                "   |   |"
+                ),30)
     else:
         gold = session.gold
         tip1 = ""
+        tip2 = ""
     return Message(
         f"{MessageSegment.at(session.player2_id)}接受了对决！\n" +
         tip1 +
@@ -972,11 +988,11 @@ def lucky_number(event:GroupMessageEvent, gold:int):
     session = current_games[event.group_id]
     session.gold = gold
     session.info = lucky_number_info(gold)
-    return (f"随机 1-100 数字已生成。"
+    return (f"随机牌堆已生成。"
             f"挑战金额：{gold}/次\n"
             f"{msg}")
 
-async def guess_number(bot:Bot, event:GroupMessageEvent, N:int):
+async def check_card(bot:Bot, event:GroupMessageEvent, N:int):
     """
     猜数字
     """
@@ -998,6 +1014,180 @@ async def guess_number(bot:Bot, event:GroupMessageEvent, N:int):
     session.win = event.user_id
     await end(bot, event)
 
+"""+++++++++++++++++
+——————————
+       梭哈
+——————————
++++++++++++++++++"""
+
+def cantrell_info(gold):
+    """
+    生成港式五张游戏内容
+    """
+    deck = random_poker()
+    return {
+        "game":"cantrell",
+        "round_gold":gold,
+        "hand1":deck[0:5],
+        "pt1":cantrell_pt(deck[0:5]),
+        "hand2":deck[5:10],
+        "pt2":cantrell_pt(deck[5:10])
+        }
+
+def cantrell(event:GroupMessageEvent, gold:int):
+    """
+    发起游戏：港式五张
+    """
+    flag, msg = start(event, gold, max_bet_gold * 10)
+    if flag == False:
+        return msg
+    session = current_games[event.group_id]
+    session.gold = gold
+    session.info = cantrell_info(gold)
+    return (f"随机牌堆已生成\n"
+            f"开局金额：{gold}\n"
+            f"{msg}")
+
+cantrell_suit = {1:"♠",2:"♥",3:"♣",4:"♦"}
+cantrell_point = {1:"2",2:"3",3:"4",4:"5",5:"6",6:"7",7:"8",8:"9",9:"10",10:"J",11:"Q",12:"K",13:"A"}
+
+async def cantrell_check(bot:Bot, event:GroupMessageEvent):
+    """
+    看牌
+    """
+    group_id = event.group_id
+    global current_games
+    session = current_games[group_id]
+    if msg := session.shot_check(event):
+        return None if msg == " " else msg
+    expose = int(round((session.round  + 0.5)/ 2)) + 3
+    expose = expose if expose < 5 else 5
+    if event.user_id == session.player1_id:
+        hand = "hand1"
+    else:
+        hand = "hand2"
+    msg = (
+        "你的手牌：\n"
+        + ("|" + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in session.info[hand][0:expose]]) + (5 - expose)*"   |")
+        )
+    await bot.send_private_msg(user_id = event.user_id, message = MessageSegment.image(text_to_png(msg,30)))
+    return
+
+def is_straight(points):
+    """
+    判断是否为顺子
+    """
+    points = sorted(points)
+    for i in range(1, len(points)):
+        if points[i] - points[i-1] != 1:
+            return False
+    return True
+
+def cantrell_pt(hand:list) -> Tuple[int,str]:
+    """
+    牌型点数
+    """
+    pt = 0
+    name = ""
+
+    suits = [x[0] for x in hand]
+    points = [x[1] for x in hand]
+
+    setpoints = set(points)
+
+    # 判断同花
+    if len(set(suits)) == 1:
+        pt += suits[0]
+        if is_straight(points):
+            point = max(points)
+            pt += point * (100**9)
+            name += f"同花顺{cantrell_suit[suits[0]]}{cantrell_point[point]} "
+        else:
+            point = sum(points)
+            pt += point * (100**6)
+            name += f"同花{cantrell_suit[suits[0]]}{cantrell_point[point]} "
+    else:
+        pt += sum(suits)
+        # 判断顺子
+        if is_straight(points):
+            point = max(points)
+            pt += point * (100**5)
+            name += f"顺子{cantrell_point[point]} "
+        else:
+            # 判断四条或葫芦
+            if len(setpoints) == 2:
+                for point in setpoints:
+                    if points.count(point) == 4:
+                        pt += point * (100**8)
+                        name += f"四条{cantrell_point[point]} "
+                    if points.count(point) == 3:
+                        pt += point * (100**7)
+                        name += f"葫芦{cantrell_point[point]} "
+            else:
+                # 判断三条，两对，一对
+                exp = 1
+                tmp = 0
+                for point in setpoints:
+                    if points.count(point) == 3:
+                        pt += point * (100**4)
+                        name += f"三条{cantrell_point[point]} "
+                        break
+                    if points.count(point) == 2:
+                        exp += 1
+                        tmp += point
+                        name += f"对{cantrell_point[point]} "
+                else:
+                    pt += tmp * (100**exp)
+
+            for point in setpoints:
+                if points.count(point) == 1:
+                    pt += point * (100)
+                    name += f"散{cantrell_point[point]} "
+
+    return pt,name[:-1]
+
+async def cantrell_play(bot:Bot, event:GroupMessageEvent, gold:int, max_bet_gold:int = max_bet_gold * 10):
+    """
+    加注
+    """
+    group_id = event.group_id
+    global current_games
+    session = current_games[group_id]
+    if msg := session.shot_check(event):
+        return None if msg == " " else msg
+    expose = session.round / 2
+    if expose == int(expose):
+        session.nextround()
+        expose = int(expose) + 3
+        session.gold += session.info["round_gold"]
+        msg = (
+            f'玩家：{user_data[session.player1_id].group_accounts[group_id].nickname}\n'
+            "手牌：\n"
+            "|"
+            + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in session.info["hand1"][0:expose]]) + (5 - expose)*"   |"
+            "\n——————————————\n"
+            f'玩家：{user_data[session.player2_id].group_accounts[group_id].nickname}\n'
+            "手牌：\n"
+            "|"
+            + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in session.info["hand2"][0:expose]]) + (5 - expose)*"   |"
+            )
+        if expose == 5:
+            if session.info["pt1"][0] > session.info["pt2"][0]:
+                session.win = session.player1_id
+            else:
+                session.win = session.player2_id
+            await end(bot, event)
+        else:
+            return MessageSegment.image(text_to_png(f"您已跟注{session.info['round_gold']}金币\n" + msg,30))
+    else:
+        if gold > max_bet_gold:
+            return MessageSegment.at(event.user_id) + f"加注金额不能超过{max_bet_gold}"
+        group_account = Manager.locate_user(event)[1]
+        if gold + session.gold > group_account.gold:
+            return Message(MessageSegment.at(event.user_id) + f"你没有足够的金币。\n——你还有{group_account.gold - session.gold}枚金币。")
+        session.nextround()
+        session.info["round_gold"] = gold
+        return MessageSegment.at(event.user_id) + f"您已加注{gold}金币"
 
 """+++++++++++++++++
 ——————————
@@ -1138,6 +1328,16 @@ def game_str(session:Session):
                 f'组合：{" ".join(str(x) for x in session.info["dice_array1"])}\n'
                 f'玩家 2\n'
                 f'组合：{" ".join(str(x) for x in session.info["dice_array2"])}')
+    if game == "cantrell":
+        return MessageSegment.image(text_to_png(("P1手牌：\n"
+                "|"
+                + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in session.info["hand1"]]) +
+                f"\n牌型：\n{session.info['pt1'][1]}"
+                "\n——————————————\n"
+                "P2手牌：\n"
+                "|"
+                + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in session.info["hand2"]]) +
+                f"\n牌型：\n{session.info['pt2'][1]}"),30))
     else:
         return ""
 

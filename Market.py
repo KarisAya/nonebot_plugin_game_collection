@@ -104,6 +104,7 @@ def rename(event:GroupMessageEvent,company_name:str):
         return check
     old_company_name = company.company_name
     company.company_name = company_name
+    update_company_index(company_index)
     return f'【{old_company_name}】已重命名为【{company_name}】'
 
 def value_update(group_account:GroupAccount):

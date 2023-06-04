@@ -367,10 +367,52 @@ guess_number = on_regex(
     block = True
     )
 
-@guess_number.handle()
+# 港式五张
+cantrell = on_command("同花顺",aliases = {"五张牌","港式五张","梭哈"}, permission = GROUP, priority = 20, block = True)
+
+@cantrell.handle()
+async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
+    gold = arg.extract_plain_text().strip()
+    if gold.isdigit():
+        gold = int(gold)
+    else:
+        gold = int(bet_gold)
+    msg = Game.cantrell(event, gold)
+    await cantrell.finish(msg)
+
+# 看牌
+cantrell_check = on_command(
+    "看牌",
+    rule = lambda event:event.group_id in current_games and current_games[event.group_id].info.get("game") == "cantrell",
+    permission = GROUP,
+    priority = 20,
+    block = True
+    )
+
+@cantrell_check.handle()
 async def _(bot:Bot, event:GroupMessageEvent):
-    msg = await Game.guess_number(bot, event, int(event.get_plaintext()))
-    await guess_number.finish(msg)
+    msg = await Game.cantrell_check(bot, event)
+    await cantrell_check.finish(msg)
+
+# 加注
+cantrell_play = on_command(
+    "加注",
+    aliases = {"跟注","开牌"},
+    rule = lambda event:event.group_id in current_games and current_games[event.group_id].info.get("game") == "cantrell",
+    permission = GROUP,
+    priority = 20,
+    block = True
+    )
+
+@cantrell_play.handle()
+async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg()):
+    gold = arg.extract_plain_text().strip()
+    if gold.isdigit():
+        gold = int(gold)
+    else:
+        gold =  current_games[event.group_id].info["round_gold"]
+    msg = await Game.cantrell_play(bot, event, gold)
+    await cantrell_play.finish(msg)
 
 # 随机对战
 random_game = on_command("随机对战", permission = GROUP, priority = 5, block = True)

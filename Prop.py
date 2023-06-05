@@ -35,9 +35,7 @@ def random_props() -> str:
         4,5位：本稀有度下的道具编号
     """
     code = random.randint(1,100)
-    if code > 51:
-        props = "11001"
-    elif 0 < code <= 30:
+    if 0 < code <= 30:
         props = random.choice(["31001","32001","32002","33001","33101"])
     elif 30 < code <= 40:
         props = random.choice(["41001","42001","42101"])

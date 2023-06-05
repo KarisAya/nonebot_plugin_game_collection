@@ -246,7 +246,8 @@ russian = on_command("俄罗斯轮盘", aliases={"装弹", "俄罗斯转盘"}, p
 @russian.handle()
 async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg()):
     if not (msg := arg.extract_plain_text().strip().split()):
-        return
+        bullet_num = 1
+        gold = bet_gold
     if len(msg) == 1:
         msg = msg[0]
         if not msg.isdigit():
@@ -373,16 +374,36 @@ async def _(bot:Bot, event:GroupMessageEvent):
     await guess_number.finish(msg)
 
 # 港式五张
-cantrell = on_command("同花顺",aliases = {"五张牌","港式五张","梭哈"}, permission = GROUP, priority = 20, block = True)
+cantrell = on_command("同花顺", aliases = {"五张牌","港式五张","梭哈"}, permission = GROUP, priority = 20, block = True)
 
 @cantrell.handle()
 async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
-    gold = arg.extract_plain_text().strip()
-    if gold.isdigit():
-        gold = int(gold)
+    arg = arg.extract_plain_text().strip().split()
+    if not arg:
+        gold = bet_gold
+        times = 1
     else:
-        gold = int(bet_gold)
-    msg = Game.cantrell(event, gold)
+        test = len(arg)
+        if test == 1:
+            gold = arg[0]
+            if gold.isdigit():
+                gold = int(arg)
+            else:
+                gold = bet_gold
+            times = 1
+        else:
+            gold = arg[0]
+            if gold.isdigit():
+                gold = int(gold)
+            else:
+                gold = bet_gold
+            times = arg[1]
+            if gold.isdigit():
+                times = int(times)
+            else:
+                times = 1
+
+    msg = Game.cantrell(event, gold, times)
     await cantrell.finish(msg)
 
 # 看牌
@@ -728,6 +749,7 @@ async def _(matcher:Matcher, event:MessageEvent, info:Message = Arg()):
     msg = Market.Exchange_sell(event,info)
     await Exchange_sell.finish(msg)
 
+# 群资料卡
 group_info = on_command("群资料卡", priority = 20, block = True)
 
 @group_info.handle()
@@ -742,6 +764,7 @@ async def _(bot:Bot, event:MessageEvent, arg:Message = CommandArg()):
     msg = await Market.group_info(bot,event,group_id)
     await group_info.finish(msg)
 
+# 市场信息
 Market_info_0 = on_command("市场信息",aliases={"查看市场"}, priority = 20, block = True)
 
 @Market_info_0.handle()

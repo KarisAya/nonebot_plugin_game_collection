@@ -988,11 +988,11 @@ def lucky_number(event:GroupMessageEvent, gold:int):
     session = current_games[event.group_id]
     session.gold = gold
     session.info = lucky_number_info(gold)
-    return (f"随机牌堆已生成。"
+    return (f"随机 1-100 数字已生成。"
             f"挑战金额：{gold}/次\n"
             f"{msg}")
 
-async def check_card(bot:Bot, event:GroupMessageEvent, N:int):
+async def guess_number(bot:Bot, event:GroupMessageEvent, N:int):
     """
     猜数字
     """

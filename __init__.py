@@ -367,6 +367,11 @@ guess_number = on_regex(
     block = True
     )
 
+@guess_number.handle()
+async def _(bot:Bot, event:GroupMessageEvent):
+    msg = await Game.guess_number(bot, event, int(event.get_plaintext()))
+    await guess_number.finish(msg)
+
 # 港式五张
 cantrell = on_command("同花顺",aliases = {"五张牌","港式五张","梭哈"}, permission = GROUP, priority = 20, block = True)
 

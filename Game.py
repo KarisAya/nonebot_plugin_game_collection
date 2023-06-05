@@ -396,6 +396,7 @@ def accept(event:GroupMessageEvent):
         elif game == "cantrell":
             session.info = cantrell_info(session.gold)
     elif group_account.gold <  session.gold:
+        del current_games[event.group_id]
         return Message(MessageSegment.at(event.user_id) + f"你的金币不足以接受这场对决！\n——你还有{group_account.gold}枚金币。")
     session.next = session.player1_id
     return acceptmessage(session)

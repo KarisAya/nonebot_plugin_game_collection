@@ -119,7 +119,7 @@ async def _(event:GroupMessageEvent):
 # GameClear
 GameClear = on_command(
     "GameClear",
-    aliases = {"清除游戏", "清除对局", "清除对决"},
+    aliases = {"清除游戏", "清除对局", "清除对决", "清除对战"},
     rule = lambda event:isinstance(event,GroupMessageEvent) and event.group_id in current_games,
     permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER,
     priority = 20,

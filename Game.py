@@ -377,8 +377,9 @@ def accept(event:GroupMessageEvent):
     """
     接受挑战
     """
+    group_id = event.group_id
     global current_games
-    session = current_games[event.group_id]
+    session = current_games[group_id]
     if msg := session.try_join_game(event):
         return None if msg == " " else msg
     group_account = Manager.locate_user(event)[1]
@@ -396,8 +397,14 @@ def accept(event:GroupMessageEvent):
         elif game == "cantrell":
             session.info = cantrell_info(session.gold)
     elif group_account.gold <  session.gold:
-        del current_games[event.group_id]
+        del current_games[group_id]
         return Message(MessageSegment.at(event.user_id) + f"你的金币不足以接受这场对决！\n——你还有{group_account.gold}枚金币。")
+
+    bet_limit = min(
+        user_data[session.player1_id].group_accounts[group_id].gold,
+        user_data[session.player2_id].group_accounts[group_id].gold)
+    bet_limit = bet_limit if bet_limit > 0 else 0
+    session.info["bet_limit"] = bet_limit
     session.next = session.player1_id
     return acceptmessage(session)
 
@@ -1004,10 +1011,7 @@ async def guess_number(bot:Bot, event:GroupMessageEvent, N:int):
     session = current_games[group_id]
     if msg := session.shot_check(event):
         return None if msg == " " else msg
-    session.info.setdefault("max",(maxgold if (maxgold := min(
-        user_data[session.player1_id].group_accounts[group_id].gold,
-        user_data[session.player2_id].group_accounts[group_id].gold)) > 0 else 0 ))
-    session.gold = min(session.info["gold"] * session.round, session.info["max"])
+    session.gold = min(session.info["gold"] * session.round, session.info["bet_limit"])
     session.nextround()
     TrueN = session.info["number"]
     if N > TrueN:
@@ -1159,7 +1163,8 @@ def cantrell(event:GroupMessageEvent, gold:int ,times:int = 1):
     flag, msg = start(event, gold, max_bet_gold * 10)
     if flag == False:
         return msg
-    session = current_games[event.group_id]
+    group_id = event.group_id
+    session = current_games[group_id]
     session.gold = gold
     if times == 1:
         session.info = cantrell_info(gold)
@@ -1202,12 +1207,20 @@ async def cantrell_play(bot:Bot, event:GroupMessageEvent, gold:int, max_bet_gold
     session = current_games[group_id]
     if msg := session.shot_check(event):
         return None if msg == " " else msg
+    if gold > max_bet_gold:
+        return MessageSegment.at(event.user_id) + f"加注金额不能超过{max_bet_gold}"
+    if gold > session.info["bet_limit"]:
+        gold = session.info["bet_limit"]
     expose = session.round / 2
     if expose == int(expose):
         session.nextround()
         session.time += 120
         expose = int(expose) + 3
-        session.gold += session.info["round_gold"]
+        if gold > session.info["round_gold"]:
+            session.gold += gold
+        else:
+            session.gold += session.info["round_gold"]
+        session.info["bet_limit"] -= gold
         msg = (
             f'玩家：{user_data[session.player1_id].group_accounts[group_id].nickname}\n'
             "手牌：\n"
@@ -1226,13 +1239,9 @@ async def cantrell_play(bot:Bot, event:GroupMessageEvent, gold:int, max_bet_gold
                 session.win = session.player2_id
             await end(bot, event)
         else:
-            return MessageSegment.image(text_to_png(f"您已跟注{session.info['round_gold']}金币\n" + msg,30))
+            return MessageSegment.image(text_to_png(f"您已跟注{gold}金币\n" + msg,30))
     else:
-        if gold > max_bet_gold:
-            return MessageSegment.at(event.user_id) + f"加注金额不能超过{max_bet_gold}"
-        group_account = Manager.locate_user(event)[1]
-        if gold + session.gold > group_account.gold:
-            return Message(MessageSegment.at(event.user_id) + f"你没有足够的金币。\n——你还有{group_account.gold - session.gold}枚金币。")
+        session.info["bet_limit"] -= gold
         session.nextround()
         session.time += 120
         session.info["round_gold"] = gold

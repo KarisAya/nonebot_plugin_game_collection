@@ -387,7 +387,7 @@ async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
         if test == 1:
             gold = arg[0]
             if gold.isdigit():
-                gold = int(arg)
+                gold = int(gold)
             else:
                 gold = bet_gold
             times = 1

@@ -1137,7 +1137,8 @@ def happy_cantrell_info(gold, times = 2):
     times = 1 if times < 1 else times
     times = 5 if times > 5 else times
 
-    deck = [random_poker()[i:i+5] for i in range(0, 52, 5)]
+    deck = random_poker()
+    deck = [deck[i:i+5] for i in range(0, 50, 5)]
 
     hand1,pt1 = max_hand(deck[0:times])
     hand2,pt2 = max_hand(deck[times:2*times])
@@ -1166,6 +1167,7 @@ def cantrell(event:GroupMessageEvent, gold:int ,times:int = 1):
         session.info = happy_cantrell_info(gold,times)
     return (f"随机牌堆已生成\n"
             f"开局金额：{gold}\n"
+            + (f"等级：Lv.{times}\n" if times > 1 else "") +
             f"{msg}")
 
 async def cantrell_check(bot:Bot, event:GroupMessageEvent):

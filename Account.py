@@ -15,7 +15,7 @@ from .utils.utils import line_wrap
 from .utils.chart import bbcode_to_png, bbcode_to_PIL, my_info_head, my_info_statistics, info_Splicing
 from .data.data import UserDict, GroupAccount
 from .data.data import props_library, props_index
-from .config import sign_gold, revolt_gold, revolt_cd, revolt_gini, max_bet_gold
+from .config import bot_name,sign_gold, revolt_gold, revolt_cd, revolt_gini, max_bet_gold
 from .Manager import BG_path
 from .Manager import data, company_index
 from . import Manager
@@ -347,6 +347,63 @@ def my_props(event:MessageEvent) -> Message:
         return MessageSegment.image(bbcode_to_png(msg,60))
     else:
         return "您的仓库空空如也。"
+
+async def info_profile(user_id:int) -> list:
+    """
+    总览资料卡
+    """
+    user = user_data[user_id]
+    info = []
+    # 加载全局信息
+    nickname = user.nickname
+    info.append(await my_info_head(user,nickname))
+    # 加载资产分析
+    dist = []
+    for x in user.group_accounts:
+        account = user.group_accounts[x]
+        if not (group_name := group_data[x].company.company_name):
+            group_name = f"（{str(x)[-4:]}）"
+        dist.append([account.gold + account.value, group_name])
+    dist = [x for x in dist if x[0] > 0]
+    if dist:
+        info.append(my_info_statistics(dist))
+    return info
+
+async def All_rank(event:MessageEvent, title:str = "金币", top:int = 10) -> list:
+    if not (ranklist := Manager.All_ranklist(title)):
+        return None
+    if title == "金币":
+        func = lambda x:'{:,}'.format(x)
+    elif title == "资产" or title == "财富":
+        func = lambda x:'{:,}'.format(round(x,2))
+    elif title == "胜率":
+        func = lambda x:f"{round(x*100,2)}%"
+    else:
+        func = lambda x:x
+    linestr = "[color=gray][size=15][font=simsun.ttc]────────────────────────────────────────────────────────[/font][/size][/color]\n"
+    msg = []
+    i = 0
+    l = len(user_data)
+    for x in ranklist[:top]:
+        user_id = x[0]
+        i += 1
+        info = await info_profile(user_id)
+        tmp = (
+            "[align=center]"
+            f"{title}：{func(x[1])}\n"
+            f'[size=300]{i}[/size]\n'
+            "[/align]"
+            + linestr +
+            f"[align=right][size=30][color=gray]{title}总排行 {i}/{l}[/color][/size][/align]\n"
+            )
+        info.append(bbcode_to_PIL(tmp,60))
+        event.user_id = user_id
+        msg.append({"type":"node",
+                    "data":{
+                        "name":f"{bot_name}",
+                        "uin":str(event.self_id),
+                        "content":MessageSegment.image(info_Splicing(info,BG_path(event)))}})
+    return msg
 
 def transfer_fee(amount:int,limit:int) -> int:
     limit = limit if limit > 0 else 0

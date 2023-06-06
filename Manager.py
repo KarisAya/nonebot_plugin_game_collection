@@ -6,6 +6,7 @@ from nonebot.adapters.onebot.v11 import (
     GroupMessageEvent,
     MessageSegment,
     )
+from collections import Counter
 
 from .utils.utils import image_url
 from .utils.chart import text_to_png, gini_coef, default_BG
@@ -244,6 +245,52 @@ def group_rank(group_id:int, title:str = "金币", top:int = 20) -> str:
         rank += f"{i}.{nicname}：{x[1]}\n"
         i += 1
     return MessageSegment.image(text_to_png(rank[:-1]))
+
+def All_ranklist(title:str) -> list:
+    """
+    总排行榜
+        param:
+        title:排名内容
+        return:List[data]
+        data[0]:QQ号
+        data[1]:title
+    """
+    namelist = user_data.keys()
+    rank = []
+    if title == "金币":
+        for user_id in namelist:
+            gold = user_data[user_id].gold
+            rank.append([user_id,gold])
+    elif title == "资产" or title == "财富":
+        for user_id in namelist:
+            user = user_data[user_id]
+            gold = user.gold
+            value = sum([group.value for group in user.group_accounts.values()])
+            rank.append([user_id, gold + value])
+    elif title == "胜率":
+        for user_id in namelist:
+            user = user_data[user_id]
+            if (count := user.win + user.lose) > 2:
+                rank.append([user_id, user.win / count])
+    elif title == "胜场":
+        for user_id in namelist:
+            user = user_data[user_id]
+            rank.append([user_id, user.win])
+    elif title == "败场":
+        for user_id in namelist:
+            user = user_data[user_id]
+            rank.append([user_id, user.lose])
+    elif title == "路灯":
+        result = Counter()
+        for group in group_data.values():
+            result += Counter(group.Achieve_revolution)
+        rank = result.items()
+    else:
+        return None
+
+    rank = [x for x in rank if x[1]]
+    rank.sort(key=lambda x:x[1],reverse=True)
+    return rank
 
 def Gini(group_id:int, limit:int = revolt_gold[0]) -> float:
     """

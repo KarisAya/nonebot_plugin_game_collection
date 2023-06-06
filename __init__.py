@@ -613,6 +613,26 @@ async def _(event:GroupMessageEvent):
     msg = Manager.group_rank(event.group_id, title)
     await russian_rank.finish(msg)
 
+# 查看总排行
+russian_All_rank = on_regex(
+    r"^(金币|资产|财富|胜率|胜场|败场|路灯)(总排行|总榜)",
+    priority = 20,
+    block = True
+    )
+
+@russian_All_rank.handle()
+async def _(bot:Bot, event:MessageEvent):
+    cmd = event.get_plaintext().strip().split()
+    title = re.search(r"^(金币|资产|财富|胜率|胜场|败场|路灯)(总排行|总榜)",cmd[0]).group(1)
+    msg = await Account.All_rank(event, title)
+    if msg:
+        if isinstance(event, GroupMessageEvent):
+            await bot.send_group_forward_msg(group_id = event.group_id, messages = msg)
+        else:
+            await bot.send_private_forward_msg(user_id = event.user_id, messages = msg)
+    else:
+        await russian_All_rank.finish("无数据。")
+
 # 公司上市
 Market_public = on_command(
     "市场注册",

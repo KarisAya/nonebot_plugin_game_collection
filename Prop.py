@@ -398,7 +398,7 @@ class Prop(str):
 
         gold = group_account.gold
 
-        if random.randint(0,2) == 0:
+        if random.randint(0,1) == 0:
             user.gold += gold
             group_account.gold += gold
             return f"你获得了{gold}金币"

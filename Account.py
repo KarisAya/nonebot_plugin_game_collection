@@ -312,7 +312,7 @@ async def my_info(event:MessageEvent) -> Message:
         msg = msg + linestr + "[align=right][size=30][color=gray]股票信息[/color][/size][/align]\n"
         info.append(bbcode_to_PIL(msg))
 
-    return MessageSegment.image(info_Splicing(info,BG_path(event)))
+    return MessageSegment.image(info_Splicing(info,BG_path(event.user_id)))
 
 def my_props(event:MessageEvent) -> Message:
     """
@@ -397,12 +397,11 @@ async def All_rank(event:MessageEvent, title:str = "金币", top:int = 10) -> li
             f"[align=right][size=30][color=gray]{title}总排行 {i}/{l}[/color][/size][/align]\n"
             )
         info.append(bbcode_to_PIL(tmp,60))
-        event.user_id = user_id
         msg.append({"type":"node",
                     "data":{
                         "name":f"{bot_name}",
                         "uin":str(event.self_id),
-                        "content":MessageSegment.image(info_Splicing(info,BG_path(event)))}})
+                        "content":MessageSegment.image(info_Splicing(info,BG_path(user_id)))}})
     return msg
 
 def transfer_fee(amount:int,limit:int) -> int:

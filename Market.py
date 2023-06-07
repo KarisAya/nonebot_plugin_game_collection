@@ -465,7 +465,7 @@ async def group_info(bot:Bot, event:MessageEvent, group_id:int):
         if msg:
             info.append(bbcode_to_PIL(msg + "\n" +linestr + "[align=right][size=30][color=gray]公司介绍[/color][/size][/align]", 40))
 
-    return MessageSegment.image(info_Splicing(info, BG_path(event)))
+    return MessageSegment.image(info_Splicing(info, BG_path(event.user_id)))
 
 def stock_profile(company:Company) -> str:
     """
@@ -505,7 +505,7 @@ def Market_info_All(event:MessageEvent, ohlc:bool = False):
                     "data":{
                         "name":f"{bot_name}",
                         "uin":str(event.self_id),
-                        "content":MessageSegment.image(info_Splicing(info, BG_path(event)))}})
+                        "content":MessageSegment.image(info_Splicing(info, BG_path(event.user_id)))}})
     return msg
 
 def update_intro(company_name:str, intro:str):

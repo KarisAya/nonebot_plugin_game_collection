@@ -102,8 +102,8 @@ def update_company_index():
 company_index:Dict[str,int] = {}
 company_index = update_company_index()
 
-def BG_path(event:MessageEvent):
-    my_BG = BG_image / f"{str(event.user_id)}.png"
+def BG_path(user_id:int) -> Path:
+    my_BG = BG_image / f"{str(user_id)}.png"
     if my_BG.exists():
         return my_BG
     else:
@@ -225,7 +225,7 @@ def group_ranklist(group_id:int , title:str) -> list:
         for user_id in namelist:
             user = user_data[user_id]
             rank.append([user_id, user.lose])
-    elif title == "路灯":
+    elif title == "路灯挂件":
         rank = group_data[group_id].Achieve_revolution.items()
     else:
         return None
@@ -280,7 +280,7 @@ def All_ranklist(title:str) -> list:
         for user_id in namelist:
             user = user_data[user_id]
             rank.append([user_id, user.lose])
-    elif title == "路灯":
+    elif title == "路灯挂件":
         result = Counter()
         for group in group_data.values():
             result += Counter(group.Achieve_revolution)

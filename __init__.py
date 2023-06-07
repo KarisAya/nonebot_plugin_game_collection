@@ -600,7 +600,7 @@ async def _(event:MessageEvent):
 
 # 查看排行榜
 russian_rank = on_regex(
-    r"^(总金币|总资产|金币|资产|财富|胜率|胜场|败场|路灯)(排行|榜)",
+    r"^(总金币|总资产|金币|资产|财富|胜率|胜场|败场|路灯挂件)(排行|榜)",
     permission = GROUP,
     priority = 20,
     block = True
@@ -609,13 +609,13 @@ russian_rank = on_regex(
 @russian_rank.handle()
 async def _(event:GroupMessageEvent):
     cmd = event.get_plaintext().strip().split()
-    title = re.search(r"^(总金币|总资产|金币|资产|财富|胜率|胜场|败场|路灯)(排行|榜)",cmd[0]).group(1)
+    title = re.search(r"^(总金币|总资产|金币|资产|财富|胜率|胜场|败场|路灯挂件)(排行|榜)",cmd[0]).group(1)
     msg = Manager.group_rank(event.group_id, title)
     await russian_rank.finish(msg)
 
 # 查看总排行
 russian_All_rank = on_regex(
-    r"^(金币|资产|财富|胜率|胜场|败场|路灯)(总排行|总榜)",
+    r"^(金币|资产|财富|胜率|胜场|败场|路灯挂件)(总排行|总榜)",
     priority = 20,
     block = True
     )
@@ -623,7 +623,7 @@ russian_All_rank = on_regex(
 @russian_All_rank.handle()
 async def _(bot:Bot, event:MessageEvent):
     cmd = event.get_plaintext().strip().split()
-    title = re.search(r"^(金币|资产|财富|胜率|胜场|败场|路灯)(总排行|总榜)",cmd[0]).group(1)
+    title = re.search(r"^(金币|资产|财富|胜率|胜场|败场|路灯挂件)(总排行|总榜)",cmd[0]).group(1)
     msg = await Account.All_rank(event, title)
     if msg:
         if isinstance(event, GroupMessageEvent):

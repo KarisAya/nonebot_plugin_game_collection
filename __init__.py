@@ -381,7 +381,7 @@ async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
     arg = arg.extract_plain_text().strip().split()
     if not arg:
         gold = bet_gold
-        times = 1
+        level = 1
     else:
         test = len(arg)
         if test == 1:
@@ -390,20 +390,20 @@ async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
                 gold = int(gold)
             else:
                 gold = bet_gold
-            times = 1
+            level = 1
         else:
             gold = arg[0]
             if gold.isdigit():
                 gold = int(gold)
             else:
                 gold = bet_gold
-            times = arg[1]
-            if times.isdigit():
-                times = int(times)
+            level = arg[1]
+            if level.isdigit():
+                level = int(level)
             else:
-                times = 1
+                level = 1
 
-    msg = Game.cantrell(event, gold, times)
+    msg = Game.cantrell(event, gold, level)
     await cantrell.finish(msg)
 
 # 看牌

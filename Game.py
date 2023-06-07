@@ -1133,19 +1133,16 @@ def cantrell_info(gold):
         "pt2":cantrell_pt(deck[5:10])
         }
 
-def happy_cantrell_info(gold, times = 2):
+def happy_cantrell_info(gold, level = 2):
     """
     生成快乐港式五张游戏内容
-        times:抽牌次数，1次到5次。
+        level:抽牌次数，1次到5次。
     """
-    times = 1 if times < 1 else times
-    times = 5 if times > 5 else times
-
     deck = random_poker()
     deck = [deck[i:i+5] for i in range(0, 50, 5)]
 
-    hand1,pt1 = max_hand(deck[0:times])
-    hand2,pt2 = max_hand(deck[times:2*times])
+    hand1,pt1 = max_hand(deck[0:level])
+    hand2,pt2 = max_hand(deck[level:2*level])
 
     return {
         "game":"cantrell",
@@ -1156,7 +1153,7 @@ def happy_cantrell_info(gold, times = 2):
         "pt2":pt2
         }
 
-def cantrell(event:GroupMessageEvent, gold:int ,times:int = 1):
+def cantrell(event:GroupMessageEvent, gold:int ,level:int = 1):
     """
     发起游戏：港式五张
     """
@@ -1166,13 +1163,15 @@ def cantrell(event:GroupMessageEvent, gold:int ,times:int = 1):
     group_id = event.group_id
     session = current_games[group_id]
     session.gold = gold
-    if times == 1:
+    if level == 1:
         session.info = cantrell_info(gold)
     else:
-        session.info = happy_cantrell_info(gold,times)
+        level = 1 if level < 1 else level
+        level = 5 if level > 5 else level
+        session.info = happy_cantrell_info(gold,level)
     return (f"随机牌堆已生成\n"
             f"开局金额：{gold}\n"
-            + (f"等级：Lv.{times}\n" if times > 1 else "") +
+            + (f"等级：Lv.{level}\n" if level > 1 else "") +
             f"{msg}")
 
 async def cantrell_check(bot:Bot, event:GroupMessageEvent):
@@ -1209,8 +1208,8 @@ async def cantrell_play(bot:Bot, event:GroupMessageEvent, gold:int, max_bet_gold
         return None if msg == " " else msg
     if gold > max_bet_gold:
         return MessageSegment.at(event.user_id) + f"加注金额不能超过{max_bet_gold}"
-    if gold > session.info["bet_limit"]:
-        gold = session.info["bet_limit"]
+    if session.gold + gold > session.info["bet_limit"]:
+        gold = session.info["bet_limit"] - session.gold
     expose = session.round / 2
     if expose == int(expose):
         session.nextround()
@@ -1220,7 +1219,6 @@ async def cantrell_play(bot:Bot, event:GroupMessageEvent, gold:int, max_bet_gold
             session.gold += gold
         else:
             session.gold += session.info["round_gold"]
-        session.info["bet_limit"] -= gold
         msg = (
             f'玩家：{user_data[session.player1_id].group_accounts[group_id].nickname}\n'
             "手牌：\n"
@@ -1241,7 +1239,6 @@ async def cantrell_play(bot:Bot, event:GroupMessageEvent, gold:int, max_bet_gold
         else:
             return MessageSegment.image(text_to_png(f"您已跟注{gold}金币\n" + msg,30))
     else:
-        session.info["bet_limit"] -= gold
         session.nextround()
         session.time += 120
         session.info["round_gold"] = gold

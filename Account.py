@@ -17,7 +17,7 @@ from .data.data import UserDict, GroupAccount
 from .data.data import props_library, props_index
 from .config import bot_name,sign_gold, revolt_gold, revolt_cd, revolt_gini, max_bet_gold
 from .Manager import BG_path
-from .Manager import data, company_index
+from .Manager import data, company_index, update_company_index
 from . import Manager
 
 user_data = data.user
@@ -529,6 +529,8 @@ async def delist(bot:Bot):
                 del user_data[user_id].group_accounts[group_id]
                 namelist.discard(user_id)
 
+        global company_index
+        company_index = update_company_index()
         # 保存数据
         data.save()
         return log[:-1] if log else "没有要清理的数据！"

@@ -487,6 +487,7 @@ def Market_info_All(event:MessageEvent, ohlc:bool = False):
     """
     市场信息总览
     """
+    global company_index
     company_ids = list(set([company_index[x] for x in company_index]))
     companys = []
     for company_id in company_ids:

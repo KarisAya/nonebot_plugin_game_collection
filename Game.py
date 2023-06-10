@@ -213,7 +213,6 @@ def RaceReStart(event:GroupMessageEvent):
     del current_games[group_id]
     return "赛马场已重置。"
 
-
 """+++++++++++++++++
 ——————————
      其他小游戏
@@ -396,6 +395,8 @@ def accept(event:GroupMessageEvent):
             session.info = lucky_number_info(session.gold)
         elif game == "cantrell":
             session.info = cantrell_info(session.gold)
+        elif game == "Blackjack":
+            session.info = Blackjack_info()
     elif group_account.gold <  session.gold:
         del current_games[group_id]
         return Message(MessageSegment.at(event.user_id) + f"你的金币不足以接受这场对决！\n——你还有{group_account.gold}枚金币。")
@@ -413,8 +414,8 @@ def acceptmessage(session:Session):
     生成接受挑战的提示信息
     """
     game = session.info.get("game")
+    gold = session.gold
     if game == "russian":
-        gold = session.gold
         tip1 = "本场对决为【俄罗斯轮盘】\n"
         tip2 = "开枪！"
     elif game == "dice":
@@ -422,7 +423,6 @@ def acceptmessage(session:Session):
         tip1 = "本场对决为【掷色子】\n"
         tip2 = "开数！"
     elif game == "poker":
-        gold = session.gold
         tip1 = "本场对决为【扑克对战】\n"
         tip2 = "加注！\n"
         tip2 += MessageSegment.image(text_to_png(
@@ -436,11 +436,9 @@ def acceptmessage(session:Session):
             "".join([f'【{pokerACT.suit[suit]}{pokerACT.point[point]}】' for suit, point in session.info["P1"]["hand"]])
             ),30)
     elif game == "lucky_number":
-        gold = session.gold
         tip1 = "本场对决为【猜数字】\n"
         tip2 = "发送数字"
     elif game == "cantrell":
-        gold = session.gold
         tip1 = "本场对决为【港式五张】\n"
         tip2 = "开牌！\n"
         tip2 += MessageSegment.image(text_to_png(
@@ -454,8 +452,15 @@ def acceptmessage(session:Session):
                 + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in session.info["hand2"][0:3]]) +
                 "   |   |"
                 ),30)
+    elif game == "Blackjack":
+        hand1 = session.info["hand1"][0]
+        hand2 = session.info["hand2"][0]
+        tip1 = "本场对决为【21点】\n"
+        tip2 = "\n抽牌|停牌|双倍下注\n"
+        tip2 += (
+            f"P1：{Blackjack_suit[hand1[0]]}{Blackjack_point[hand1[1]]}\n"
+            f"P2：{Blackjack_suit[hand2[0]]}{Blackjack_point[hand2[1]]}\n")
     else:
-        gold = session.gold
         tip1 = ""
         tip2 = ""
     return Message(
@@ -1246,6 +1251,162 @@ async def cantrell_play(bot:Bot, event:GroupMessageEvent, gold:int, max_bet_gold
 
 """+++++++++++++++++
 ——————————
+        21点
+——————————
++++++++++++++++++"""
+
+Blackjack_suit = {4:"♠",3:"♥",2:"♣",1:"♦"}
+Blackjack_point = {1:"A",2:"2",3:"3",4:"4",5:"5",6:"6",7:"7",8:"8",9:"9",10:"10",11:"J",12:"Q",13:"K"}
+
+def Blackjack_info():
+    """
+    生成21点游戏内容
+    """
+    deck = random_poker()
+    return {
+        "game":"Blackjack",
+        "deck":deck[2:],
+        "hand1":[deck[0],],
+        "hand2":[deck[1],],
+        }
+
+def Blackjack(event:GroupMessageEvent, gold:int):
+    """
+    发起游戏：21点
+    """
+    flag, msg = start(event, gold, max_bet_gold * 10)
+    if flag == False:
+        return msg
+    group_id = event.group_id
+    session = current_games[group_id]
+    session.gold = gold
+    session.info = Blackjack_info()
+    return ("唰唰~，随机牌库已生成\n"
+            f"挑战金额：{gold}\n"
+            f"{msg}")
+
+def Blackjack_pt(hand:list) -> int:
+    """
+    返回21点牌组点数。
+    """
+    pts = [x[1] if x[1] < 10 else 10 for x in hand]
+    pt = sum(pts)
+    if 1 in pts and pt <= 11:
+        pt += 10
+    return pt
+
+async def Blackjack_Hit(bot:Bot, event:GroupMessageEvent):
+    """
+    抽牌
+    """
+    group_id = event.group_id
+    global current_games
+    session = current_games[group_id]
+    if msg := session.shot_check(event):
+        return None if msg == " " else msg
+    session.time = time.time()
+
+    if event.user_id == session.player1_id:
+        hand = "hand1"
+        session.win = session.player2_id
+    else:
+        hand = "hand2"
+        session.win = session.player1_id
+    deck = session.info["deck"]
+    card = deck[0]
+    del deck[0]
+    hand = session.info[hand]
+    hand.append(card)
+
+    pt = Blackjack_pt(hand)
+    msg = (
+        "你的手牌：\n"
+        + ("|" + "".join([f'{Blackjack_suit[suit]}{Blackjack_point[point]}|' for suit, point in hand]))
+        + f'\n合计:{pt}点'
+        )
+    try:
+        await bot.send_private_msg(user_id = event.user_id, message = MessageSegment.image(text_to_png(msg,30)))
+    except:
+        await bot.send(event,f"私聊发送失败，请检查是否添加{bot_name}为好友。\n游戏继续！")
+    if pt > 21:
+        await end(bot, event)
+
+async def Blackjack_stand(bot:Bot, event:GroupMessageEvent):
+    """
+    停牌
+    """
+    group_id = event.group_id
+    global current_games
+    session = current_games[group_id]
+    if msg := session.shot_check(event):
+        return None if msg == " " else msg
+    session.time = time.time()
+    session.nextround()
+    if session.round == 2:
+        return Message(f"请{MessageSegment.at(session.player2_id)}\n抽牌|停牌|双倍下注")
+    else:
+        hand1 = session.info["hand1"]
+        hand2 = session.info["hand2"]
+        if Blackjack_pt(hand1) > Blackjack_pt(hand2):
+            session.win = session.player1_id
+        else:
+            session.win = session.player2_id
+        await end(bot, event)
+
+async def Blackjack_DoubleDown(bot:Bot, event:GroupMessageEvent):
+    """
+    双倍下注
+    """
+    group_id = event.group_id
+    global current_games
+    session = current_games[group_id]
+    if msg := session.shot_check(event):
+        return None if msg == " " else msg
+    session.time = time.time()
+    gold = session.gold
+    bet_limit = session.info["bet_limit"]
+    gold = gold*2
+    gold = min(bet_limit, gold)
+    session.gold = gold
+    if event.user_id == session.player1_id:
+        hand = "hand1"
+        session.win = session.player2_id
+    else:
+        hand = "hand2"
+        session.win = session.player1_id
+    deck = session.info["deck"]
+    card = deck[0]
+    del deck[0]
+    hand = session.info[hand]
+    hand.append(card)
+    pt = Blackjack_pt(hand)
+    if pt > 21:
+        await end(bot, event)
+    else:
+        msg = (
+            "你的手牌：\n"
+            + ("|" + "".join([f'{Blackjack_suit[suit]}{Blackjack_point[point]}|' for suit, point in hand]))
+            + f'\n合计:{pt}点'
+            )
+        try:
+            await bot.send_private_msg(user_id = event.user_id, message = MessageSegment.image(text_to_png(msg,30)))
+        except:
+            await bot.send(event,f"私聊发送失败，请检查是否添加{bot_name}为好友。\n游戏继续！")
+
+    session.nextround()
+    if session.round == 2:
+        return Message(f"请{MessageSegment.at(session.player2_id)}\n抽牌|停牌|双倍下注")
+    else:
+        hand1 = session.info["hand1"]
+        hand2 = session.info["hand2"]
+        if Blackjack_pt(hand1) > Blackjack_pt(hand2):
+            session.win = session.player1_id
+        else:
+            session.win = session.player2_id
+        await end(bot, event)
+
+"""+++++++++++++++++
+——————————
       随机对战
 ——————————
 +++++++++++++++++"""
@@ -1379,20 +1540,31 @@ def game_str(session:Session):
     if game == "russian":
         return " ".join(("—" if x == 0 else "|") for x in session.info["bullet"])
     if game == "dice":
-        return (f'玩家 1\n'
-                f'组合：{" ".join(str(x) for x in session.info["dice_array1"])}\n'
-                f'玩家 2\n'
-                f'组合：{" ".join(str(x) for x in session.info["dice_array2"])}')
+        return (
+            f'玩家 1\n'
+            f'组合：{" ".join(str(x) for x in session.info["dice_array1"])}\n'
+            f'玩家 2\n'
+            f'组合：{" ".join(str(x) for x in session.info["dice_array2"])}')
     if game == "cantrell":
-        return MessageSegment.image(text_to_png(("P1手牌：\n"
-                "|"
-                + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in session.info["hand1"]]) +
-                f"\n牌型：\n{session.info['pt1'][1]}"
-                "\n——————————————\n"
-                "P2手牌：\n"
-                "|"
-                + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in session.info["hand2"]]) +
-                f"\n牌型：\n{session.info['pt2'][1]}"),30))
+        return MessageSegment.image(text_to_png((
+            "P1手牌：\n"
+            "|" + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in session.info["hand1"]]) +
+            f"\n牌型：\n{session.info['pt1'][1]}"
+            "\n——————————————\n"
+            "P2手牌：\n"
+            "|" + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in session.info["hand2"]]) +
+            f"\n牌型：\n{session.info['pt2'][1]}"),30))
+    if game == "Blackjack":
+        hand1 = session.info["hand1"]
+        hand2 = session.info["hand2"]
+        return MessageSegment.image(text_to_png((
+            "P1手牌：\n"
+            + ("|" + "".join([f'{Blackjack_suit[suit]}{Blackjack_point[point]}|' for suit, point in hand1]))
+            + f'\n合计:{Blackjack_pt(hand1)}点'
+            "\n——————————————\n"
+            "P2手牌：\n"
+            + ("|" + "".join([f'{Blackjack_suit[suit]}{Blackjack_point[point]}|' for suit, point in hand2]))
+            + f'\n合计:{Blackjack_pt(hand2)}点'),30))
     else:
         return ""
 

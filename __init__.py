@@ -9,8 +9,9 @@ from nonebot.adapters.onebot.v11 import (
     Message,
 )
 from nonebot.permission import SUPERUSER
-from nonebot import on_command, on_regex, on_fullmatch
+from nonebot import on_message, on_command, on_regex, on_fullmatch
 from nonebot.params import CommandArg, Arg
+from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.rule import to_me
 from nonebot import require
@@ -440,6 +441,49 @@ async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg()):
     msg = await Game.cantrell_play(bot, event, gold)
     await cantrell_play.finish(msg)
 
+# 21点
+Blackjack = on_command("21点", permission = GROUP, priority = 20, block = True)
+
+@Blackjack.handle()
+async def _(event:MessageEvent, arg:Message = CommandArg()):
+    gold = arg.extract_plain_text().strip()
+    if gold.isdigit():
+        gold = int(gold)
+    else:
+        gold = bet_gold
+    msg = Game.Blackjack(event, gold)
+    await Blackjack.finish(msg)
+
+# 抽牌
+
+def is_Blackjack(event:GroupMessageEvent,state:T_State) -> bool:
+    if event.group_id in current_games and current_games[event.group_id].info.get("game") == "Blackjack":
+        command = str(event.message)
+        if command == "抽牌":
+            state["Blackjack_play"] = Game.Blackjack_Hit
+        elif command == "停牌":
+            state["Blackjack_play"] = Game.Blackjack_stand
+        elif command == "双倍下注":
+            state["Blackjack_play"] = Game.Blackjack_DoubleDown
+        else:
+            return False
+        return True
+    else:
+        return False
+
+Blackjack_play = on_message(
+    rule = is_Blackjack,
+    permission = GROUP,
+    priority = 20,
+    block = True
+    )
+
+@Blackjack_play.handle()
+async def _(bot:Bot, event:GroupMessageEvent,state:T_State):
+    Blackjack_play = state["Blackjack_play"]
+    msg = await Blackjack_play(bot, event)
+    await cantrell_play.finish(msg)
+
 # 随机对战
 random_game = on_command("随机对战", permission = GROUP, priority = 5, block = True)
 
@@ -480,7 +524,7 @@ overtime = on_command("超时结算", rule = session_check, permission = GROUP, 
 
 @overtime.handle()
 async def _(bot:Bot, event:GroupMessageEvent):
-    msg = await Game.overtime(event)
+    msg = await Game.overtime(bot, event)
     await overtime.finish(msg)
 
 # 认输结算

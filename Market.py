@@ -36,8 +36,7 @@ def check_company_name(company_name:str):
     """
     if not company_name:
         return f"公司名称不能为空"
-    global company_index
-    company_index = update_company_index()
+    update_company_index()
     if company_name in company_index:
         return f"{company_name} 已被注册"
     if " " in company_name or "\n" in company_name:
@@ -83,8 +82,7 @@ def public(event:GroupMessageEvent,company_name:str):
     company.float_gold = company.gold
     company.group_gold = gold
     company.intro = f"发行初始信息\n金币 {round(gold,2)}\n基尼系数{round(gini,3)}\n{company_name} 名称检查通过\n发行成功！"
-    company_index[company_name] = group_id
-    company_index[str(group_id)] = group_id
+    update_company_index()
     data.save()
     return f'{company_name}发行成功，发行价格为每股{round((gold/ 20000),2)}金币'
 
@@ -104,8 +102,7 @@ def rename(event:GroupMessageEvent,company_name:str):
         return check
     old_company_name = company.company_name
     company.company_name = company_name
-    global company_index
-    company_index = update_company_index()
+    update_company_index()
     return f'【{old_company_name}】已重命名为【{company_name}】'
 
 def value_update(group_account:GroupAccount):

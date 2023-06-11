@@ -19,7 +19,7 @@ from .config import bot_name, security_gold, max_bet_gold, max_player, min_playe
 from .HorseRace.start import load_dlcs
 from .HorseRace.race_group import race_group
 
-from .Manager import data
+from .Manager import data, try_send_private_msg
 from . import Manager
 
 user_data = data.user
@@ -1199,8 +1199,8 @@ async def cantrell_check(bot:Bot, event:GroupMessageEvent):
         "你的手牌：\n"
         + ("|" + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in session.info[hand][0:expose]]) + (5 - expose)*"   |")
         )
-    await bot.send_private_msg(user_id = event.user_id, message = MessageSegment.image(text_to_png(msg,30)))
-    return
+    if not await try_send_private_msg(user_id = event.user_id, message = MessageSegment.image(text_to_png(msg,30))):
+        await bot.send(event,f"私聊发送失败，请检查是否添加{bot_name}为好友。\n游戏继续！")
 
 async def cantrell_play(bot:Bot, event:GroupMessageEvent, gold:int, max_bet_gold:int = max_bet_gold * 10):
     """
@@ -1317,19 +1317,17 @@ async def Blackjack_Hit(bot:Bot, event:GroupMessageEvent):
     del deck[0]
     hand = session.info[hand]
     hand.append(card)
-
     pt = Blackjack_pt(hand)
-    msg = (
-        "你的手牌：\n"
-        + ("|" + "".join([f'{Blackjack_suit[suit]}{Blackjack_point[point]}|' for suit, point in hand]))
-        + f'\n合计:{pt}点'
-        )
-    try:
-        await bot.send_private_msg(user_id = event.user_id, message = MessageSegment.image(text_to_png(msg,30)))
-    except:
-        await bot.send(event,f"私聊发送失败，请检查是否添加{bot_name}为好友。\n游戏继续！")
     if pt > 21:
         await end(bot, event)
+    else:
+        msg = (
+            "你的手牌：\n"
+            + ("|" + "".join([f'{Blackjack_suit[suit]}{Blackjack_point[point]}|' for suit, point in hand]))
+            + f'\n合计:{pt}点'
+            )
+        if not await try_send_private_msg(user_id = event.user_id, message = MessageSegment.image(text_to_png(msg,30))):
+            await bot.send(event,f"私聊发送失败，请检查是否添加{bot_name}为好友。\n游戏继续！")
 
 async def Blackjack_stand(bot:Bot, event:GroupMessageEvent):
     """
@@ -1388,22 +1386,19 @@ async def Blackjack_DoubleDown(bot:Bot, event:GroupMessageEvent):
             + ("|" + "".join([f'{Blackjack_suit[suit]}{Blackjack_point[point]}|' for suit, point in hand]))
             + f'\n合计:{pt}点'
             )
-        try:
-            await bot.send_private_msg(user_id = event.user_id, message = MessageSegment.image(text_to_png(msg,30)))
-        except:
+        if not await try_send_private_msg(user_id = event.user_id, message = MessageSegment.image(text_to_png(msg,30))):
             await bot.send(event,f"私聊发送失败，请检查是否添加{bot_name}为好友。\n游戏继续！")
-
-    session.nextround()
-    if session.round == 2:
-        return Message(f"请{MessageSegment.at(session.player2_id)}\n抽牌|停牌|双倍下注")
-    else:
-        hand1 = session.info["hand1"]
-        hand2 = session.info["hand2"]
-        if Blackjack_pt(hand1) > Blackjack_pt(hand2):
-            session.win = session.player1_id
+        session.nextround()
+        if session.round == 2:
+            return Message(f"请{MessageSegment.at(session.player2_id)}\n抽牌|停牌|双倍下注")
         else:
-            session.win = session.player2_id
-        await end(bot, event)
+            hand1 = session.info["hand1"]
+            hand2 = session.info["hand2"]
+            if Blackjack_pt(hand1) > Blackjack_pt(hand2):
+                session.win = session.player1_id
+            else:
+                session.win = session.player2_id
+            await end(bot, event)
 
 """+++++++++++++++++
 ——————————

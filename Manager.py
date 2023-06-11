@@ -2,6 +2,7 @@ from typing import Tuple,Dict
 from pathlib import Path
 from nonebot.adapters.onebot.v11 import (
     Bot,
+    Message,
     MessageEvent,
     GroupMessageEvent,
     MessageSegment,
@@ -88,19 +89,18 @@ async def locate_user_at(bot:Bot, event:GroupMessageEvent, user_id:int) ->Tuple[
 
     return user,group_account
 
+company_index:Dict[str,int] = {}
+
 def update_company_index():
     """
     从群数据生成公司名查找群号的字典
     """
-    company_index = {}
     for group_id in group_data:
         if company_name := group_data[group_id].company.company_name:
             company_index[company_name] = group_id
             company_index[str(group_id)] = group_id
-    return company_index
 
-company_index:Dict[str,int] = {}
-company_index = update_company_index()
+update_company_index()
 
 def BG_path(user_id:int) -> Path:
     my_BG = BG_image / f"{str(user_id)}.png"
@@ -315,8 +315,7 @@ def Newday():
     """
     log = ""
     group_check = {k:set() for k in group_data}
-    global company_index
-    company_index = update_company_index()
+    update_company_index()
     company_ids = company_index.values()
     stock_check = {k:0 for k in company_ids}
     # 检查user_data
@@ -375,3 +374,22 @@ def Newday():
                 company.stock = company.issuance - stock_check[group_id]
     data.save()
     return log[:-1] if log else "数据一切正常！"
+
+from nonebot import get_driver
+driver = get_driver()
+bot_list = set()
+driver.on_bot_connect(lambda bot:bot_list.add(bot))
+driver.on_bot_disconnect(lambda bot:bot_list.discard(bot))
+
+async def try_send_private_msg(user_id:int, message: Message) -> bool:
+    """
+    发送私聊消息
+    """
+    global bot_list
+    for bot in bot_list:
+        friend_list = await bot.get_friend_list()
+        friend_list = [friend["user_id"] for friend in friend_list]
+        if user_id in friend_list:
+            await bot.send_private_msg(user_id = user_id, message = message)
+            return True
+    return False

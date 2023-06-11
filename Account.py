@@ -528,9 +528,7 @@ async def delist(bot:Bot):
                 log += f'删除群账户：{user_id} - {group_id}\n'
                 del user_data[user_id].group_accounts[group_id]
                 namelist.discard(user_id)
-
-        global company_index
-        company_index = update_company_index()
+        update_company_index()
         # 保存数据
         data.save()
         return log[:-1] if log else "没有要清理的数据！"

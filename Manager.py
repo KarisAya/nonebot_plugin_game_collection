@@ -335,6 +335,7 @@ def Newday():
                 group_check[group_id].add(user_id)
                 group_account = group_accounts[group_id]
                 group_account.is_sign = False
+                group_account.security = 0
                 gold += group_account.gold
                 props = group_account.props
                 props = {k:v-1 if k[2] == '0' else v for k, v in props.items()}

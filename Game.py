@@ -459,7 +459,7 @@ def acceptmessage(session:Session):
         tip2 = "\n抽牌|停牌|双倍下注\n"
         tip2 += (
             f"P1：{Blackjack_suit[hand1[0]]}{Blackjack_point[hand1[1]]}\n"
-            f"P2：{Blackjack_suit[hand2[0]]}{Blackjack_point[hand2[1]]}\n")
+            f"P2：{Blackjack_suit[hand2[0]]}{Blackjack_point[hand2[1]]}")
     else:
         tip1 = ""
         tip2 = ""

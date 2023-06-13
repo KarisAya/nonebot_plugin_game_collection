@@ -95,13 +95,10 @@ def update_company_index():
     """
     从群数据生成公司名查找群号的字典
     """
-    index = {}
     for group_id in group_data:
         if company_name := group_data[group_id].company.company_name:
-            index[company_name] = group_id
-            index[str(group_id)] = group_id
-    else:
-        company_index = index
+            company_index[company_name] = group_id
+            company_index[str(group_id)] = group_id
 
 update_company_index()
 

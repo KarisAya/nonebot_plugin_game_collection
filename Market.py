@@ -148,7 +148,7 @@ def buy(event:MessageEvent, buy:int, company_name:str):
     if group_gold < 10 * max_bet_gold:
         return f"【{company_name}】金币过少({group_gold})，无法交易。"
 
-    gold = group_gold if group_gold > company.float_gold else company.float_gold
+    gold = max(group_gold, company.float_gold)
     SI = company.issuance
     gini = Manager.Gini(company_id)
     value = 0.0
@@ -474,8 +474,8 @@ def stock_profile(company:Company) -> str:
     msg = (
         f"固定资产 {'{:,}'.format(round(company.gold,2))}\n"
         f"市场流动 {'{:,}'.format(round(company.group_gold))}\n"
-        f"发行价格 {'{:,}'.format(round((group_gold if group_gold > float_gold else float_gold)/issuance,2))}\n"
-        f"结算价格 {'{:,}'.format(round((group_gold if group_gold < float_gold else float_gold)/issuance,2))}\n"
+        f"发行价格 {'{:,}'.format(round(max(group_gold,float_gold)/issuance,2))}\n"
+        f"结算价格 {'{:,}'.format(round(float_gold/issuance,2))}\n"
         f"剩余数量 {company.stock}\n"
         )
     return msg
@@ -548,8 +548,7 @@ def company_update(company:Company):
     # 记录价格历史
     global market_history
     market_history.setdefault(company_id,[]).append((time.time(), group_gold / company.issuance, float_gold / company.issuance))
-    while len(market_history[company_id]) > 720:
-        del market_history[company_id][0]
+    market_history = market_history[company_id][-720:]
 
 def update():
     """

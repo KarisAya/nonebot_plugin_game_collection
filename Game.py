@@ -384,7 +384,7 @@ def accept(event:GroupMessageEvent):
     group_account = Manager.locate_user(event)[1]
     if session.info["game"] == "random":
         session.gold = random.randint(0, 0 if(mingold := min(group_account.gold,session.info["gold"])) < 0 else mingold) if session.gold == -1 else session.gold
-        game = random.choice(["russian","dice","poker","lucky_number","cantrell"])
+        game = random.choice(["russian","dice","lucky_number","cantrell", "Blackjack"])
         if game == "russian":
             session.info = russian_info(random.randint(1,6))
         elif game == "dice":
@@ -1190,7 +1190,7 @@ async def cantrell_check(bot:Bot, event:GroupMessageEvent):
         return None if msg == " " else msg
     session.time = time.time() + 120
     expose = int(round((session.round  + 0.5)/ 2)) + 3
-    expose = expose if expose < 5 else 5
+    expose = min(expose,5)
     if event.user_id == session.player1_id:
         hand = "hand1"
     else:
@@ -1220,10 +1220,8 @@ async def cantrell_play(bot:Bot, event:GroupMessageEvent, gold:int, max_bet_gold
         session.nextround()
         session.time += 120
         expose = int(expose) + 3
-        if gold > session.info["round_gold"]:
-            session.gold += gold
-        else:
-            session.gold += session.info["round_gold"]
+        gold = max(gold,session.info["round_gold"])
+        session.gold += gold
         msg = (
             f'玩家：{user_data[session.player1_id].group_accounts[group_id].nickname}\n'
             "手牌：\n"

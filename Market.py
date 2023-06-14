@@ -549,7 +549,7 @@ def company_update(company:Company):
     # 记录价格历史
     global market_history
     market_history.setdefault(company_id,[]).append((time.time(), group_gold / company.issuance, float_gold / company.issuance))
-    market_history = market_history[company_id][-720:]
+    market_history[company_id] = market_history[company_id][-720:]
 
 def update():
     """

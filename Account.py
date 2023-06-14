@@ -104,9 +104,6 @@ def revolution(group_id:int) -> str:
     if time.time() - group.revolution_time < revolt_cd:
         return f"重置正在冷却中，结束时间：{datetime.datetime.fromtimestamp(group.revolution_time + revolt_cd).strftime('%H:%M:%S')}"
 
-    if time.time() - group.revolution_time < revolt_cd:
-        return f"重置正在冷却中，结束时间：{datetime.datetime.fromtimestamp(group.revolution_time + revolt_cd).strftime('%d日 %H:%M:%S')}"
-
     if (gold := (Manager.group_wealths(group_id) or 0)) < (limit := 15 * max_bet_gold):
         return f"本群金币（{round(gold,2)}）小于{limit}，未满足重置条件。"
 
@@ -133,7 +130,8 @@ def revolution(group_id:int) -> str:
         gold = int(group_account.value*j - group_account.gold*(1-j))
         user.gold += gold
         group_account.gold += gold
-        for company_id in group_account.stocks:
+        company_ids = [company_id for company_id in group_account.stocks]
+        for company_id in company_ids:
             company = group_data[company_id].company
             if user_id in company.exchange:
                 del company.exchange[user_id]

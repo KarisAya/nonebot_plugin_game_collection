@@ -12,11 +12,11 @@ import time
 import datetime
 
 from .utils.utils import line_wrap
-from .utils.chart import bbcode_to_png, bbcode_to_PIL, my_info_head, my_info_statistics, info_Splicing
+from .utils.chart import bbcode_to_png, bbcode_to_PIL, bar_chart,my_info_head, my_info_statistics, info_Splicing
 from .data.data import UserDict, GroupAccount
 from .data.data import props_library, props_index
 from .config import bot_name,sign_gold, revolt_gold, revolt_cd, revolt_gini, max_bet_gold
-from .Manager import BG_path
+from .Manager import BG_path, bot_list
 from .Manager import data, company_index, update_company_index
 from . import Manager
 
@@ -367,9 +367,10 @@ async def info_profile(user_id:int) -> list:
         info.append(my_info_statistics(dist))
     return info
 
-async def All_rank(event:MessageEvent, title:str = "金币", top:int = 10) -> list:
-    if not (ranklist := Manager.All_ranklist(title)):
-        return None
+def format_ranktitle(title:str = "金币"):
+    """
+    根据排行榜将数据格式化
+    """
     if title == "金币":
         func = lambda x:'{:,}'.format(x)
     elif title == "资产" or title == "财富":
@@ -378,17 +379,59 @@ async def All_rank(event:MessageEvent, title:str = "金币", top:int = 10) -> li
         func = lambda x:f"{round(x*100,2)}%"
     else:
         func = lambda x:x
+    return func
+
+async def info_group_rank(group_id:int, title:str = "金币", top:int = 20) -> list:
+    """
+    群内排名信息
+    """
+    if not (ranklist := Manager.group_ranklist(group_id, title)):
+        return None
+    info = []
+    i = 1
+    first = ranklist[0][1]
+    for x in ranklist[:top]:
+        user = user_data[x[0]]
+        user_id = user.user_id
+        group_account = user.group_accounts[group_id]
+        nicname = group_account.nickname
+        info.append(await bar_chart(user_id,f"{i}.{nicname}：{format_ranktitle(title)(x[1])}\n", x[1]/first))
+        i += 1
+    return info
+
+async def group_rank(event:MessageEvent, title:str = "金币") -> str:
+    """
+    生成群内排行榜
+    """
+    user,group_account = Manager.locate_user(event)
+    if not group_account:
+        return "私聊未关联账户，请发送【关联账户】关联群内账户。"
+    user_id = user.user_id
+    group_id = group_account.group_id
+    if not (ranklist := Manager.group_ranklist(group_id, title)):
+        return "无数据。"
+    info = await info_group_rank(group_id, title, 20)
+    if info:
+        return MessageSegment.image(info_Splicing(info,BG_path(user_id)))
+    else:
+        return "无数据。"
+
+async def All_rank(event:MessageEvent, title:str = "金币", top:int = 10) -> list:
+    """
+    生成总排行榜
+    """
+    if not (ranklist := Manager.All_ranklist(title)):
+        return None
     linestr = "[color=gray][size=15][font=simsun.ttc]────────────────────────────────────────────────────────[/font][/size][/color]\n"
     msg = []
-    i = 0
+    i = 1
     l = len(user_data)
     for x in ranklist[:top]:
         user_id = x[0]
-        i += 1
         info = await info_profile(user_id)
         tmp = (
             "[align=center]"
-            f"{title}：{func(x[1])}\n"
+            f"{title}：{format_ranktitle(title)(x[1])}\n"
             f'[size=300]{i}[/size]\n'
             "[/align]"
             + linestr +
@@ -400,6 +443,7 @@ async def All_rank(event:MessageEvent, title:str = "金币", top:int = 10) -> li
                         "name":f"{bot_name}",
                         "uin":str(event.self_id),
                         "content":MessageSegment.image(info_Splicing(info,BG_path(user_id)))}})
+        i += 1
     return msg
 
 def transfer_fee(amount:int,limit:int) -> int:
@@ -477,15 +521,20 @@ def freeze(target:UserDict):
 
     return f"【冻结】清算完成，总价值为 {round(x,2)}（金币 {gold} 股票 {round(value,2)}）"
 
-async def delist(bot:Bot):
+async def delist():
         """
         清理无效账户
         """
-        groups = await bot.get_group_list(no_cache = True)
+        mapping = {}
+        for bot in bot_list:
+            group_list = await bot.get_group_list(no_cache = True)
+            for group in group_list:
+                mapping[group["group_id"]] = bot
         if not groups:
             return "群组获取失败"
+
         # 存在的群
-        groups = set(x["group_id"] for x in groups)
+        groups = set(mapping.keys())
         # 注册过的群
         login_groups= set(group_data.keys())
         # 已注册但不存在的群
@@ -513,8 +562,8 @@ async def delist(bot:Bot):
             del group_data[group_id]
 
         # 已注册且存在的群
-        for group_id in list(group_data.keys()):
-            users = await bot.get_group_member_list(group_id = group_id, no_cache = True)
+        for group_id in login_groups:
+            users = await mapping[group_id].get_group_member_list(group_id = group_id, no_cache = True)
             if users:
                 users = set(x["user_id"] for x in users)
             else:

@@ -50,6 +50,22 @@ def bbcode_to_png(msg, fontsize:int = 50, spacing:int = 10):
     bbcode_to_PIL(msg = msg ,fontsize = fontsize, spacing = spacing, bg_colour = "white").save(output, format="png")
     return output
 
+async def bar_chart(user_id:int, info:str, lenth:float):
+    """
+    带头像的条形图
+    """
+    canvas = Image.new("RGBA", (880, 60))
+    avatar = Image.open(await download_avatar(user_id))
+    avatar = avatar.resize((60,60))
+    circle_mask = Image.new("RGBA", avatar.size, (255, 255, 255, 0))
+    ImageDraw.Draw(circle_mask).ellipse(((0,0),avatar.size), fill="black")
+    canvas.paste(avatar, (5, 0), circle_mask)
+    draw = ImageDraw.Draw(canvas)
+    draw.rectangle(((70,10), (860, 50)), fill = "#00000033")
+    draw.rectangle(((70,10), (80 + int(lenth*780), 50)), fill = "#99CCFF")
+    draw.text((80,10), info, fill = (0,0,0), font = font_small)
+    return canvas
+
 async def my_info_head(user:UserDict, nickname:str):
     """
     我的资料卡第一个信息

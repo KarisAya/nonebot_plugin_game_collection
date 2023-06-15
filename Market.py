@@ -414,7 +414,11 @@ async def group_info(bot:Bot, event:MessageEvent, group_id:int):
     company_name = company.company_name
     group_info = await bot.get_group_info(group_id = group_id)
     group_name = group_info["group_name"]
-    member_count = group_info["member_count"] - 1
+    member_count = group_info["member_count"]
+    if member_count == 0:
+        member_count = 3000
+    else:
+        member_count = member_count - 1
 
     info.append(await group_info_head(group_name, company_name, group_id, (len(group.namelist),member_count)))
 

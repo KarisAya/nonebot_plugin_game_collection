@@ -646,16 +646,15 @@ async def _(event:MessageEvent):
 # 查看排行榜
 russian_rank = on_regex(
     r"^(总金币|总资产|金币|资产|财富|胜率|胜场|败场|路灯挂件)(排行|榜)",
-    permission = GROUP,
     priority = 20,
     block = True
     )
 
 @russian_rank.handle()
-async def _(event:GroupMessageEvent):
+async def _(event:MessageEvent):
     cmd = event.get_plaintext().strip().split()
     title = re.search(r"^(总金币|总资产|金币|资产|财富|胜率|胜场|败场|路灯挂件)(排行|榜)",cmd[0]).group(1)
-    msg = Manager.group_rank(event.group_id, title)
+    msg = await Account.group_rank(event, title)
     await russian_rank.finish(msg)
 
 # 查看总排行
@@ -934,9 +933,9 @@ async def _(bot:Bot, event:MessageEvent, matcher:Matcher, code :Message = Arg())
 delist = on_command("清理无效账户", rule = to_me(), permission = SUPERUSER, priority = 20, block = True)
 
 @delist.handle()
-async def _(bot:Bot):
+async def _():
     await delist.send("正在启动清理程序。")
-    log = await Account.delist(bot)
+    log = await Account.delist()
     logger.info("\n" + log)
     with open(path / "delist.log","a",encoding = "utf8") as f:
         f.write(

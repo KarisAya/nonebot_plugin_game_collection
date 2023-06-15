@@ -233,18 +233,18 @@ def group_ranklist(group_id:int , title:str) -> list:
     rank.sort(key=lambda x:x[1],reverse=True)
     return rank
 
-def group_rank(group_id:int, title:str = "金币", top:int = 20) -> str:
-    if not (ranklist := group_ranklist(group_id, title)):
-        return "无数据。"
-    rank = ""
-    i = 1
-    for x in ranklist[:top]:
-        user = user_data[x[0]]
-        group_account = user.group_accounts[group_id]
-        nicname = group_account.nickname
-        rank += f"{i}.{nicname}：{x[1]}\n"
-        i += 1
-    return MessageSegment.image(text_to_png(rank[:-1]))
+#def group_rank(group_id:int, title:str = "金币", top:int = 20) -> str:
+#    if not (ranklist := group_ranklist(group_id, title)):
+#        return "无数据。"
+#    rank = ""
+#    i = 1
+#    for x in ranklist[:top]:
+#        user = user_data[x[0]]
+#        group_account = user.group_accounts[group_id]
+#        nicname = group_account.nickname
+#        rank += f"{i}.{nicname}：{x[1]}\n"
+#        i += 1
+#    return MessageSegment.image(text_to_png(rank[:-1]))
 
 def All_ranklist(title:str) -> list:
     """

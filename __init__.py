@@ -249,27 +249,28 @@ async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg()):
     if not (msg := arg.extract_plain_text().strip().split()):
         bullet_num = 1
         gold = bet_gold
-    if len(msg) == 1:
-        msg = msg[0]
-        if not msg.isdigit():
-            return
-        if 0 < (msg := int(msg)) < 7:
-            bullet_num = msg
-            gold = bet_gold
-        else:
-            bullet_num = 1
-            gold = int(msg)
     else:
-        if not (msg[0].isdigit() and msg[1].isdigit()):
-            return
-        bullet_num = int(msg[0])
-        gold = int(msg[1])
-        if 0 < bullet_num < 7:
-            pass
-        elif 0 < gold < 7:
-            bullet_num ,gold = gold, bullet_num
+        if len(msg) == 1:
+            msg = msg[0]
+            if not msg.isdigit():
+                return
+            if 0 < (msg := int(msg)) < 7:
+                bullet_num = msg
+                gold = bet_gold
+            else:
+                bullet_num = 1
+                gold = int(msg)
         else:
-            return
+            if not (msg[0].isdigit() and msg[1].isdigit()):
+                return
+            bullet_num = int(msg[0])
+            gold = int(msg[1])
+            if 0 < bullet_num < 7:
+                pass
+            elif 0 < gold < 7:
+                bullet_num ,gold = gold, bullet_num
+            else:
+                return
     msg = Game.russian(event,bullet_num,gold)
     await russian.finish(msg)
 

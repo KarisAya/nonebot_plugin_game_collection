@@ -953,7 +953,7 @@ async def _():
     if log:
         logger.info("\n" + log)
 
-# 市场指数更新和数据备份
+# 数据备份
 Backup = on_command("Backup", aliases = {"数据备份", "游戏备份"}, permission = SUPERUSER, priority = 20, block = True)
 
 @Backup.handle()

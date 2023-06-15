@@ -373,7 +373,7 @@ def format_ranktitle(title:str = "金币"):
     """
     if title == "金币":
         func = lambda x:'{:,}'.format(x)
-    elif title == "资产" or title == "财富":
+    elif title == "总资产" or title == "资产" or title == "财富":
         func = lambda x:'{:,}'.format(round(x,2))
     elif title == "胜率":
         func = lambda x:f"{round(x*100,2)}%"
@@ -562,7 +562,8 @@ async def delist():
             del group_data[group_id]
 
         # 已注册且存在的群
-        for group_id in login_groups:
+        normal_groups = login_groups & groups
+        for group_id in normal_groups:
             users = await mapping[group_id].get_group_member_list(group_id = group_id, no_cache = True)
             if users:
                 users = set(x["user_id"] for x in users)

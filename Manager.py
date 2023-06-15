@@ -95,7 +95,7 @@ def update_company_index():
     """
     从群数据生成公司名查找群号的字典
     """
-    globals()['company_index'] = {}
+    company_index.clear()
     for group_id in group_data:
         if company_name := group_data[group_id].company.company_name:
             company_index[company_name] = group_id

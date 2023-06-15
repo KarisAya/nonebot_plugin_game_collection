@@ -530,7 +530,7 @@ async def delist():
             group_list = await bot.get_group_list(no_cache = True)
             for group in group_list:
                 mapping[group["group_id"]] = bot
-        if not groups:
+        if not mapping:
             return "群组获取失败"
 
         # 存在的群

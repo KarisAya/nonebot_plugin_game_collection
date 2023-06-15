@@ -987,7 +987,7 @@ async def _():
     folders = [f for f in backup.iterdir() if f.is_dir()]
     for folder in folders:
         if time.time() - folder.stat().st_ctime > 604800:
-            folder.rmdir()
+            shutil.rmtree(folder)
             logger.info(f'备份 {folder} 已删除！')
 
 # 保存数据

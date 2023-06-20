@@ -4,30 +4,31 @@ from pathlib import Path
 import mplfinance as mpf
 import pandas as pd
 
-import time
 import sys
+import time
+from datetime import datetime
 
 try:
     import ujson as json
 except ModuleNotFoundError:
     import json
 
-def market_candlestick(figsize:Tuple[int,int], lenth:int, history:list, savefig):
+def market_candlestick(figsize:Tuple[int,int], length:int, history:list, savefig):
     """
     生成股价K线图
         figsize:图片尺寸
-        lenth:OHLC采样长度
+        length:OHLC采样长度
         history:历史数据
         title:标题
     """
     T, buy, sell = zip(*history)
     l = len(T)
-    T = [T[i:i+lenth] for i in range(0, l, lenth)]
-    buy = [buy[i:i+lenth] for i in range(0, l, lenth)]
-    sell = [sell[i:i+lenth] for i in range(0, l, lenth)]
+    T = [T[i:i+length] for i in range(0, l, length)]
+    buy = [buy[i:i+length] for i in range(0, l, length)]
+    sell = [sell[i:i+length] for i in range(0, l, length)]
     D,O,H,L,C = [],[],[],[],[]
     for i in range(len(sell)):
-        D.append(pd.to_datetime(T[i][0], unit='s'))
+        D.append(pd.to_datetime(T[i][0], unit = 's'))
         O.append(sell[i][0])
         H.append(max(sell[i]))
         L.append(min(sell[i]))
@@ -52,6 +53,7 @@ def market_candlestick(figsize:Tuple[int,int], lenth:int, history:list, savefig)
         xlabel = "",
         ylabel = "",
         datetime_format = '%H:%M',
+        timezone = datetime.now().astimezone().tzinfo,
         tight_layout = True,
         style = style,
         figsize = figsize,

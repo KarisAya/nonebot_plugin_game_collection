@@ -12,8 +12,8 @@ from collections import Counter
 from .utils.utils import image_url
 from .utils.chart import text_to_png, gini_coef, default_BG
 from .utils.avatar import download_url
-from .data.data import DataBase, UserDict, GroupAccount, GroupDict
-from .data.data import props_library
+from .data import DataBase, UserDict, GroupAccount, GroupDict
+from .data import props_library
 from .config import revolt_gold, max_bet_gold, lucky_clover, path, BG_image
 
 # 加载数据

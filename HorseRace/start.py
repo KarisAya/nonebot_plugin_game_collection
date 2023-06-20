@@ -4,7 +4,7 @@ try:
     import ujson as json
 except ModuleNotFoundError:
     import json
-from ..data.data import resourcefile
+from ..data import resourcefile
 
 
 def load_dlcs():

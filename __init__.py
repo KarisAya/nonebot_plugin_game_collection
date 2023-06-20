@@ -29,7 +29,7 @@ import re
 import shutil
 
 from .utils.utils import get_message_at, number
-from .data.data import ExchangeInfo
+from .data import ExchangeInfo
 from .config import revolt_cd, bet_gold, path, backup
 from .Manager import data, company_index
 
@@ -42,7 +42,7 @@ from . import Prop
 
 try:
     from nonebot.plugin import PluginMetadata
-    from .data.data import menu_data
+    from .data import menu_data
     __plugin_meta__ = PluginMetadata(
         name = "小游戏合集",
         description = "各种群内小游戏",

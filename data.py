@@ -199,8 +199,7 @@ def OHLC(path, company_id):
     """
     OHLC子程序
     """
-    return subprocess.Popen([python,f"{resourcefile}/subprocess/ohlc.py", path, str(company_id)], shell = True)
-
+    return subprocess.Popen([python,f"/subprocess/ohlc.py", path, str(company_id)], shell = True)
 
 """
 from . import Data

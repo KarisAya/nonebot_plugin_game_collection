@@ -18,8 +18,8 @@ except ModuleNotFoundError:
     import json
 
 from .utils.chart import bbcode_to_PIL, group_info_head, info_Splicing
-from .data.data import GroupAccount, Company, ExchangeInfo
-from .data.data import OHLC, props_library
+from .data import GroupAccount, Company, ExchangeInfo
+from .data import OHLC, props_library
 from .config import bot_name, revolt_gini, max_bet_gold, path
 
 from .Manager import data, company_index

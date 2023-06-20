@@ -13,8 +13,8 @@ import datetime
 
 from .utils.utils import line_wrap
 from .utils.chart import bbcode_to_png, bbcode_to_PIL, bar_chart,my_info_head, my_info_statistics, info_Splicing
-from .data.data import UserDict, GroupAccount
-from .data.data import props_library, props_index
+from .data import UserDict, GroupAccount
+from .data import props_library, props_index
 from .config import bot_name,sign_gold, revolt_gold, revolt_cd, revolt_gini, max_bet_gold
 from .Manager import BG_path, bot_list
 from .Manager import data, company_index, update_company_index

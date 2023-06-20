@@ -7,7 +7,7 @@ import random
 
 from .utils.utils import get_message_at
 from .utils.chart import bbcode_to_png
-from .data.data import props_library, props_index, element_library
+from .data import props_library, props_index, element_library
 from .config import bot_name, sign_gold, revolt_gold, max_bet_gold, gacha_gold
 
 from .Manager import data

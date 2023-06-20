@@ -13,7 +13,7 @@ import asyncio
 
 from .utils.utils import get_message_at
 from .utils.chart import text_to_png
-from .data.data import props_library
+from .data import props_library
 from .config import bot_name, security_gold, max_bet_gold, max_player, min_player
 
 from .HorseRace.start import load_dlcs

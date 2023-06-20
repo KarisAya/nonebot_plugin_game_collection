@@ -12,8 +12,8 @@ from nonebot_plugin_imageutils import Text2Image
 
 from .avatar import download_avatar,download_groupavatar
 
-from ..data.data import UserDict
-from ..data.data import resourcefile
+from ..data import UserDict
+from ..data import resourcefile
 
 from ..config import BG_image,fontname
 

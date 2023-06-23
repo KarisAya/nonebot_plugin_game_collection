@@ -8,8 +8,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from pil_utils import Text2Image
-
 from .avatar import download_avatar,download_groupavatar
 
 from ..data import UserDict, GroupAccount

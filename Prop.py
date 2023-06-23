@@ -6,11 +6,11 @@ from nonebot.adapters.onebot.v11 import (
 import random
 
 from .utils.utils import get_message_at
-from .utils.chart import bbcode_to_png
+from .utils.chart import linecard,gacha_info
 from .data import props_library, props_index, element_library
 from .config import bot_name, sign_gold, revolt_gold, max_bet_gold, gacha_gold
 
-from .Manager import data
+from .Manager import data,BG_path
 from . import Manager
 
 user_data = data.user
@@ -62,16 +62,23 @@ def gacha(event:MessageEvent, N:int):
     user.gold -= cost
     group_account.gold -= cost
     res = {}
+    star = 0
+    airstar = 0
+    air = 0
     for i in range(N):
         prop_code = random_props()
         res.setdefault(prop_code,0)
         res[prop_code] += 1
+        rare = int(prop_code[0])
+        star += rare
+        if prop_code[1] == '1':
+            airstar += rare
+            air += 1
     else:
         data = sorted(res.items(),key = lambda x:int(x[0]),reverse=True)
 
-    msg = (f"{group_account.nickname}\n"
-           f"{N} 连抽卡结果：\n"
-           "[color=gray]——————————————[/color]\n")
+    info = []
+    airdata = []
     for prop_code, n in data:
         if prop_code[1] == "2":
             props = group_account.props
@@ -84,17 +91,72 @@ def gacha(event:MessageEvent, N:int):
             props[prop_code] += n
             quant =  "天" if prop_code[2] == "0" else "个"
         else:
-            quant =  "次"
+            airdata.append((prop_code, n))
+            continue
         prop_info = props_library.get(prop_code,{"name":prop_code, "color":"black","rare":1,"intro":"未知","des":"未知"})
         color = prop_info['color']
         name = prop_info['name']
         rare = prop_info['rare']
-        msg += (f"[align=left][color={color}]【{name}】{rare*'☆'}[/align]\n"
-                f"[align=right]{n}{quant}[/color][/align][/size]\n"
-                f"[align=left][color=gray]——————————————[/color][/align]\n")
-        user.props = {k:10 if k[2] == '0' and v > 10 else v for k, v in user.props.items()}
-        group_account.props = {k:v if v < 10 else 10 for k,v in group_account.props.items()}
-    return MessageSegment.image(bbcode_to_png(msg[:-1]))
+        info.append(
+            linecard(f"[color][{color}]【{name}】[nowrap]\n[right][color][{color}]{n}{quant}\n",
+                     width = 440,
+                     height = 120,
+                     padding=(0,10),
+                     endline = rare*'☆',
+                     bg_color = "white"
+                     ))
+    user.props = {k:10 if k[2] == '0' and v > 30 else v for k, v in user.props.items()}
+    group_account.props = {k:v if v < 30 else 30 for k,v in group_account.props.items()}
+    if len(info)%2 == 1:
+        info.append(None)
+
+    for prop_code, n in airdata:
+        prop_info = props_library.get(prop_code,{"name":prop_code, "color":"black","rare":1,"intro":"未知","des":"未知"})
+        color = prop_info['color']
+        name = prop_info['name']
+        rare = prop_info['rare']
+        info.append(
+            linecard(f"[color][{color}]【{name}】[nowrap]\n[right][color][{color}]{n}次\n",
+                        width = 440,
+                        height = 120,
+                        padding=(0,10),
+                        endline = rare*'☆',
+                        bg_color = "white"
+                        ))
+    pt = star/N
+    if pt < 1.6:
+        level = "[color][#003300]理 想 气 体"
+    if pt < 1.88:
+        level = "[color][#003333]☆ 数据异常 ☆"
+    elif pt < 2.16:
+        level = "[color][#003366]☆☆ 一枚硬币 ☆☆"
+    elif pt < 2.44:
+        level = "[color][#003399]☆☆☆ 高斯分布 ☆☆☆"
+    elif pt < 2.72:
+        level = "[color][#0033CC]☆☆☆☆ 对称破缺 ☆☆☆☆"
+    elif pt < 3:
+        level = "[color][#0033FF]☆☆☆☆☆ 概率之子 ☆☆☆☆☆"
+    else:
+        level = "[color][#FF0000]☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆"
+
+    if N >= 10:
+        msg = (
+            f"{group_account.nickname}\n"
+            "----\n"
+            f"抽卡次数：{N}[nowrap]\n"f"[pixel][450]空气占比：{round(air*100/N,2)}%\n"
+            f"获得☆：{star}[nowrap]\n"f"[pixel][450]获得☆：{airstar}\n"
+            f"平均每抽☆数：{round(pt,3)}[nowrap]\n"f"[pixel][450]空气质量：{round(airstar/air,3)}\n"
+            f"结果评定：[nowrap]\n{level}\n"
+            )
+    else:
+        msg = (
+            f"{group_account.nickname}\n"
+            "----\n"
+            f"抽卡次数：{N}\n"
+            )
+        
+        
+    return MessageSegment.image(gacha_info(linecard(msg,width = 880,endline = f"抽卡报告",bg_color = "white"),info))
 
 class Prop(str):
     def use(self, event:MessageEvent, count:int):
@@ -222,6 +284,7 @@ class Prop(str):
         N = random.randint(0,50)
         if N < 30:
             gold = int(group_account.gold * N / 1000)
+            gold = 0 if gold < 0 else gold
             user.gold -= gold
             group_account.gold -= gold
             target_user.gold += gold
@@ -229,7 +292,8 @@ class Prop(str):
             info = f"调查没有发现问题。你赔偿了对方{gold}枚金币"
         else:
             gold = int(target_group_account.gold * N / 1000)
-            gold = group_account.gold if gold > group_account.gold else gold
+            gold = min(group_account.gold, gold)
+            gold = 0 if gold < 0 else gold
             user.gold += gold
             group_account.gold += gold
             target_user.gold -= gold
@@ -273,7 +337,8 @@ class Prop(str):
         target_group_account = target_user.group_accounts[group_id]
 
         change = int((group_account.gold - target_group_account.gold) / 2)
-        limit = min((group_account.gold,target_group_account.gold))
+        limit = min((group_account.gold, target_group_account.gold))
+        limit = 0 if limit < 0 else limit
         if change > limit:
             change = limit
         if change < -limit:
@@ -436,7 +501,7 @@ class Prop(str):
         user.gold -= group_account.gold
         group_data[group_id].namelist.remove(user_id)
         del group_account
-        return "本群账户已重置，祝你好运~"
+        return "你在本群的账户已重置，祝你好运~"
 
 def use_prop(event:MessageEvent, prop_name:str, count:int):
     if prop_code := props_index.get(prop_name):

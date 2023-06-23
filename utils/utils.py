@@ -49,26 +49,3 @@ def number(N) -> int:
         except (TypeError, ValueError):
             n = 0
     return n
-
-def line_wrap(msg:str, n:int= 24) -> str:
-    """
-    自动换行
-    """
-    newmsg = ""
-    flag = 0
-    for x in msg:
-        newmsg += x
-        if x == "\n":
-            flag = 0
-        elif flag > n:
-            newmsg += "\n"
-            flag = 0
-        else:
-            if ord(x) < 0x200:
-                flag += 1
-            else:
-                flag += 2
-
-    newmsg += "\n"
-    newmsg = re.sub('[\r\n]+', '\n', newmsg)
-    return newmsg

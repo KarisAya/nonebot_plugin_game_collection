@@ -11,8 +11,13 @@ import random
 import time
 import datetime
 
-from .utils.utils import line_wrap
-from .utils.chart import bbcode_to_png, bbcode_to_PIL, bar_chart,my_info_head, my_info_statistics, info_Splicing
+from .utils.chart import (
+    bar_chart,
+    my_info_head,
+    my_info_account,
+    linecard,
+    info_Splicing
+    )
 from .data import UserDict, GroupAccount
 from .data import props_library, props_index
 from .config import bot_name,sign_gold, revolt_gold, revolt_cd, revolt_gini, max_bet_gold
@@ -251,19 +256,16 @@ async def my_info(event:MessageEvent) -> Message:
     # 加载全局信息
     nickname = group_account.nickname
     info.append(await my_info_head(user,nickname))
-    linestr = "[color=gray][size=15][font=simsun.ttc]────────────────────────────────────────────────────────[/font][/size][/color]\n"
-    Achieve = Manager.Achieve_list((user,group_account))
-    achieve = ""
+    # 加载卡片
+    PropsCard = Manager.PropsCard_list((user,group_account))
     msg = ""
-    # 加载道具卡片
-    for x in Achieve:
-        if x.startswith("◆◇"):
-            achieve = achieve + x + "\n"
-        else:
-            msg += f"[align=center][font=simsun.ttc]{x}[/font][/align]\n"
-            msg += linestr
+    for x in PropsCard:
+        msg += f"----\n{x}\n"
     if msg:
-        info.append(bbcode_to_PIL(linestr + msg[:-1], 60))
+        info.append(linecard(msg, width = 880,font_size = 60, endline = "成就卡片"))
+
+    # 加载成就卡片
+    Achieve = Manager.Achieve_list((user,group_account))[:2]
     # 加载本群账户
     gold = group_account.gold
     value = group_account.value
@@ -277,19 +279,18 @@ async def my_info(event:MessageEvent) -> Message:
         security = [security,"green"]
     else:
         security = [security,"red"]
-        
-    msg = (
-        "[font=simsun.ttc]"+achieve+"[/font]"
-        + linestr +
+    msg = ""
+    for x in Achieve:
+        msg += x + "\n"
+    msg += (2-len(Achieve))*"\n"
+    msg += (
         f"金币 {'{:,}'.format(gold)}\n"
         f"股票 {'{:,}'.format(round(value,2))}\n"
-        + linestr +
-        f'今日签到 [color={is_sign[1]}]{is_sign[0]}[/color]\n'
-        f'今日补贴 还剩 [color={security[1]}]{security[0]}[/color] 次\n'
-        + linestr +
-        "[align=right][size=30][color=gray]账户信息[/color][/size][/align]\n"
+        "签到 [nowrap]\n"
+        f"[color][{is_sign[1]}]{is_sign[0]}\n"
+        "补贴 还剩 [nowrap]\n"
+        f"[color][{security[1]}]{security[0]} 次"
         )
-    info.append(bbcode_to_PIL(msg,60,spacing = 20))
     # 加载资产分析
     dist = []
     for x in user.group_accounts:
@@ -298,17 +299,17 @@ async def my_info(event:MessageEvent) -> Message:
             group_name = f"（{str(x)[-4:]}）"
         dist.append([account.gold + account.value, group_name])
     dist = [x for x in dist if x[0] > 0]
-    if dist:
-        info.append(my_info_statistics(dist))
+
+    info.append(my_info_account(msg,dist))
+
     # 加载股票信息
     msg = ""
     for stock in group_account.stocks:
         company_name = group_data[stock].company.company_name
         if i := group_account.stocks[stock]:
-            msg += f"[size=40][align=left]{company_name}[/align][align=right][color=green]{i}[/color][/align][/size]"
+            msg += f"[font_normal]{company_name}[nowrap]\n[right][color][green]{i}\n"
     if msg:
-        msg = msg + linestr + "[align=right][size=30][color=gray]股票信息[/color][/size][/align]\n"
-        info.append(bbcode_to_PIL(msg))
+        info.append(linecard(msg, 880,endline = "股票信息"))
 
     return MessageSegment.image(info_Splicing(info,BG_path(event.user_id)))
 
@@ -323,26 +324,33 @@ def my_props(event:MessageEvent) -> Message:
     props = {}
     props.update(user.props)
     props.update(group_account.props)
-    props = sorted(props.items(), key = lambda x:int(x[0]))
-    linestr = "[color=gray][size=15][font=simsun.ttc]────────────────────────────────────────────────────────[/font][/size][/color]\n"
-    msg = ""
+    props = sorted(props.items(), key = lambda x:int(x[0]), reverse = True)
+    info = []
     for seg in props:
         if (n := seg[1]) < 1:
             continue
         prop_code = seg[0]
         quant = "天" if prop_code[2] == "0" else "个"
         prop = props_library.get(prop_code,{"name": prop_code, "color": "black","rare": 1,"intro": "未知","des": "未知"})
-        msg += (
-            f"[color={prop['color']}]【{prop['name']}】{prop['rare']*'☆'}[align=right]{n}{quant}[/align]\n" +
-            linestr +
-            "[size=40][color=gray]"
-            f"{line_wrap(prop['intro'], 38)}\n"
-            f"[align=right]{line_wrap(prop['des'], 38)}[/align]"
-            "[/color][/size]" +
-            linestr
+
+        color = prop['color']
+        name = prop['name']
+        rare = prop['rare']
+        msg = (
+            f"[font_big][color][{color}]【{name}】[nowrap]\n[right][font_big][color][{color}]{n}{quant}\n"
+            "----\n"
+            + prop['intro'] + f"\n[right]{prop['des']}\n"
             )
+
+        info.append(
+            linecard(msg,
+                     width = 880,
+                     padding=(0,20),
+                     endline = "特殊道具" if rare == 0 else rare*'☆',
+                     bg_color = (255,255,255,153)
+                     ))
     if msg:
-        return MessageSegment.image(bbcode_to_png(msg,60))
+        return MessageSegment.image(info_Splicing(info,BG_path(event.user_id),spacing = 5))
     else:
         return "您的仓库空空如也。"
 
@@ -355,6 +363,7 @@ async def info_profile(user_id:int) -> list:
     # 加载全局信息
     nickname = user.nickname
     info.append(await my_info_head(user,nickname))
+    msg = ""
     # 加载资产分析
     dist = []
     for x in user.group_accounts:
@@ -364,38 +373,36 @@ async def info_profile(user_id:int) -> list:
         dist.append([account.gold + account.value, group_name])
     dist = [x for x in dist if x[0] > 0]
     if dist:
-        info.append(my_info_statistics(dist))
+        info.append(my_info_account(msg,dist))
     return info
 
-def format_ranktitle(title:str = "金币"):
+def format_ranktitle(x,title:str = "金币"):
     """
     根据排行榜将数据格式化
     """
-    if title == "金币":
-        func = lambda x:'{:,}'.format(x)
+    if title == "金币" or title == "总金币":
+        return '{:,}'.format(x)
     elif title == "总资产" or title == "资产" or title == "财富":
-        func = lambda x:'{:,}'.format(round(x,2))
+        return '{:,}'.format(round(x,2))
     elif title == "胜率":
-        func = lambda x:f"{round(x*100,2)}%"
+        return f"{round(x*100,2)}%"
     else:
-        func = lambda x:x
-    return func
+        return x
 
-async def info_group_rank(group_id:int, title:str = "金币", top:int = 20) -> list:
+async def draw_rank(ranklist:list, title:str = "金币", top:int = 20, group_id = None) -> list:
     """
-    群内排名信息
+    排名信息
     """
-    if not (ranklist := Manager.group_ranklist(group_id, title)):
-        return None
     info = []
     i = 1
     first = ranklist[0][1]
+    if group_id:
+        nicname = lambda user:user.group_accounts[group_id].nickname
+    else:
+        nicname = lambda user:user.nickname
     for x in ranklist[:top]:
-        user = user_data[x[0]]
-        user_id = user.user_id
-        group_account = user.group_accounts[group_id]
-        nicname = group_account.nickname
-        info.append(await bar_chart(user_id,f"{i}.{nicname}：{format_ranktitle(title)(x[1])}\n", x[1]/first))
+        user_id = x[0]
+        info.append(await bar_chart(user_id,f"{i}.{nicname(user_data[user_id])}：{format_ranktitle(x[1],title)}\n", x[1]/first))
         i += 1
     return info
 
@@ -410,11 +417,8 @@ async def group_rank(event:MessageEvent, title:str = "金币") -> str:
     group_id = group_account.group_id
     if not (ranklist := Manager.group_ranklist(group_id, title)):
         return "无数据。"
-    info = await info_group_rank(group_id, title, 20)
-    if info:
-        return MessageSegment.image(info_Splicing(info,BG_path(user_id)))
-    else:
-        return "无数据。"
+    info = await draw_rank(ranklist, title, 20, group_id = group_id)
+    return MessageSegment.image(info_Splicing(info,BG_path(user_id), spacing = 5))
 
 async def All_rank(event:MessageEvent, title:str = "金币", top:int = 10) -> list:
     """
@@ -422,29 +426,8 @@ async def All_rank(event:MessageEvent, title:str = "金币", top:int = 10) -> li
     """
     if not (ranklist := Manager.All_ranklist(title)):
         return None
-    linestr = "[color=gray][size=15][font=simsun.ttc]────────────────────────────────────────────────────────[/font][/size][/color]\n"
-    msg = []
-    i = 1
-    l = len(user_data)
-    for x in ranklist[:top]:
-        user_id = x[0]
-        info = await info_profile(user_id)
-        tmp = (
-            "[align=center]"
-            f"{title}：{format_ranktitle(title)(x[1])}\n"
-            f'[size=300]{i}[/size]\n'
-            "[/align]"
-            + linestr +
-            f"[align=right][size=30][color=gray]{title}总排行 {i}/{l}[/color][/size][/align]\n"
-            )
-        info.append(bbcode_to_PIL(tmp,60))
-        msg.append({"type":"node",
-                    "data":{
-                        "name":f"{bot_name}",
-                        "uin":str(event.self_id),
-                        "content":MessageSegment.image(info_Splicing(info,BG_path(user_id)))}})
-        i += 1
-    return msg
+    info = await draw_rank(ranklist, title, 20)
+    return MessageSegment.image(info_Splicing(info,BG_path(event.user_id), spacing = 5))
 
 def transfer_fee(amount:int,limit:int) -> int:
     limit = limit if limit > 0 else 0

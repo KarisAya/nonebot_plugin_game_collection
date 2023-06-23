@@ -8,11 +8,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from nonebot_plugin_imageutils import Text2Image
+from pil_utils import Text2Image
 
 from .avatar import download_avatar,download_groupavatar
 
-from ..data import UserDict
+from ..data import UserDict, GroupAccount
 from ..data import resourcefile
 
 from ..config import BG_image,fontname
@@ -26,30 +26,227 @@ if not default_BG.exists():
 
 font_big = ImageFont.truetype(font = fontname, size = 60, encoding = "utf-8")
 
-font_small = ImageFont.truetype(font = fontname, size = 40, encoding = "utf-8")
+font_normal = ImageFont.truetype(font = fontname, size = 40, encoding = "utf-8")
 
-def text_to_png(msg, spacing:int = 10, bg_colour = "white"):
+font_small = ImageFont.truetype(font = fontname, size = 30, encoding = "utf-8")
+
+def text_to_png(
+    text:str,
+    font_size = 50,
+    image_size:tuple = (0,0),
+    width_simple:str = None,
+    fontname = fontname,
+    padding:tuple = (20,20),
+    spacing:float = 1.2,
+    text_color = "black",
+    bg_color = "white"
+    ):
     '''
     文字转png
     '''
+    # 创建字体对象
+    if fontname:
+        font = ImageFont.truetype(fontname, font_size)
+    else:
+        font = ImageFont.load_default().font
+
+    # 计算文字所需图片的大小
+
+    text = text.replace("\r\n","\n")
+    lines = text.split('\n')
+    line_height = int(font_size * spacing)
+
+
+    image_width = image_size [0]
+    image_height = image_size [1]
+    if width_simple:
+        image_width = int(font.getlength(width_simple))
+    image_width = image_width if image_width else int(max(font.getlength(line) for line in lines))
+    image_height = image_height if image_height else line_height * len(lines)
+
+    # 添加边距
+    x = padding[0]
+    y = padding[1]
+    image_width = image_width + 2*x
+    image_height = image_height +2*y
+
+    # 创建空白图片
+    image = Image.new('RGB', (image_width, image_height), bg_color)
+    draw = ImageDraw.Draw(image)
+    # 在图片上绘制文本
+    for line in lines:
+        draw.text((x, y), line, font = font, fill = text_color)
+        y += line_height
+
     output = BytesIO()
-    Text2Image.from_text(msg, 50, spacing = spacing, fontname = fontname).to_image(bg_colour, (20,20)).save(output, format="png")
+    image.save(output, format="png")
     return output
 
-def bbcode_to_PIL(msg:str, fontsize:int = 50,spacing:int = 10, fontname:str = fontname, bg_colour:str = None):
+def linecard(
+    text:str,
+    width:int = None,
+    height:int = None,
+    font_size:int = None,
+    padding:tuple = (20,20),
+    spacing:float = 1.2,
+    bg_color:str = None,
+    endline = None,
+    canvas = None
+    ):
     '''
-    bbcode文字转PIL
-    '''
-    return Text2Image.from_bbcode_text(msg, fontsize, spacing = spacing, fontname = fontname).to_image(bg_colour, (20,20))
+    指定宽度单行文字
+        ----:横线
 
-def bbcode_to_png(msg, fontsize:int = 50, spacing:int = 10):
+        [left]靠左
+        [right]靠右
+        [center]居中
+        [pixel][400]指定像素
+
+        [font_big]大字体
+        [font_normal]正常字体
+        [font_small]小字体
+
+        [color][#000000]指定本行颜色
+
+        不换行[nowrap]
     '''
-    bbcode文字转png
-    '''
+    text = text.replace("\r\n","\n")
+    lines = text.split('\n')
+
+    if font_size:
+        font_default = ImageFont.truetype(font = fontname, size = font_size, encoding = "utf-8")
+    else:
+        font_default = font_normal
+
+    Text = []
+    X = []
+    Y = [0,]
+    textheight = 0
+    tmpH = 0
+    for line in lines:
+        if line.startswith("[left]"):
+            line = line[6:]
+            align = "left"
+        elif line.startswith("[right]"):
+            line = line[7:]
+            align = "right"
+        elif line.startswith("[center]"):
+            line = line[8:]
+            align = "center"
+        elif line.startswith("[pixel]["):
+            line = line[8:]
+            align = ""
+            i = 0
+            for c in line:
+                i += 1
+                if c == "]":
+                    break
+                align += c
+            line = line[i:]
+        else:
+            align = "left"
+
+        if line.startswith("[font_big]"):
+            line = line[10:]
+            font = font_big
+        elif line.startswith("[font_normal]"):
+            line = line[13:]
+            font = font_normal
+        elif line.startswith("[font_small]"):
+            line = line[12:]
+            font = font_small
+        else:
+            font = font_default
+
+        if line.startswith("[color]["):
+            line = line[8:]
+            color = ""
+            i = 0
+            for c in line:
+                i += 1
+                if c == "]":
+                    break
+                color += c
+            line = line[i:]
+        else:
+            color = None
+
+        if line.endswith("[nowrap]"):
+            line = line[:-8]
+            tmpH = max(tmpH,int(font.size * spacing))
+        else:
+            textheight += max(tmpH,int(font.size * spacing))
+            tmpH = 0
+
+        Y.append(textheight)
+        X.append(int(font.getlength(line) if align == "left" else 0))
+        Text.append([line, font, color, align])
+
+    lineX = []
+    for i in range(len(lines)):
+        if Y[i] == Y[i-1]:
+            lineX.append(X[i-1])
+            X[i] += X[i-1]
+        else:
+            lineX.append(0)
+
+    paddingX = padding[0]
+    paddingY = padding[1]
+    width = width if width else (max(X) + paddingX*2)
+    height = height if height else (Y[-1] + paddingY*2)
+    canvas = canvas if canvas else Image.new("RGBA", (width, height), bg_color)
+    draw = ImageDraw.Draw(canvas)
+    for i in range(len(lines)):
+        y = Y[i] + paddingY
+        line, font, color, align = Text[i]
+        if line == "----":
+            tmp = y + font.size//2
+            color = color if color else 'gray'
+            draw.line(((0, tmp), (width, tmp)), fill = color, width = 4)
+        else:
+            color = color if color else 'black'
+            if align == "right":
+                x = int(width - font.getlength(line) - paddingX)
+            elif align == "center":
+                x = (width - font.getlength(line) )//2
+            elif align.isdigit():
+                x = int(align)
+            else:
+                x = lineX[i] + paddingX
+            draw.text((x, y),line, fill = color, font = font)
+
+    if endline:
+        draw.line(((0, height - 60), (width, height - 60)), fill = "gray", width = 4)
+        x = int(width - font_small.getlength(endline) - 20)
+        draw.text((x,height - 45),endline, fill = "gray", font = font_small)
+
+    return canvas
+
+def gacha_info(report:IMG, info:List[IMG]):
+    """
+    抽卡信息拼接
+        report:抽卡报告
+        info:信息图片列表
+    """
+    x = 880
+    y = report.size[1] + 10
+    length = len(info)
+    if length%2 == 1:
+        info.append(None)
+        length += 1
+
+    canvas = Image.new("RGB", (880,(130*length)//2 + report.size[1]), '#99CCFF')
+    canvas.paste(report)
+    for i in range(0, length, 2):
+        l,r = info[i:i+2]
+        canvas.paste(l, (0, y))
+        if r:
+            canvas.paste(r, (440, y))
+        y += 130
     output = BytesIO()
-    bbcode_to_PIL(msg = msg ,fontsize = fontsize, spacing = spacing, bg_colour = "white").save(output, format="png")
+    canvas.save(output,'png')
     return output
-
+    
 async def bar_chart(user_id:int, info:str, lenth:float):
     """
     带头像的条形图
@@ -63,7 +260,7 @@ async def bar_chart(user_id:int, info:str, lenth:float):
     draw = ImageDraw.Draw(canvas)
     draw.rectangle(((70,10), (860, 50)), fill = "#00000033")
     draw.rectangle(((70,10), (80 + int(lenth*780), 50)), fill = "#99CCFF")
-    draw.text((80,10), info, fill = (0,0,0), font = font_small)
+    draw.text((80,10), info, fill = (0,0,0), font = font_normal)
     return canvas
 
 async def my_info_head(user:UserDict, nickname:str):
@@ -81,10 +278,10 @@ async def my_info_head(user:UserDict, nickname:str):
     canvas.paste(avatar, (25, 25), circle_mask)
     draw = ImageDraw.Draw(canvas)
     draw.text((300,40),f"{nickname}", fill = (0,0,0),font = font_big)
-    draw.line(((300, 120), (860, 120)), fill = "gray", width = 6)
-    draw.text((300,140),f"金币 {'{:,}'.format(gold)}", fill = (0,0,0),font = font_small)
-    draw.text((300,190),f"战绩 {win}:{lose}", fill = (0,0,0),font = font_small)
-    draw.text((300,240),f"胜率 {(round(win * 100 / (win + lose), 2) if win > 0 else 0)}%\n", fill=(0,0,0),font = font_small)
+    draw.line(((300, 120), (860, 120)), fill = "gray", width = 4)
+    draw.text((300,140),f"金币 {'{:,}'.format(gold)}", fill = (0,0,0),font = font_normal)
+    draw.text((300,190),f"战绩 {win}:{lose}", fill = (0,0,0),font = font_normal)
+    draw.text((300,240),f"胜率 {(round(win * 100 / (win + lose), 2) if win > 0 else 0)}%\n", fill=(0,0,0),font = font_normal)
     return canvas
 
 def my_info_statistics(dist):
@@ -114,7 +311,7 @@ def my_info_statistics(dist):
 
     output = BytesIO()
 
-    plt.figure(figsize = (8.8,4.4))
+    plt.figure(figsize = (6.6,3.4))
     plt.pie(
         np.array(x),
         labels = labels,
@@ -129,10 +326,20 @@ def my_info_statistics(dist):
         labeldistance = 1.05
         )
     plt.axis('equal')
-    plt.subplots_adjust(top = 0.95, bottom = 0.05, right = 1, left = 0, hspace = 0, wspace = 0)
+    plt.subplots_adjust(top = 0.95, bottom = 0.05, right = 0.9, left = 0.5, hspace = 0, wspace = 0)
     plt.savefig(output,format='png', dpi = 100, transparent = True)
     plt.close()
     return Image.open(output)
+
+def my_info_account(msg:str, dist):
+    """
+    我的资料卡账户分析
+    """
+    canvas = Image.new("RGBA", (880, 400))
+    statistics = my_info_statistics(dist)
+    canvas.paste(statistics, (880 - statistics.size[0], 0))
+    linecard(msg, 880, 400,padding = (20,30),endline = "账户信息",canvas = canvas)
+    return canvas
 
 async def group_info_head(group_name:str, company_name:str, group_id:int, member_count:Tuple[int,int]):
     """
@@ -148,15 +355,15 @@ async def group_info_head(group_name:str, company_name:str, group_id:int, member
     font = ImageFont.truetype(font = fontname, size = 40, encoding = "utf-8")
     draw.text((300,40),f"{group_name}", fill = (0,0,0),font = font_big)
     draw.line(((300, 120), (860, 120)), fill = "gray", width = 6)
-    draw.text((300,140),f"公司：{company_name if company_name else '未注册'}", fill = (0,0,0),font = font_small)
-    draw.text((300,190),f"单位：{str(group_id)[:4]}...", fill = (0,0,0),font = font_small)
+    draw.text((300,140),f"公司：{company_name if company_name else '未注册'}", fill = (0,0,0),font = font_normal)
+    draw.text((300,190),f"单位：{str(group_id)[:4]}...", fill = (0,0,0),font = font_normal)
     draw.rectangle(((300,240), (740,280)), fill = "#00000033")
     draw.rectangle(((300,240), (300 + int(440 * member_count[0]/(member_count[1])),280)), fill = "#99CCFF")
-    draw.text((310,240),f"{member_count[0]}/{member_count[1]}", fill = (0,0,0),font = font_small )
-    draw.text((750,240),f"{round(100 * member_count[0]/member_count[1],1)}%", fill = (0,0,0),font = font_small)
+    draw.text((310,240),f"{member_count[0]}/{member_count[1]}", fill = (0,0,0),font = font_normal )
+    draw.text((750,240),f"{round(100 * member_count[0]/member_count[1],1)}%", fill = (0,0,0),font = font_normal)
     return canvas
 
-def info_Splicing(info:List[IMG],BG_path):
+def info_Splicing(info:List[IMG],BG_path, spacing:int = 20):
     """
     信息拼接
         info:信息图片列表
@@ -168,9 +375,9 @@ def info_Splicing(info:List[IMG],BG_path):
     for image in info:
         # x = image.size[0] if x < image.size[0] else x
         y += image.size[1]
-        y += 40
+        y += spacing*2
     else:
-        y -= 20
+        y = y - spacing + 20
 
     size = (x + 40, y)
 
@@ -184,11 +391,10 @@ def info_Splicing(info:List[IMG],BG_path):
         canvas.paste(whiteBG,(20, y), mask = whiteBG)
         canvas.paste(image, (20, y), mask = image)
         y += image.size[1]
-        y += 40
+        y += spacing*2
     output = BytesIO()
     canvas.convert("RGB").save(output, format = "png")
     return output
-
 
 def CropResize(img,size:Tuple[int,int]):
     """ 

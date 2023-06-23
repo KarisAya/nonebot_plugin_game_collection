@@ -28,16 +28,17 @@ import datetime
 import re
 import shutil
 
-from .utils.utils import get_message_at, number
-from .data import ExchangeInfo
-from .config import revolt_cd, bet_gold, path, backup
-from .Manager import data, company_index
-
 from . import Manager
 from . import Account
 from . import Market
 from . import Game
 from . import Prop
+
+from .utils.utils import get_message_at, number
+from .data import ExchangeInfo
+from .config import revolt_cd, bet_gold, path, backup
+from .Manager import data, company_index
+from .Game import current_games
 
 
 try:
@@ -68,29 +69,46 @@ async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
         gold = int(gold)
     else:
         gold = bet_gold
-    msg =  Game.RaceNew(event, gold)
-    await sign.finish(msg, at_sender = True)
+    msg =  Game.HorseRace.RaceNew(event, gold)
+    await RaceNew.finish(msg, at_sender = True)
 
 # 赛马加入
-RaceJoin = on_command("赛马加入", aliases = {"加入赛马"}, permission = GROUP, priority = 20, block = True)
+RaceJoin = on_command(
+    "赛马加入",
+    aliases = {"加入赛马"},
+    permission = GROUP,
+    priority = 20,
+    block = True
+    )
 
 @RaceJoin.handle()
 async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
-    msg =  Game.RaceJoin(event, arg.extract_plain_text().strip())
+    if not (game := current_games.get(event.group_id)):
+        msg = "赛马活动未开始，请输入【赛马创建】创建赛马场"
+    elif game.name == "HorseRace":
+        msg =  game.RaceJoin(event, arg.extract_plain_text().strip())
     await RaceJoin.finish(msg, at_sender = True)
 
 # 赛马开始
-RaceStart = on_command("赛马开始", aliases = {"开始赛马"}, permission = GROUP, priority = 20, block = True)
+RaceStart = on_command(
+    "赛马开始",
+    aliases = {"开始赛马"},
+    permission = GROUP,
+    priority = 20,
+    block = True
+    )
 @RaceStart.handle()
 async def _(bot:Bot, event:GroupMessageEvent):
-    msg = await Game.RaceStart(bot, event)
+    if not (game := current_games.get(event.group_id)):
+        msg = "赛马活动未开始，请输入【赛马创建】创建赛马场"
+    elif game.name == "HorseRace":
+        msg = await game.RaceStart(bot, event)
     await RaceStart.finish(msg)
 
 # 赛马重置
 RaceReStart = on_command(
     "赛马重置",
     aliases = {"重置赛马"},
-    rule = lambda event:event.group_id in current_games and current_games[event.group_id].info.get("game") == "horse race",
     permission = GROUP,
     priority = 20,
     block = True
@@ -99,14 +117,17 @@ RaceReStart = on_command(
 @RaceReStart.handle()
 
 async def _(event:GroupMessageEvent):
-    msg =  Game.RaceReStart(event)
+    if not (game := current_games.get(event.group_id)):
+        msg = "赛马活动未开始，请输入【赛马创建】创建赛马场"
+    elif game.name == "HorseRace":
+        msg = game.RaceReStart(event)
     await RaceReStart.finish(msg)
 
 # 赛马暂停
 RaceStop = on_command(
     "赛马暂停",
     aliases = {"暂停赛马"},
-    rule = lambda event:isinstance(event,GroupMessageEvent) and event.group_id in current_games and current_games[event.group_id].info.get("game") == "horse race",
+    rule = lambda event:isinstance(event,GroupMessageEvent) and event.group_id in current_games and current_games[event.group_id].name == "HorseRace",
     permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER,
     priority = 20,
     block = True
@@ -114,8 +135,7 @@ RaceStop = on_command(
 
 @RaceStop.handle()
 async def _(event:GroupMessageEvent):
-    global current_games
-    current_games[event.group_id].info["race_group"].start = 2
+    current_games[event.group_id].race_group.start = 2
 
 # GameClear
 GameClear = on_command(
@@ -129,7 +149,6 @@ GameClear = on_command(
 
 @GameClear.handle()
 async def _(event:GroupMessageEvent):
-    global current_games
     del current_games[event.group_id]
 
 # 获取金币
@@ -241,255 +260,107 @@ async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg(),):
 
 from .Game import current_games
 
-# 俄罗斯轮盘
-russian = on_command("俄罗斯轮盘", aliases={"装弹", "俄罗斯转盘"}, permission = GROUP, priority = 20, block = True)
+# 创建游戏
 
-@russian.handle()
-async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg()):
-    if not (msg := arg.extract_plain_text().strip().split()):
-        bullet_num = 1
-        gold = bet_gold
-    else:
-        if len(msg) == 1:
-            msg = msg[0]
-            if not msg.isdigit():
-                return
-            if 0 < (msg := int(msg)) < 7:
-                bullet_num = msg
-                gold = bet_gold
-            else:
-                bullet_num = 1
-                gold = int(msg)
-        else:
-            if not (msg[0].isdigit() and msg[1].isdigit()):
-                return
-            bullet_num = int(msg[0])
-            gold = int(msg[1])
-            if 0 < bullet_num < 7:
-                pass
-            elif 0 < gold < 7:
-                bullet_num ,gold = gold, bullet_num
-            else:
-                return
-    msg = Game.russian(event,bullet_num,gold)
-    await russian.finish(msg)
+AllCreateGameCommand = {
+    "Russian":{"俄罗斯轮盘","装弹"},
+    "Dice":{"掷色子", "摇色子", "掷骰子", "摇骰子"},
+    "Poker":{"扑克对战", "扑克对决", "扑克决斗"},
+    "LuckyNumber":{"猜数字"},
+    "Cantrell":{"同花顺","港式五张","梭哈"},
+    "Blackjack":{"21点"},
+    }
 
-# 开枪
-russian_shot = on_command(
-    "开枪",
-    aliases = {"咔", "嘭", "嘣"},
-    rule = lambda event:event.group_id in current_games and current_games[event.group_id].info.get("game") == "russian",
-    permission = GROUP,
-    priority = 20,
-    block = True
-    )
+AllCreateGameCommand = {cmd: name for name, cmds in AllCreateGameCommand.items() for cmd in cmds}
 
-@russian_shot.handle()
-async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg()):
-    count = arg.extract_plain_text().strip()
-    if count.isdigit():
-        count = int(count)
-    else:
-        count = 1
-    msg = await Game.russian_shot(bot, event, count)
-    await russian_shot.finish(msg)
-
-# 掷色子
-dice = on_command("掷色子", aliases={"摇色子", "掷骰子", "摇骰子"}, permission = GROUP, priority = 20, block = True)
-
-@dice.handle()
-async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
-    gold = arg.extract_plain_text().strip()
-    if gold.isdigit():
-        gold = int(gold)
-    else:
-        gold = bet_gold
-    msg = Game.dice(event, gold)
-    await dice.finish(msg)
-
-# 开数
-dice_open = on_command(
-    "取出",
-    aliases={"开数", "开点"},
-    rule = lambda event:event.group_id in current_games and current_games[event.group_id].info.get("game") == "dice",
-    permission = GROUP,
-    priority = 20,
-    block = True
-    )
-@dice_open.handle() 
-async def _(bot:Bot, event:GroupMessageEvent):
-    msg = await Game.dice_open(bot, event)
-    await dice_open.finish(msg)
-
-# 扑克对战
-poker = on_command("扑克对战",aliases={"扑克对决", "扑克决斗"}, permission = GROUP, priority = 20, block = True)
-
-@poker.handle()
-async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
-    gold = arg.extract_plain_text().strip()
-    if gold.isdigit():
-        gold = int(gold)
-    else:
-        gold = bet_gold
-    msg = Game.poker(event, gold)
-    await poker.finish(msg)
-
-# 出牌
-poker_play = on_command(
-    "出牌",
-    rule = lambda event:event.group_id in current_games and current_games[event.group_id].info.get("game") == "poker",
-    permission = GROUP,
-    priority = 20,
-    block = True
-    )
-
-@poker_play.handle()
-async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg()):
-    msg = await Game.poker_play(bot, event, arg.extract_plain_text())
-    await poker_play.finish(msg)
-
-# 猜数字
-lucky_number = on_command("猜数字", permission = GROUP, priority = 20, block = True)
-
-@lucky_number.handle()
-async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
-    gold = arg.extract_plain_text().strip()
-    if gold.isdigit():
-        gold = int(gold)
-    else:
-        gold = int(bet_gold/10)
-    msg = Game.lucky_number(event, gold)
-    await lucky_number.finish(msg)
-
-# 报数
-guess_number = on_regex(
-    r"^\d{1,3}$",
-    rule = lambda event:event.group_id in current_games and current_games[event.group_id].info.get("game") == "lucky_number",
-    permission = GROUP,
-    priority = 20,
-    block = True
-    )
-
-@guess_number.handle()
-async def _(bot:Bot, event:GroupMessageEvent):
-    msg = await Game.guess_number(bot, event, int(event.get_plaintext()))
-    await guess_number.finish(msg)
-
-# 港式五张
-cantrell = on_command("同花顺", aliases = {"五张牌","港式五张","梭哈"}, permission = GROUP, priority = 20, block = True)
-
-@cantrell.handle()
-async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
-    arg = arg.extract_plain_text().strip().split()
-    if not arg:
-        gold = bet_gold
-        level = 1
-    else:
-        test = len(arg)
-        if test == 1:
-            gold = arg[0]
-            if gold.isdigit():
-                gold = int(gold)
-            else:
-                gold = bet_gold
-            level = 1
-        else:
-            gold = arg[0]
-            if gold.isdigit():
-                gold = int(gold)
-            else:
-                gold = bet_gold
-            level = arg[1]
-            if level.isdigit():
-                level = int(level)
-            else:
-                level = 1
-
-    msg = Game.cantrell(event, gold, level)
-    await cantrell.finish(msg)
-
-# 看牌
-cantrell_check = on_command(
-    "看牌",
-    rule = lambda event:event.group_id in current_games and current_games[event.group_id].info.get("game") == "cantrell",
-    permission = GROUP,
-    priority = 20,
-    block = True
-    )
-
-@cantrell_check.handle()
-async def _(bot:Bot, event:GroupMessageEvent):
-    msg = await Game.cantrell_check(bot, event)
-    await cantrell_check.finish(msg)
-
-# 加注
-cantrell_play = on_command(
-    "加注",
-    aliases = {"跟注","开牌"},
-    rule = lambda event:event.group_id in current_games and current_games[event.group_id].info.get("game") == "cantrell",
-    permission = GROUP,
-    priority = 20,
-    block = True
-    )
-
-@cantrell_play.handle()
-async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg()):
-    gold = arg.extract_plain_text().strip()
-    if gold.isdigit():
-        gold = int(gold)
-    else:
-        gold =  current_games[event.group_id].info["round_gold"]
-    msg = await Game.cantrell_play(bot, event, gold)
-    await cantrell_play.finish(msg)
-
-# 21点
-Blackjack = on_command("21点", permission = GROUP, priority = 20, block = True)
-
-@Blackjack.handle()
-async def _(event:MessageEvent, arg:Message = CommandArg()):
-    gold = arg.extract_plain_text().strip()
-    if gold.isdigit():
-        gold = int(gold)
-    else:
-        gold = bet_gold
-    msg = Game.Blackjack(event, gold)
-    await Blackjack.finish(msg)
-
-# 抽牌
-
-def is_Blackjack(event:GroupMessageEvent,state:T_State) -> bool:
-    if event.group_id in current_games and current_games[event.group_id].info.get("game") == "Blackjack":
-        command = str(event.message)
-        if command == "抽牌":
-            state["Blackjack_play"] = Game.Blackjack_Hit
-        elif command == "停牌":
-            state["Blackjack_play"] = Game.Blackjack_stand
-        elif command == "双倍下注":
-            state["Blackjack_play"] = Game.Blackjack_DoubleDown
-        else:
-            return False
-        return True
+def create_game_rule(event:GroupMessageEvent, state:T_State)-> bool:
+    """
+    规则：创建对局
+    """
+    msg = str(event.message)
+    AllGames = {
+        "Russian":Game.Russian,
+        "Dice":Game.Dice,
+        "Poker":Game.Poker,
+        "LuckyNumber":Game.LuckyNumber,
+        "Cantrell":Game.Cantrell,
+        "Blackjack":Game.Blackjack,
+        }
+    for cmd in AllCreateGameCommand:
+        if msg.startswith(cmd):
+            state["Game"] = AllGames[AllCreateGameCommand[cmd]]
+            state["arg"] = msg[len(cmd):].strip()
+            return True
     else:
         return False
 
-Blackjack_play = on_message(
-    rule = is_Blackjack,
-    permission = GROUP,
-    priority = 20,
-    block = True
-    )
+create_game = on_message(rule = create_game_rule, permission = GROUP, priority = 20, block = True)
 
-@Blackjack_play.handle()
-async def _(bot:Bot, event:GroupMessageEvent,state:T_State):
-    Blackjack_play = state["Blackjack_play"]
-    msg = await Blackjack_play(bot, event)
-    await cantrell_play.finish(msg)
+@create_game.handle()
+async def _(event:GroupMessageEvent, state:T_State):
+    game = state["Game"]
+    kwargs = game.parse_arg(state["arg"])
+    msg = game.creat(event,**kwargs)
+    await create_game.finish(msg)
+
+# 进行游戏
+
+AllPlayGameCommand = {
+    "Russian":{"开枪","咔", "嘭", "嘣"},
+    "Dice":{"取出","开数", "开点"},
+    "Poker":{"出牌"},
+    "LuckyNumber":{"^\d{1,3}$"},
+    "Cantrell":{"看牌","加注","跟注","开牌"},
+    "Blackjack":{"停牌","抽牌","双倍下注"},
+    }
+
+def game_play_rule(event:GroupMessageEvent, state:T_State)-> bool:
+    """
+    规则：游戏进行
+    """
+    group_id = event.group_id
+    game = current_games.get(group_id)
+    if game and (Name := game.name) not in ["HorseRace"]:
+        msg = str(event.message)
+        state["game"] = game
+        if Name == "LuckyNumber":
+            if msg.isdigit() and 0 < (N := int(msg)) <= 100:
+                state["arg"] = [N]
+                return True
+        else:
+            cmdlst = AllPlayGameCommand.get(Name)
+            for cmd in cmdlst:
+                if msg.startswith(cmd):
+                    msg = msg[len(cmd):].strip()
+                    if Name == "Cantrell":
+                        if msg.isdigit():
+                            gold = int(msg)
+                        else:
+                            gold = None
+                        state["arg"] = [{"看牌":0,"加注":1,"跟注":1,"开牌":1}[cmd], gold]
+                    elif Name == "Blackjack":
+                        state["arg"] = [{"停牌":0,"抽牌":1,"双倍下注":2}[cmd]]
+                    elif msg.isdigit():
+                        state["arg"] = [int(msg)]
+                    else:
+                        state["arg"] = [None]
+
+                    return True
+    return False
+
+game_play = on_message(rule = game_play_rule, permission = GROUP, priority = 20, block = True)
+
+@game_play.handle()
+async def _(bot:Bot, event:GroupMessageEvent, state:T_State):
+    game = state["game"]
+    msg = await game.play(bot, event, *state["arg"])
+    await create_game.finish(msg)
 
 # 随机对战
 random_game = on_command("随机对战", permission = GROUP, priority = 5, block = True)
 
 @random_game.handle()
-async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg()):
+async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
     gold = arg.extract_plain_text().strip()
     if gold.isdigit():
         gold = int(gold)
@@ -498,42 +369,51 @@ async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg()):
     msg = Game.random_game(event, gold)
     await random_game.finish(msg)
 
-async def session_check(event:GroupMessageEvent):
+async def session_check(event:GroupMessageEvent, state:T_State):
     """
     本群有对局
     """
-    return event.group_id in current_games
+    group_id = event.group_id
+    if group_id in current_games:
+        state["game"] = current_games[group_id]
+        return True
+    else:
+        return False
 
 # 接受挑战
 accept = on_command("接受挑战", aliases = {"接受决斗", "接受对决"}, rule = session_check, permission = GROUP, priority = 20, block = True)
 
 @accept.handle()
-async def _(event:GroupMessageEvent):
-    msg = Game.accept(event)
+async def _(event:GroupMessageEvent, state:T_State):
+    game = state["game"]
+    msg = game.accept(event)
     await accept.finish(msg)
 
 # 拒绝挑战
 refuse = on_command("拒绝挑战", aliases={"拒绝决斗", "拒绝对决"}, rule = session_check, permission = GROUP, priority = 20, block = True)
 
 @refuse.handle()
-async def _(event:GroupMessageEvent):
-    msg = Game.refuse(event)
+async def _(event:GroupMessageEvent, state:T_State):
+    game = state["game"]
+    msg = game.refuse(event)
     await refuse.finish(msg)
 
 # 超时结算
 overtime = on_command("超时结算", rule = session_check, permission = GROUP, priority = 20, block = True)
 
 @overtime.handle()
-async def _(bot:Bot, event:GroupMessageEvent):
-    msg = await Game.overtime(bot, event)
+async def _(bot:Bot, event:GroupMessageEvent, state:T_State):
+    game = state["game"]
+    msg = await game.overtime(bot, event)
     await overtime.finish(msg)
 
 # 认输结算
 fold = on_fullmatch(("认输", "投降", "结束"), rule = session_check, permission = GROUP, priority = 20, block = True)
 
 @fold.handle()
-async def _(bot:Bot, event:GroupMessageEvent):
-    await Game.fold(bot, event)
+async def _(bot:Bot, event:GroupMessageEvent, state:T_State):
+    game = state["game"]
+    await game.fold(bot, event)
 
 # 幸运花色
 slot = on_command("幸运花色", aliases = {"抽花色"}, permission = PRIVATE, priority = 20, block = True)
@@ -669,13 +549,7 @@ async def _(bot:Bot, event:MessageEvent):
     cmd = event.get_plaintext().strip().split()
     title = re.search(r"^(金币|资产|财富|胜率|胜场|败场|路灯挂件)(总排行|总榜)",cmd[0]).group(1)
     msg = await Account.All_rank(event, title)
-    if msg:
-        if isinstance(event, GroupMessageEvent):
-            await bot.send_group_forward_msg(group_id = event.group_id, messages = msg)
-        else:
-            await bot.send_private_forward_msg(user_id = event.user_id, messages = msg)
-    else:
-        await russian_All_rank.finish("无数据。")
+    await russian_All_rank.finish(msg)
 
 # 公司上市
 Market_public = on_command(

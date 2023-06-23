@@ -126,41 +126,48 @@ async def del_BG_image(event:MessageEvent):
     Path.unlink(BG_image / f"{str(event.user_id)}.png", True)
     return "背景图片删除成功！"
 
-def Achieve_list(locate:Tuple[UserDict,GroupAccount]):
+def PropsCard_list(locate:Tuple[UserDict,GroupAccount]):
     """
-    成就列表
+    道具列表
     """
     user,group_account = locate
     rank = []
     count = group_account.props.get("02101",0)
     if count > 0:
         if count <= 4:
-            rank.append(f"{count*'☆'}  路灯挂件  {count*'☆'}")
+            rank.append(f"{count*'☆'} 路灯挂件 {count*'☆'}")
         else:
             rank.append(f"☆☆☆☆☆路灯挂件☆☆☆☆☆")
 
     count = group_account.props.get("32001",0)   # 四叶草标记
     if count > 0:
         rank.append(lucky_clover)
+    return rank
 
+def Achieve_list(locate:Tuple[UserDict,GroupAccount]):
+    """
+    成就列表
+    """
+    user,group_account = locate
+    rank = []
     count = group_account.gold
     if count > max_bet_gold:
         count = int(count/max_bet_gold)
         count = str(count) if count < 1000 else "MAX"
         level =f"Lv.{count}"
-        rank.append(f"◆◇ 金库 {level}")
+        rank.append(f"◆ 金库 {level}")
 
     count = user.Achieve_win
     if count >1:
         count = str(count) if count < 1000 else "MAX"
         level =f"Lv.{count}"
-        rank.append(f"◆◇ 连胜 {level}")
+        rank.append(f"◆ 连胜 {level}")
 
     count = user.Achieve_lose
     if count >1:
         count = str(count) if count < 1000 else "MAX"
         level =f"Lv.{count}"
-        rank.append(f"◆◇ 连败 {level}")
+        rank.append(f"◇ 连败 {level}")
 
     return rank
 

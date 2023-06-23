@@ -7,7 +7,6 @@ import pandas as pd
 import sys
 import time
 from datetime import datetime
-
 try:
     import ujson as json
 except ModuleNotFoundError:
@@ -28,12 +27,11 @@ def market_candlestick(figsize:Tuple[int,int], length:int, history:list, savefig
     sell = [sell[i:i+length] for i in range(0, l, length)]
     D,O,H,L,C = [],[],[],[],[]
     for i in range(len(sell)):
-        D.append(pd.to_datetime(T[i][0], unit = 's'))
+        D.append(datetime.fromtimestamp(T[i][0]))
         O.append(sell[i][0])
         H.append(max(sell[i]))
         L.append(min(sell[i]))
         C.append(sell[i][-1])
-
     data = pd.DataFrame({'date': D,'open': O,'high': H,'low': L,'close': C})
     data = data.set_index('date')
     style = mpf.make_mpf_style(
@@ -53,7 +51,6 @@ def market_candlestick(figsize:Tuple[int,int], length:int, history:list, savefig
         xlabel = "",
         ylabel = "",
         datetime_format = '%H:%M',
-        timezone = datetime.now().astimezone().tzinfo,
         tight_layout = True,
         style = style,
         figsize = figsize,

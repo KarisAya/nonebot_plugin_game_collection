@@ -153,7 +153,7 @@ class DataBase(BaseModel):
 
 import os
 
-resourcefile = Path(os.path.join(os.path.dirname(__file__),"../resource"))
+resourcefile = Path(os.path.join(os.path.dirname(__file__),"./resource"))
 
 # 加载道具库
 with open(resourcefile / "props_library.json", "r", encoding="utf8") as f:
@@ -199,7 +199,7 @@ def OHLC(path, company_id):
     """
     OHLC子程序
     """
-    return subprocess.Popen([python,f"/subprocess/ohlc.py", path, str(company_id)], shell = True)
+    return subprocess.Popen([python,f"{resourcefile}/subprocess/ohlc.py", path, str(company_id)], shell = True)
 
 """
 from . import Data

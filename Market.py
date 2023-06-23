@@ -1,3 +1,4 @@
+from turtle import width
 from typing import Tuple
 from PIL import Image
 from nonebot.adapters.onebot.v11 import (
@@ -17,7 +18,7 @@ try:
 except ModuleNotFoundError:
     import json
 
-from .utils.chart import bbcode_to_PIL, group_info_head, info_Splicing
+from .utils.chart import linecard, group_info_head, info_Splicing
 from .data import GroupAccount, Company, ExchangeInfo
 from .data import OHLC, props_library
 from .config import bot_name, revolt_gini, max_bet_gold, path
@@ -421,15 +422,13 @@ async def group_info(bot:Bot, event:MessageEvent, group_id:int):
 
     info.append(await group_info_head(group_name, company_name, group_id, (len(group.namelist),member_count)))
 
-    linestr = "[color=gray][size=15][font=simsun.ttc]────────────────────────────────────────────────────────[/font][/size][/color]\n"
-
     msg = ""
     ranklist = list(group.Achieve_revolution.items())
     ranklist.sort(key=lambda x:x[1],reverse=True)
     for x in ranklist[:10]:
-        msg += f"{user_data[x[0]].group_accounts[group_id].nickname}[align=right]{x[1]}次[/align]\n"
+        msg += f"{user_data[x[0]].group_accounts[group_id].nickname}[nowrap]\n[right]{x[1]}次\n"
     if msg:
-        info.append(bbcode_to_PIL("[align=center]路灯挂件[/align]" + linestr + msg[:-1], 60))
+        info.append(linecard(msg, width = 880, endline = "路灯挂件"))
 
     # 加载公司信息
     if company_name:
@@ -437,10 +436,7 @@ async def group_info(bot:Bot, event:MessageEvent, group_id:int):
             f"公司等级 {company.level}\n"
             f"成立时间 {datetime.datetime.fromtimestamp(company.time).strftime('%Y 年 %m 月 %d 日')}\n"
             )
-
-        info.append(bbcode_to_PIL(msg + linestr + "[align=right][size=30][color=gray]注册信息[/color][/size][/align]", 60))
-
-        info.append(bbcode_to_PIL(stock_profile(company) + linestr + "[align=right][size=30][color=gray]产业信息[/color][/size][/align]", 60))
+        info.append(linecard(msg + stock_profile(company), width = 880, endline = "注册信息"))
 
         p = OHLC(path, group_id)
 
@@ -458,13 +454,12 @@ async def group_info(bot:Bot, event:MessageEvent, group_id:int):
         ranklist.sort(key=lambda x:x[1].quote)
         msg = ""
         for x in ranklist[:10]:
-            msg += f"{user_data[x[0]].nickname}[align=right]单价 {x[1].quote} 数量 {x[1].n}[/align]\n"
+            msg += f"{user_data[x[0]].nickname}\n[pixel][20]单价 {x[1].quote}[nowrap]\n[pixel][400]数量 {x[1].n}\n"
         if msg:
-            info.append(bbcode_to_PIL(msg + linestr + "[align=right][size=30][color=gray]市场详情[/color][/size][/align]", 40))
-
+            info.append(linecard(msg, width = 880, font_size = 40,endline = "市场详情"))
         msg = company.intro
         if msg:
-            info.append(bbcode_to_PIL(msg + "\n" +linestr + "[align=right][size=30][color=gray]公司介绍[/color][/size][/align]", 40))
+            info.append(linecard(msg + '\n', width = 880, font_size = 40,endline = "公司介绍"))
 
     return MessageSegment.image(info_Splicing(info, BG_path(event.user_id)))
 
@@ -497,12 +492,11 @@ def Market_info_All(event:MessageEvent, ohlc:bool = False):
     companys.sort(key = lambda x:x.group_gold, reverse = True)
 
     lst = [companys[i:i+5] for i in range(0, len(companys), 5)]
-    linestr = "[color=gray][size=15][font=simsun.ttc]────────────────────────────────────────────────────────[/font][/size][/color]\n"
     msg = []
     for seg in lst:
         info = []
         for company in seg:
-            info.append(bbcode_to_PIL(company.company_name +"\n" + linestr + stock_profile(company), 60))
+            info.append(linecard(company.company_name +"\n" + "----\n" + stock_profile(company)[:-1],width = 880))
         msg.append({"type":"node",
                     "data":{
                         "name":f"{bot_name}",

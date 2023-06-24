@@ -1,4 +1,3 @@
-from turtle import width
 from typing import Tuple
 from PIL import Image
 from nonebot.adapters.onebot.v11 import (

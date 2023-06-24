@@ -6,7 +6,7 @@ from nonebot.adapters.onebot.v11 import (
 import random
 
 from .utils.utils import get_message_at
-from .utils.chart import linecard,gacha_info
+from .utils.chart import linecard_to_png
 from .data import props_library, props_index, element_library
 from .config import bot_name, sign_gold, revolt_gold, max_bet_gold, gacha_gold
 
@@ -49,6 +49,35 @@ def random_props() -> str:
         props = "11001"
     return props
 
+def random_airs() -> str:
+    """
+    随机获取道具。
+        rare:稀有度
+        return:道具代码
+        道具代码规则：
+        第1位：稀有度
+        第2位：道具性质：
+            1：空气
+            2：群内道具
+            3：全局道具
+        第3位：道具时效：
+            0：时效道具
+            1：永久道具
+        4,5位：本稀有度下的道具编号
+    """
+    code = random.randint(1,100)
+    if 0 < code <= 30:
+        props = "31001"
+    elif 30 < code <= 40:
+        props = "41001"
+    elif 40 < code <= 50:
+        props = random.choice(["51001","51002"])
+    elif code == 51:
+        props = "61001"
+    else:
+        props = "11001"
+    return props
+
 def gacha(event:MessageEvent, N:int):
     """
     抽卡
@@ -77,7 +106,7 @@ def gacha(event:MessageEvent, N:int):
     else:
         data = sorted(res.items(),key = lambda x:int(x[0]),reverse=True)
 
-    info = []
+    msg = ""
     airdata = []
     for prop_code, n in data:
         if prop_code[1] == "2":
@@ -97,66 +126,75 @@ def gacha(event:MessageEvent, N:int):
         color = prop_info['color']
         name = prop_info['name']
         rare = prop_info['rare']
-        info.append(
-            linecard(f"[color][{color}]【{name}】[nowrap]\n[right][color][{color}]{n}{quant}\n",
-                     width = 440,
-                     height = 120,
-                     padding=(0,10),
-                     endline = rare*'☆',
-                     bg_color = "white"
-                     ))
-    user.props = {k:10 if k[2] == '0' and v > 30 else v for k, v in user.props.items()}
-    group_account.props = {k:v if v < 30 else 30 for k,v in group_account.props.items()}
-    if len(info)%2 == 1:
-        info.append(None)
+        msg += (
+            f"[color][{color}]{name}[nowrap][passport]\n"
+            f"[pixel][450]{rare*'☆'}[nowrap][passport]\n"
+            f"[right]{n}{quant}\n"
+            )
 
+    user.props = {k: v if k == "33101" else min(v, 30) for k, v in user.props.items()}
+    group_account.props = {k:min(30,v) for k,v in group_account.props.items()}
     for prop_code, n in airdata:
         prop_info = props_library.get(prop_code,{"name":prop_code, "color":"black","rare":1,"intro":"未知","des":"未知"})
         color = prop_info['color']
         name = prop_info['name']
         rare = prop_info['rare']
-        info.append(
-            linecard(f"[color][{color}]【{name}】[nowrap]\n[right][color][{color}]{n}次\n",
-                        width = 440,
-                        height = 120,
-                        padding=(0,10),
-                        endline = rare*'☆',
-                        bg_color = "white"
-                        ))
-    pt = star/N
-    if pt < 1.6:
-        level = "[color][#003300]理 想 气 体"
-    if pt < 1.88:
-        level = "[color][#003333]☆ 数据异常 ☆"
-    elif pt < 2.16:
-        level = "[color][#003366]☆☆ 一枚硬币 ☆☆"
-    elif pt < 2.44:
-        level = "[color][#003399]☆☆☆ 高斯分布 ☆☆☆"
-    elif pt < 2.72:
-        level = "[color][#0033CC]☆☆☆☆ 对称破缺 ☆☆☆☆"
-    elif pt < 3:
-        level = "[color][#0033FF]☆☆☆☆☆ 概率之子 ☆☆☆☆☆"
-    else:
-        level = "[color][#FF0000]☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆"
+        msg += (
+            f"[color][{color}]{name}[nowrap][passport]\n"
+            f"[pixel][450]{rare*'☆'}[nowrap][passport]\n"
+            f"[right]{n}个\n"
+            )
 
     if N >= 10:
+        pt = star/N
+        if pt < 1.6 or (air/N) > 0.8:
+            if air == N:
+                level = "[center][color][#003300]只 有 空 气"
+                user.gold += cost
+                group_account.gold += cost
+                msg = f"本次抽卡已免费（{cost}金币）\n" + msg
+            else:
+                level = "[center][color][#003300]理 想 气 体"
+            n = N//10
+            user.props.setdefault("03103",0)
+            user.props["03103"] += n
+            prop_info = props_library.get("03103",{"name":"03103", "color":"black","rare":1,"intro":"未知","des":"未知"})
+            color = prop_info['color']
+            name = prop_info['name']
+            msg += (
+                f"[color][{color}]{name}[nowrap][passport]\n"
+                f"[right]{n}个\n"
+                )
+        elif pt < 1.88:
+            level = "[left][color][#003333]☆[nowrap][passport]\n[center]数据异常[nowrap][passport]\n[right]☆"
+        elif pt < 2.16:
+            level = "[left][color][#003366]☆ ☆[nowrap][passport]\n[center]一枚硬币[nowrap][passport]\n[right]☆ ☆"
+        elif pt < 2.44:
+            level = "[left][color][#003399]☆ ☆ ☆[nowrap][passport]\n[center]高斯分布[nowrap][passport]\n[right]☆ ☆ ☆"
+        elif pt < 2.72:
+            level = "[left][color][#0033CC]☆ ☆ ☆ ☆[nowrap][passport]\n[center]对称破缺[nowrap][passport]\n[right]☆ ☆ ☆ ☆"
+        elif pt < 3:
+            level = "[left][color][#0033FF]☆ ☆ ☆ ☆ ☆[nowrap][passport]\n[center]概率之子[nowrap][passport]\n[right]☆ ☆ ☆ ☆ ☆"
+        else:
+            level = "[noautowrap][center][color][#FF0000]☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆"
         msg = (
-            f"{group_account.nickname}\n"
+            f"{level}\n"
             "----\n"
             f"抽卡次数：{N}[nowrap]\n"f"[pixel][450]空气占比：{round(air*100/N,2)}%\n"
             f"获得☆：{star}[nowrap]\n"f"[pixel][450]获得☆：{airstar}\n"
             f"平均每抽☆数：{round(pt,3)}[nowrap]\n"f"[pixel][450]空气质量：{round(airstar/air,3)}\n"
-            f"结果评定：[nowrap]\n{level}\n"
-            )
+            f"数据来源：{group_account.nickname}\n"
+            "----\n"
+            ) + msg
     else:
         msg = (
             f"{group_account.nickname}\n"
             "----\n"
             f"抽卡次数：{N}\n"
-            )
+            "----\n"
+            ) + msg
         
-        
-    return MessageSegment.image(gacha_info(linecard(msg,width = 880,endline = f"抽卡报告",bg_color = "white"),info))
+    return MessageSegment.image(linecard_to_png(msg))
 
 class Prop(str):
     def use(self, event:MessageEvent, count:int):
@@ -167,6 +205,8 @@ class Prop(str):
             return self.use_03101(event,count)
         elif self == "03100":
             return self.use_03100(event)
+        elif self == "03103":
+            return self.use_03103(event,count)
         elif self == "33101":
             return self.use_33101(event,count)
         elif self == "42101":
@@ -222,6 +262,83 @@ class Prop(str):
         user.gold += gold
         group_account.gold += gold
         return f"你获得了{gold}金币。"
+
+    @classmethod
+    def use_03103(cls, event:MessageEvent, count:int) -> str:
+        """
+        使用道具：空气礼包
+        """
+        user,group_account = Manager.locate_user(event)
+        if not group_account:
+            return "私聊未关联账户，请发送【关联账户】关联群内账户。"
+        props = user.props
+        if props.get("03103",0) < count:
+            return "数量不足"
+
+        props["03103"] -= count
+        if props["03103"] < 1:
+            del props["03103"]
+
+        N = count*10
+
+        res = {}
+        star = 0
+        airstar = 0
+        air = 0
+        for i in range(N):
+            prop_code = random_airs()
+            res.setdefault(prop_code,0)
+            res[prop_code] += 1
+            rare = int(prop_code[0])
+            star += rare
+            airstar += rare
+            air += 1
+        else:
+            data = sorted(res.items(),key = lambda x:int(x[0]),reverse=True)
+
+        msg = ""
+        props = group_account.props
+        for prop_code, n in data:
+            props.setdefault(prop_code,0)
+            props[prop_code] += n
+            prop_info = props_library.get(prop_code,{"name":prop_code, "color":"black","rare":1,"intro":"未知","des":"未知"})
+            color = prop_info['color']
+            name = prop_info['name']
+            rare = prop_info['rare']
+            msg += (
+                f"[color][{color}]{name}[nowrap][passport]\n"
+                f"[pixel][450]{rare*'☆'}[nowrap][passport]\n"
+                f"[right]{n}个\n"
+                )
+
+
+        pt = star/N
+        if pt < 1.6:
+            level = "[center][color][#003300]杂质级"
+        elif pt < 1.88:
+            level = "[left][color][#003333]☆[nowrap][passport]\n[center]工业级[nowrap][passport]\n[right]☆"
+        elif pt < 2.16:
+            level = "[left][color][#003366]☆ ☆[nowrap][passport]\n[center]试剂级[nowrap][passport]\n[right]☆ ☆"
+        elif pt < 2.44:
+            level = "[left][color][#003399]☆ ☆ ☆[nowrap][passport]\n[center]实验级[nowrap][passport]\n[right]☆ ☆ ☆"
+        elif pt < 2.72:
+            level = "[left][color][#0033CC]☆ ☆ ☆ ☆[nowrap][passport]\n[center]分析级[nowrap][passport]\n[right]☆ ☆ ☆ ☆"
+        elif pt < 3:
+            level = "[left][color][#0033FF]☆ ☆ ☆ ☆ ☆[nowrap][passport]\n[center]超纯级[nowrap][passport]\n[right]☆ ☆ ☆ ☆ ☆"
+        else:
+            level = "[noautowrap][center][color][#FF0000]☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆"
+
+        msg = (
+            f"{level}\n"
+            "----\n"
+            f"抽卡次数：{N}[nowrap]\n"f"[pixel][450]空气占比：{round(air*100/N,2)}%\n"
+            f"获得☆：{star}[nowrap]\n"f"[pixel][450]获得☆：{airstar}\n"
+            f"平均每抽☆数：{round(pt,3)}[nowrap]\n"f"[pixel][450]空气质量：{round(airstar/air,3)}\n"
+            f"数据来源：{group_account.nickname}\n"
+            "----\n"
+            ) + msg
+
+        return MessageSegment.image(linecard_to_png(msg))
 
     @classmethod
     def use_33101(cls, event:MessageEvent, count:int) -> str:

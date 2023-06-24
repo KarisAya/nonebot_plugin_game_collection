@@ -307,7 +307,7 @@ async def my_info(event:MessageEvent) -> Message:
     for stock in group_account.stocks:
         company_name = group_data[stock].company.company_name
         if i := group_account.stocks[stock]:
-            msg += f"[font_normal]{company_name}[nowrap]\n[right][color][green]{i}\n"
+            msg += f"{company_name}[nowrap]\n[right][color][green]{i}\n"
     if msg:
         info.append(linecard(msg, 880,endline = "股票信息"))
 
@@ -337,7 +337,7 @@ def my_props(event:MessageEvent) -> Message:
         name = prop['name']
         rare = prop['rare']
         msg = (
-            f"[font_big][color][{color}]【{name}】[nowrap]\n[right][font_big][color][{color}]{n}{quant}\n"
+            f"[font_big][color][{color}]【{name}】[nowrap][passport]\n[right]{n}{quant}\n"
             "----\n"
             + prop['intro'] + f"\n[right]{prop['des']}\n"
             )

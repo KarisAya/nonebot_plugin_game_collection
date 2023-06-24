@@ -80,6 +80,39 @@ def text_to_png(
     image.save(output, format="png")
     return output
 
+import re
+
+class linecard_pattern:
+    align = re.compile(r"\[left\]|\[right\]|\[center\]|\[pixel\]\[.*?\]")
+    font = re.compile(r"\[font_big\]|\[font_normal\]|\[font_small\]|\[font\]\[.*?\]\[.*?\]")
+    color = re.compile(r"\[color\]\[.*?\]")
+    passport = re.compile(r"\[passport\]")
+    nowrap = re.compile(r"\[nowrap\]")
+    noautowrap = re.compile(r"\[noautowrap\]")
+
+def remove_tag(string, pattern):
+    match = pattern.search(string)
+    if match:
+        start = match.start()
+        end = match.end()
+        return string[:start] + string[end:],string[start:end]
+    else:
+        return None
+
+def line_warp(line:str,width:int,font):
+    text_x = 0
+    line_count = 1
+    new_str = ""
+    for char in line:
+        text_x += font.getlength(char)
+        if text_x > width:
+            new_str += "\n" + char
+            text_x = 0
+            line_count += 1 
+        else:
+            new_str += char
+    return new_str,line_count
+
 def linecard(
     text:str,
     width:int = None,
@@ -103,10 +136,13 @@ def linecard(
         [font_big]大字体
         [font_normal]正常字体
         [font_small]小字体
+        [font][font_name][font_size]指定字体
 
         [color][#000000]指定本行颜色
 
-        不换行[nowrap]
+        [nowrap]不换行
+        [noautowrap]不自动换行
+        [passport]保持标记
     '''
     text = text.replace("\r\n","\n")
     lines = text.split('\n')
@@ -116,111 +152,141 @@ def linecard(
     else:
         font_default = font_normal
 
-    Text = []
-    X = []
-    Y = [0,]
-    textheight = 0
-    tmpH = 0
-    for line in lines:
-        if line.startswith("[left]"):
-            line = line[6:]
-            align = "left"
-        elif line.startswith("[right]"):
-            line = line[7:]
-            align = "right"
-        elif line.startswith("[center]"):
-            line = line[8:]
-            align = "center"
-        elif line.startswith("[pixel]["):
-            line = line[8:]
-            align = ""
-            i = 0
-            for c in line:
-                i += 1
-                if c == "]":
-                    break
-                align += c
-            line = line[i:]
-        else:
-            align = "left"
-
-        if line.startswith("[font_big]"):
-            line = line[10:]
-            font = font_big
-        elif line.startswith("[font_normal]"):
-            line = line[13:]
-            font = font_normal
-        elif line.startswith("[font_small]"):
-            line = line[12:]
-            font = font_small
-        else:
-            font = font_default
-
-        if line.startswith("[color]["):
-            line = line[8:]
-            color = ""
-            i = 0
-            for c in line:
-                i += 1
-                if c == "]":
-                    break
-                color += c
-            line = line[i:]
-        else:
-            color = None
-
-        if line.endswith("[nowrap]"):
-            line = line[:-8]
-            tmpH = max(tmpH,int(font.size * spacing))
-        else:
-            textheight += max(tmpH,int(font.size * spacing))
-            tmpH = 0
-
-        Y.append(textheight)
-        X.append(int(font.getlength(line) if align == "left" else 0))
-        Text.append([line, font, color, align])
-
-    lineX = []
-    for i in range(len(lines)):
-        if Y[i] == Y[i-1]:
-            lineX.append(X[i-1])
-            X[i] += X[i-1]
-        else:
-            lineX.append(0)
-
     paddingX = padding[0]
     paddingY = padding[1]
-    width = width if width else (max(X) + paddingX*2)
+
+    X = []
+    Y = [0,]
+    Text = []
+
+    line_length = []
+
+    text_y = 0
+    maxFontLine = 0 # 如果本行是通过[nowrap]不换行标记拼接的多个行，那么记录最大的字体宽度以在换行时使用最大的字体
+
+    align = "left"
+    font = font_default
+    color = None
+    passport = 0
+    autowrap = True
+
+    for line in lines:
+        passport -= 1
+
+        if res := remove_tag(line,linecard_pattern.align):
+            line, align = res
+            if align.startswith("[pixel]["):
+                align = align[8:-1]
+            else:
+                align = align[1:-1]
+        else:
+            if passport == 1:
+                pass
+            else:
+                align = "left"
+
+        if res := remove_tag(line,linecard_pattern.font):
+            line, font = res
+            if font.startswith("[font]["):
+                font = font[7:-1]
+                inner_font_name,inner_font_size = font.split("][",1)
+                inner_font_size = int(inner_font_size)
+                inner_font_size = inner_font_size if inner_font_size else font_size
+                font = ImageFont.truetype(font = inner_font_name, size = inner_font_size, encoding = "utf-8")
+            elif font == "[font_big]":
+                font = font_big
+            elif font == "[font_small]":
+                font = font_small
+            else:
+                font = font_normal
+        else:
+            if passport == 1:
+                pass
+            else:
+                font = font_default
+
+        if res := remove_tag(line,linecard_pattern.color):
+            line, color = res
+            color = color[8:-1]
+        else:
+            if passport == 1:
+                pass
+            else:
+                color = None
+
+        if res := remove_tag(line,linecard_pattern.noautowrap):
+            line = res[0]
+            autowrap = False
+        else:
+            if passport == 1:
+                pass
+            else:
+                autowrap = True
+
+        if res := remove_tag(line,linecard_pattern.nowrap):
+            line = res[0]
+            maxFontLine = max(maxFontLine,int(font.size * spacing))
+        else:
+            if autowrap and width and font.getlength(line) > width:
+                line,inner_line_count = line_warp(line,width - paddingX,font)
+                text_y += max(maxFontLine,inner_line_count * int(font.size * spacing))
+            else:
+                text_y += max(maxFontLine,int(font.size * spacing))
+            maxFontLine = 0
+
+        if res := remove_tag(line,linecard_pattern.passport):
+            line = res[0]
+            passport = 2
+
+        line_length.append(int(font.getlength(line) if align == "left" else 0))
+        Y.append(text_y)
+        Text.append([line, font, color, align])
+
+    for i in range(len(lines)):
+        if Y[i] == Y[i-1]:
+            X.append(line_length[i-1])
+            line_length[i] += line_length[i-1]
+        else:
+            X.append(0)
+
+    width = width if width else (max(line_length) + paddingX*2)
     height = height if height else (Y[-1] + paddingY*2)
+
     canvas = canvas if canvas else Image.new("RGBA", (width, height), bg_color)
     draw = ImageDraw.Draw(canvas)
+
     for i in range(len(lines)):
-        y = Y[i] + paddingY
         line, font, color, align = Text[i]
+        text_y = Y[i] + paddingY
         if line == "----":
-            tmp = y + font.size//2
+            tmp = text_y + font.size//2
             color = color if color else 'gray'
             draw.line(((0, tmp), (width, tmp)), fill = color, width = 4)
         else:
             color = color if color else 'black'
             if align == "right":
-                x = int(width - font.getlength(line) - paddingX)
+                text_x = int(width - font.getlength(line) - paddingX)
             elif align == "center":
-                x = (width - font.getlength(line) )//2
+                text_x = (width - font.getlength(line) )//2
             elif align.isdigit():
-                x = int(align)
+                text_x = int(align)
             else:
-                x = lineX[i] + paddingX
-            draw.text((x, y),line, fill = color, font = font)
+                text_x = X[i] + paddingX
+            draw.text((text_x, text_y),line, fill = color, font = font)
 
     if endline:
         draw.line(((0, height - 60), (width, height - 60)), fill = "gray", width = 4)
-        x = int(width - font_small.getlength(endline) - 20)
-        draw.text((x,height - 45),endline, fill = "gray", font = font_small)
+        text_x = int(width - font_small.getlength(endline) - 20)
+        draw.text((text_x,height - 45),endline, fill = "gray", font = font_small)
 
     return canvas
 
-def gacha_info(report:IMG, info:List[IMG]):
+def linecard_to_png(msg):
+    output = BytesIO()
+    linecard(msg,width = 880,bg_color = "white",endline = "抽卡结果").save(output, format = "png")
+    return output
+
+def gacha_info0(report:IMG, info:List[IMG]):
     """
     抽卡信息拼接
         report:抽卡报告
@@ -239,7 +305,7 @@ def gacha_info(report:IMG, info:List[IMG]):
         l,r = info[i:i+2]
         canvas.paste(l, (0, y))
         if r:
-            canvas.paste(r, (440, y))
+            canvas.paste(r, (442, y))
         y += 130
     output = BytesIO()
     canvas.save(output,'png')

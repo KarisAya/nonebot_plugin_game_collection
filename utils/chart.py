@@ -82,13 +82,8 @@ def remove_tag(string, pattern):
     else:
         return None
 
-<<<<<<< HEAD
 def line_wrap(line:str,width:int,font, start:int = 0):
     text_x = start
-=======
-def line_wrap(line:str,width:int,font):
-    text_x = 0
->>>>>>> 6da601d5a5ccd179a35a2039185298c469f857e4
     line_count = 1
     new_str = ""
     for char in line:
@@ -223,13 +218,8 @@ def linecard(
             line = res[0]
             maxFontLine = max(maxFontLine,int(font.size * spacing))
         else:
-<<<<<<< HEAD
             if autowrap and not noautowrap and width and font.getlength(line) > width:
                 line,inner_line_count = line_wrap(line,width - padding_x,font)
-=======
-            if autowrap and width and font.getlength(line) > width:
-                line,inner_line_count = line_wrap(line,width - paddingX,font)
->>>>>>> 6da601d5a5ccd179a35a2039185298c469f857e4
                 text_y += max(maxFontLine,inner_line_count * int(font.size * spacing))
             else:
                 text_y += max(maxFontLine,int(font.size * spacing))

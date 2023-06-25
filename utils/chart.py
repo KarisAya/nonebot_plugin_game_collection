@@ -99,7 +99,7 @@ def remove_tag(string, pattern):
     else:
         return None
 
-def line_warp(line:str,width:int,font):
+def line_wrap(line:str,width:int,font):
     text_x = 0
     line_count = 1
     new_str = ""
@@ -228,7 +228,7 @@ def linecard(
             maxFontLine = max(maxFontLine,int(font.size * spacing))
         else:
             if autowrap and width and font.getlength(line) > width:
-                line,inner_line_count = line_warp(line,width - paddingX,font)
+                line,inner_line_count = line_wrap(line,width - paddingX,font)
                 text_y += max(maxFontLine,inner_line_count * int(font.size * spacing))
             else:
                 text_y += max(maxFontLine,int(font.size * spacing))
@@ -390,7 +390,7 @@ def my_info_statistics(dist):
         labeldistance = 1.05
         )
     plt.axis('equal')
-    plt.subplots_adjust(top = 0.95, bottom = 0.05, right = 0.9, left = 0.5, hspace = 0, wspace = 0)
+    plt.subplots_adjust(top = 0.95, bottom = 0.05, left = 0.32, hspace = 0, wspace = 0)
     plt.savefig(output,format='png', dpi = 100, transparent = True)
     plt.close()
     return Image.open(output)

@@ -258,12 +258,14 @@ def linecard(
         new_line = ""
         inner_index = 0
         inner_iterations = len(line)
+        flag = False
         while inner_index < inner_iterations:
             char = line[inner_index]
             ordchar = ord(char)
             if ordchar in cmap:
                 new_line += char
             else:
+                flag = True
                 if new_line:
                     Text_XY[-1][0] = new_line
                     Text_XY[-1][1] = font
@@ -283,13 +285,13 @@ def linecard(
                 Text_XY.append([None,None,None,int(Text_XY[-1][3] + inner_fallback_font.getlength(char)),text_y])
                 new_line = ""
             inner_index += 1
+        if new_line:
+            Text_XY[-1][0] = new_line
+            Text_XY[-1][1] = font
+            Text_XY[-1][2] = color
         else:
-            if new_line:
-                Text_XY[-1][0] = new_line
-                Text_XY[-1][1] = font
-                Text_XY[-1][2] = color
-            else:
-                del Text_XY[-1]
+            del Text_XY[-1]
+        if flag:
             X[i] = Text_XY[-1][3]
 
     canvas = canvas if canvas else Image.new("RGBA", (width, height), bg_color)

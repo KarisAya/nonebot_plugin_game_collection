@@ -8,8 +8,7 @@ from nonebot.adapters.onebot.v11 import (
     Message,
     MessageSegment
     )
-
-from nonebot.drivers import get_driver
+    
 import random
 import time
 import asyncio

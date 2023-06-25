@@ -43,7 +43,6 @@ def linecard_to_png(
     font_size = 60,
     width:int = None,
     height:int = None,
-    fontname = fontname,
     padding:tuple = (20,20),
     spacing:float = 1.2,
     bg_color = "white",
@@ -55,14 +54,14 @@ def linecard_to_png(
     '''
     output = BytesIO()
     linecard(
-        text,
-        font_size,
-        width,
-        height,
-        padding,
-        spacing,
-        bg_color,
-        endline).save(output, format = "png")
+        text = text,
+        font_size = font_size,
+        width = width,
+        height = height,
+        padding = padding,
+        spacing = spacing,
+        bg_color = bg_color,
+        endline = endline).save(output, format = "png")
     return output
 
 class linecard_pattern:

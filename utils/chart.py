@@ -3,17 +3,21 @@ from pathlib import Path
 from io import BytesIO
 from PIL import Image,ImageDraw,ImageFont
 from PIL.Image import Image as IMG
+from fontTools.ttLib import TTFont
 
-import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 import seaborn as sns
+import numpy as np
+
+import re
 
 from .avatar import download_avatar,download_groupavatar
 
 from ..data import UserDict, GroupAccount
 from ..data import resourcefile
 
-from ..config import BG_image,fontname
+from ..config import BG_image,fontname,fallback_fonts
 
 sns.set(font = fontname)
 
@@ -23,64 +27,43 @@ if not default_BG.exists():
     Image.new('RGB', (200, 200), (0, 51, 102)).save(default_BG)
 
 font_big = ImageFont.truetype(font = fontname, size = 60, encoding = "utf-8")
-
 font_normal = ImageFont.truetype(font = fontname, size = 40, encoding = "utf-8")
-
 font_small = ImageFont.truetype(font = fontname, size = 30, encoding = "utf-8")
 
-def text_to_png(
+cmap_default = TTFont(font_big.path, fontNumber = font_big.index).getBestCmap()
+
+global fallback_fonts_cmap
+fallback_fonts_cmap = {}
+for fallback in fallback_fonts:
+    fallback_path = fm.findfont(fm.FontProperties(family=fallback))
+    fallback_fonts_cmap[fallback_path] = TTFont(fallback_path, fontNumber = 0).getBestCmap()
+
+def linecard_to_png(
     text:str,
-    font_size = 50,
-    image_size:tuple = (0,0),
-    width_simple:str = None,
+    font_size = 60,
+    width:int = None,
+    height:int = None,
     fontname = fontname,
     padding:tuple = (20,20),
     spacing:float = 1.2,
-    text_color = "black",
-    bg_color = "white"
+    bg_color = "white",
+    autowrap:bool = False,
+    endline = None
     ):
     '''
     文字转png
     '''
-    # 创建字体对象
-    if fontname:
-        font = ImageFont.truetype(fontname, font_size)
-    else:
-        font = ImageFont.load_default().font
-
-    # 计算文字所需图片的大小
-
-    text = text.replace("\r\n","\n")
-    lines = text.split('\n')
-    line_height = int(font_size * spacing)
-
-
-    image_width = image_size [0]
-    image_height = image_size [1]
-    if width_simple:
-        image_width = int(font.getlength(width_simple))
-    image_width = image_width if image_width else int(max(font.getlength(line) for line in lines))
-    image_height = image_height if image_height else line_height * len(lines)
-
-    # 添加边距
-    x = padding[0]
-    y = padding[1]
-    image_width = image_width + 2*x
-    image_height = image_height +2*y
-
-    # 创建空白图片
-    image = Image.new('RGB', (image_width, image_height), bg_color)
-    draw = ImageDraw.Draw(image)
-    # 在图片上绘制文本
-    for line in lines:
-        draw.text((x, y), line, font = font, fill = text_color)
-        y += line_height
-
     output = BytesIO()
-    image.save(output, format="png")
+    linecard(
+        text,
+        font_size,
+        width,
+        height,
+        padding,
+        spacing,
+        bg_color,
+        endline).save(output, format = "png")
     return output
-
-import re
 
 class linecard_pattern:
     align = re.compile(r"\[left\]|\[right\]|\[center\]|\[pixel\]\[.*?\]")
@@ -99,8 +82,8 @@ def remove_tag(string, pattern):
     else:
         return None
 
-def line_warp(line:str,width:int,font):
-    text_x = 0
+def line_wrap(line:str,width:int,font, start:int = 0):
+    text_x = start
     line_count = 1
     new_str = ""
     for char in line:
@@ -115,12 +98,13 @@ def line_warp(line:str,width:int,font):
 
 def linecard(
     text:str,
+    font_size:int = None,
     width:int = None,
     height:int = None,
-    font_size:int = None,
     padding:tuple = (20,20),
     spacing:float = 1.2,
     bg_color:str = None,
+    autowrap:bool = False,
     endline = None,
     canvas = None
     ):
@@ -152,23 +136,24 @@ def linecard(
     else:
         font_default = font_normal
 
-    paddingX = padding[0]
-    paddingY = padding[1]
+    cmap_default = TTFont(font_default.path, fontNumber = font_default.index).getBestCmap()
+
+    padding_x = padding[0]
+    padding_y = padding[1]
 
     X = []
     Y = [0,]
     Text = []
-
-    line_length = []
 
     text_y = 0
     maxFontLine = 0 # 如果本行是通过[nowrap]不换行标记拼接的多个行，那么记录最大的字体宽度以在换行时使用最大的字体
 
     align = "left"
     font = font_default
+    cmap = cmap_default
     color = None
     passport = 0
-    autowrap = True
+    noautowrap = True
 
     for line in lines:
         passport -= 1
@@ -192,18 +177,24 @@ def linecard(
                 inner_font_name,inner_font_size = font.split("][",1)
                 inner_font_size = int(inner_font_size)
                 inner_font_size = inner_font_size if inner_font_size else font_size
-                font = ImageFont.truetype(font = inner_font_name, size = inner_font_size, encoding = "utf-8")
+                try:
+                    font = ImageFont.truetype(font = inner_font_name, size = inner_font_size, encoding = "utf-8")
+                    cmap = TTFont(font.path, fontNumber = font.index).getBestCmap()
+                except OSError:
+                    font, cmap = font_default, cmap_default
             elif font == "[font_big]":
-                font = font_big
+                font, cmap = font_big, cmap_default
+            elif font == "[font_normal]":
+                font, cmap = font_normal, cmap_default
             elif font == "[font_small]":
-                font = font_small
+                font, cmap = font_small, cmap_default
             else:
-                font = font_normal
+                font, cmap = font_default, cmap_default
         else:
             if passport == 1:
                 pass
             else:
-                font = font_default
+                font, cmap = font_default, cmap_default
 
         if res := remove_tag(line,linecard_pattern.color):
             line, color = res
@@ -216,19 +207,19 @@ def linecard(
 
         if res := remove_tag(line,linecard_pattern.noautowrap):
             line = res[0]
-            autowrap = False
+            noautowrap = True
         else:
             if passport == 1:
                 pass
             else:
-                autowrap = True
+                noautowrap = False
 
         if res := remove_tag(line,linecard_pattern.nowrap):
             line = res[0]
             maxFontLine = max(maxFontLine,int(font.size * spacing))
         else:
-            if autowrap and width and font.getlength(line) > width:
-                line,inner_line_count = line_warp(line,width - paddingX,font)
+            if autowrap and not noautowrap and width and font.getlength(line) > width:
+                line,inner_line_count = line_wrap(line,width - padding_x,font)
                 text_y += max(maxFontLine,inner_line_count * int(font.size * spacing))
             else:
                 text_y += max(maxFontLine,int(font.size * spacing))
@@ -238,40 +229,80 @@ def linecard(
             line = res[0]
             passport = 2
 
-        line_length.append(int(font.getlength(line) if align == "left" else 0))
+        X.append(int(font.getlength(line)))
         Y.append(text_y)
-        Text.append([line, font, color, align])
+        Text.append([line, font, cmap, color, align])
+    
+    width = width if width else (max(X) + padding_x*2)
+    height = height if height else (Y[-1] + padding_y*2)
 
-    for i in range(len(lines)):
-        if Y[i] == Y[i-1]:
-            X.append(line_length[i-1])
-            line_length[i] += line_length[i-1]
+    Text_XY = []
+    for i, (line, font, cmap, color, align) in enumerate(Text):
+        if align == "right":
+            text_x = int(width - font.getlength(line) - padding_x)
+        elif align == "center":
+            text_x = (width - font.getlength(line) )//2
+        elif align.isdigit():
+            text_x = int(align)
         else:
-            X.append(0)
+            if Y[i] == Y[i-1]:
+                inner_x = X[i-1]
+                X[i] += X[i-1]
+            else:
+                inner_x = 0
+            text_x = inner_x + padding_x
 
-    width = width if width else (max(line_length) + paddingX*2)
-    height = height if height else (Y[-1] + paddingY*2)
+        text_y = Y[i] + padding_y
+
+        # 这一行的起始位置
+        Text_XY.append([None,None,None,text_x,text_y])
+        new_line = ""
+        inner_index = 0
+        inner_iterations = len(line)
+        while inner_index < inner_iterations:
+            char = line[inner_index]
+            ordchar = ord(char)
+            if ordchar in cmap:
+                new_line += char
+            else:
+                if new_line:
+                    Text_XY[-1][0] = new_line
+                    Text_XY[-1][1] = font
+                    Text_XY[-1][2] = color
+                    Text_XY.append([None,None,None,int(Text_XY[-1][3] + font.getlength(new_line)),text_y])
+                for inner_font in fallback_fonts_cmap:
+                    if ordchar in fallback_fonts_cmap[inner_font]:
+                        inner_fallback_font = ImageFont.truetype(font = inner_font, size = font.size, encoding="utf-8")
+                        break
+                else:
+                    char = "□"
+                    inner_fallback_font = font
+
+                Text_XY[-1][0] = char
+                Text_XY[-1][1] = inner_fallback_font
+                Text_XY[-1][2] = color
+                Text_XY.append([None,None,None,int(Text_XY[-1][3] + inner_fallback_font.getlength(char)),text_y])
+                new_line = ""
+            inner_index += 1
+        else:
+            if new_line:
+                Text_XY[-1][0] = new_line
+                Text_XY[-1][1] = font
+                Text_XY[-1][2] = color
+            else:
+                del Text_XY[-1]
+            X[i] = Text_XY[-1][3]
 
     canvas = canvas if canvas else Image.new("RGBA", (width, height), bg_color)
     draw = ImageDraw.Draw(canvas)
 
-    for i in range(len(lines)):
-        line, font, color, align = Text[i]
-        text_y = Y[i] + paddingY
+    for i,(line,font,color,text_x,text_y)in enumerate(Text_XY):
         if line == "----":
-            tmp = text_y + font.size//2
             color = color if color else 'gray'
+            tmp = text_y + font.size//2
             draw.line(((0, tmp), (width, tmp)), fill = color, width = 4)
         else:
             color = color if color else 'black'
-            if align == "right":
-                text_x = int(width - font.getlength(line) - paddingX)
-            elif align == "center":
-                text_x = (width - font.getlength(line) )//2
-            elif align.isdigit():
-                text_x = int(align)
-            else:
-                text_x = X[i] + paddingX
             draw.text((text_x, text_y),line, fill = color, font = font)
 
     if endline:
@@ -280,11 +311,6 @@ def linecard(
         draw.text((text_x,height - 45),endline, fill = "gray", font = font_small)
 
     return canvas
-
-def linecard_to_png(msg):
-    output = BytesIO()
-    linecard(msg,width = 880,bg_color = "white",endline = "抽卡结果").save(output, format = "png")
-    return output
 
 def gacha_info0(report:IMG, info:List[IMG]):
     """
@@ -390,7 +416,7 @@ def my_info_statistics(dist):
         labeldistance = 1.05
         )
     plt.axis('equal')
-    plt.subplots_adjust(top = 0.95, bottom = 0.05, right = 0.9, left = 0.5, hspace = 0, wspace = 0)
+    plt.subplots_adjust(top = 0.95, bottom = 0.05, left = 0.32, hspace = 0, wspace = 0)
     plt.savefig(output,format='png', dpi = 100, transparent = True)
     plt.close()
     return Image.open(output)
@@ -402,7 +428,7 @@ def my_info_account(msg:str, dist):
     canvas = Image.new("RGBA", (880, 400))
     statistics = my_info_statistics(dist)
     canvas.paste(statistics, (880 - statistics.size[0], 0))
-    linecard(msg, 880, 400,padding = (20,30),endline = "账户信息",canvas = canvas)
+    linecard(msg, width = 880, height = 400,padding = (20,30),endline = "账户信息",canvas = canvas)
     return canvas
 
 async def group_info_head(group_name:str, company_name:str, group_id:int, member_count:Tuple[int,int]):

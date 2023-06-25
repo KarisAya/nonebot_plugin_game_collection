@@ -176,7 +176,7 @@ def gacha(event:MessageEvent, N:int):
         elif pt < 3:
             level = "[left][color][#0033FF]☆ ☆ ☆ ☆ ☆[nowrap][passport]\n[center]概率之子[nowrap][passport]\n[right]☆ ☆ ☆ ☆ ☆"
         else:
-            level = "[noautowrap][center][color][#FF0000]☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆"
+            level = "[center][color][#FF0000]☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆"
         msg = (
             f"{level}\n"
             "----\n"
@@ -194,7 +194,7 @@ def gacha(event:MessageEvent, N:int):
             "----\n"
             ) + msg
         
-    return MessageSegment.image(linecard_to_png(msg))
+    return MessageSegment.image(linecard_to_png(msg,font_size = 40 , width = 880, endline = "抽卡结果"))
 
 class Prop(str):
     def use(self, event:MessageEvent, count:int):
@@ -338,7 +338,7 @@ class Prop(str):
             "----\n"
             ) + msg
 
-        return MessageSegment.image(linecard_to_png(msg))
+        return MessageSegment.image(linecard_to_png(msg,font_size = 40, width = 880,endline = "抽卡结果"))
 
     @classmethod
     def use_33101(cls, event:MessageEvent, count:int) -> str:

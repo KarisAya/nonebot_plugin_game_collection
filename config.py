@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple,Set
 from pydantic import BaseModel, Extra
 
 class Config(BaseModel, extra=Extra.ignore):
@@ -22,6 +22,23 @@ class Config(BaseModel, extra=Extra.ignore):
     lucky_clover = "• ＬＵＣＫＹ  ＣＬＯＶＥＲ •"
     # 默认显示字体
     game_fontname = "simsun"
+    game_fallback_fonts = [
+        "Arial",
+        "Tahoma",
+        "Helvetica Neue",
+        "Segoe UI",
+        "PingFang SC",
+        "Hiragino Sans GB",
+        "Microsoft YaHei",
+        "Source Han Sans SC",
+        "Noto Sans SC",
+        "Noto Sans CJK JP",
+        "WenQuanYi Micro Hei",
+        "Apple Color Emoji",
+        "Noto Color Emoji",
+        "Segoe UI Emoji",
+        "Segoe UI Symbol"
+        ]
 
     """+++++++++++++++++
     ——————————
@@ -82,6 +99,7 @@ bet_gold = config.bet_gold
 gacha_gold = config.gacha_gold
 lucky_clover = config.lucky_clover
 fontname = config.game_fontname
+fallback_fonts = config.game_fallback_fonts
 setting_track_length = config.setting_track_length
 setting_random_min_length = config.setting_random_min_length
 setting_random_max_length = config.setting_random_max_length

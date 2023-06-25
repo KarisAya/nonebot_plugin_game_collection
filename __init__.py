@@ -8,6 +8,7 @@ from nonebot.adapters.onebot.v11 import (
     GroupMessageEvent,
     Message,
 )
+from nonebot import get_driver
 from nonebot.permission import SUPERUSER
 from nonebot import on_message, on_command, on_regex, on_fullmatch
 from nonebot.params import CommandArg, Arg
@@ -57,7 +58,6 @@ except ModuleNotFoundError:
     logger.info("当前nonebot版本无法使用插件元数据。")    
 
 scheduler = require("nonebot_plugin_apscheduler").scheduler
-
 
 # 赛马创建
 RaceNew = on_command("赛马创建", aliases = {"创建赛马"}, permission = GROUP, priority = 20, block = True)

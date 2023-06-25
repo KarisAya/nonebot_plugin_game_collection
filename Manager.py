@@ -7,14 +7,17 @@ from nonebot.adapters.onebot.v11 import (
     GroupMessageEvent,
     MessageSegment,
     )
+from nonebot import get_driver
 from collections import Counter
 
 from .utils.utils import image_url
-from .utils.chart import text_to_png, gini_coef, default_BG
+from .utils.chart import linecard_to_png, gini_coef, default_BG
 from .utils.avatar import download_url
 from .data import DataBase, UserDict, GroupAccount, GroupDict
 from .data import props_library
 from .config import revolt_gold, max_bet_gold, lucky_clover, path, BG_image
+
+driver = get_driver()
 
 # 加载数据
 
@@ -155,19 +158,19 @@ def Achieve_list(locate:Tuple[UserDict,GroupAccount]):
         count = int(count/max_bet_gold)
         count = str(count) if count < 1000 else "MAX"
         level =f"Lv.{count}"
-        rank.append(f"◆ 金库 {level}")
+        rank.append(f"◆金库 {level}")
 
     count = user.Achieve_win
     if count >1:
         count = str(count) if count < 1000 else "MAX"
         level =f"Lv.{count}"
-        rank.append(f"◆ 连胜 {level}")
+        rank.append(f"◆连胜 {level}")
 
     count = user.Achieve_lose
     if count >1:
         count = str(count) if count < 1000 else "MAX"
         level =f"Lv.{count}"
-        rank.append(f"◇ 连败 {level}")
+        rank.append(f"◇连败 {level}")
 
     return rank
 
@@ -384,8 +387,6 @@ def Newday():
     data.save()
     return log[:-1] if log else "数据一切正常！"
 
-from nonebot import get_driver
-driver = get_driver()
 bot_list = set()
 driver.on_bot_connect(lambda bot:bot_list.add(bot))
 driver.on_bot_disconnect(lambda bot:bot_list.discard(bot))
@@ -394,7 +395,6 @@ async def try_send_private_msg(user_id:int, message: Message) -> bool:
     """
     发送私聊消息
     """
-    global bot_list
     for bot in bot_list:
         friend_list = await bot.get_friend_list()
         friend_list = [friend["user_id"] for friend in friend_list]

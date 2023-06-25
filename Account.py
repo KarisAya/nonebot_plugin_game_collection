@@ -21,7 +21,7 @@ from .utils.chart import (
 from .data import UserDict, GroupAccount
 from .data import props_library, props_index
 from .config import bot_name,sign_gold, revolt_gold, revolt_cd, revolt_gini, max_bet_gold
-from .Manager import BG_path, bot_list
+from .Manager import BG_path,bot_list
 from .Manager import data, company_index, update_company_index
 from . import Manager
 
@@ -260,7 +260,7 @@ async def my_info(event:MessageEvent) -> Message:
     PropsCard = Manager.PropsCard_list((user,group_account))
     msg = ""
     for x in PropsCard:
-        msg += f"----\n{x}\n"
+        msg += f"----\n[center][noautowrap]{x}\n"
     if msg:
         info.append(linecard(msg, width = 880,font_size = 60, endline = "成就卡片"))
 
@@ -281,7 +281,7 @@ async def my_info(event:MessageEvent) -> Message:
         security = [security,"red"]
     msg = ""
     for x in Achieve:
-        msg += x + "\n"
+        msg += f"{x}\n"
     msg += (2-len(Achieve))*"\n"
     msg += (
         f"金币 {'{:,}'.format(gold)}\n"
@@ -309,7 +309,7 @@ async def my_info(event:MessageEvent) -> Message:
         if i := group_account.stocks[stock]:
             msg += f"{company_name}[nowrap]\n[right][color][green]{i}\n"
     if msg:
-        info.append(linecard(msg, 880,endline = "股票信息"))
+        info.append(linecard(msg, width = 880,endline = "股票信息"))
 
     return MessageSegment.image(info_Splicing(info,BG_path(event.user_id)))
 
@@ -347,7 +347,8 @@ def my_props(event:MessageEvent) -> Message:
                      width = 880,
                      padding=(0,20),
                      endline = "特殊道具" if rare == 0 else rare*'☆',
-                     bg_color = (255,255,255,153)
+                     bg_color = (255,255,255,153),
+                     autowrap = True
                      ))
     if msg:
         return MessageSegment.image(info_Splicing(info,BG_path(event.user_id),spacing = 5))

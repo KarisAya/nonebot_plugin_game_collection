@@ -387,14 +387,11 @@ def Newday():
     data.save()
     return log[:-1] if log else "数据一切正常！"
 
-bot_list = set()
-driver.on_bot_connect(lambda bot:bot_list.add(bot))
-driver.on_bot_disconnect(lambda bot:bot_list.discard(bot))
-
 async def try_send_private_msg(user_id:int, message: Message) -> bool:
     """
     发送私聊消息
     """
+    bot_list = driver.bots.values()
     for bot in bot_list:
         friend_list = await bot.get_friend_list()
         friend_list = [friend["user_id"] for friend in friend_list]

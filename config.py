@@ -25,19 +25,19 @@ class Config(BaseModel, extra=Extra.ignore):
     game_fallback_fonts = [
         "Arial",
         "Tahoma",
-        "Helvetica Neue",
+        "Microsoft YaHei",
         "Segoe UI",
+        "Segoe UI Emoji",
+        "Segoe UI Symbol",
+        "Helvetica Neue",
         "PingFang SC",
         "Hiragino Sans GB",
-        "Microsoft YaHei",
         "Source Han Sans SC",
         "Noto Sans SC",
         "Noto Sans CJK JP",
         "WenQuanYi Micro Hei",
         "Apple Color Emoji",
         "Noto Color Emoji",
-        "Segoe UI Emoji",
-        "Segoe UI Symbol"
         ]
 
     """+++++++++++++++++

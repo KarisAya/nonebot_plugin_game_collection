@@ -21,7 +21,7 @@ from .utils.chart import (
 from .data import UserDict, GroupAccount
 from .data import props_library, props_index
 from .config import bot_name,sign_gold, revolt_gold, revolt_cd, revolt_gini, max_bet_gold
-from .Manager import BG_path,bot_list
+from .Manager import BG_path,driver
 from .Manager import data, company_index, update_company_index
 from . import Manager
 
@@ -260,9 +260,9 @@ async def my_info(event:MessageEvent) -> Message:
     PropsCard = Manager.PropsCard_list((user,group_account))
     msg = ""
     for x in PropsCard:
-        msg += f"----\n[center][noautowrap]{x}\n"
+        msg += f"----\n[center]{x}\n"
     if msg:
-        info.append(linecard(msg, width = 880,font_size = 60, endline = "成就卡片"))
+        info.append(linecard(msg+"----", width = 880,padding = (0,-28),spacing = 1, font_size = 60))
 
     # 加载成就卡片
     Achieve = Manager.Achieve_list((user,group_account))[:2]
@@ -510,6 +510,7 @@ async def delist():
         清理无效账户
         """
         mapping = {}
+        bot_list = driver.bots.values()
         for bot in bot_list:
             group_list = await bot.get_group_list(no_cache = True)
             for group in group_list:

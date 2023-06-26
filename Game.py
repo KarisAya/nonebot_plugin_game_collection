@@ -448,7 +448,7 @@ class Game(ABC):
         输出结算界面
         """
         result = self.settle(event.group_id)
-        tmp = MessageSegment.image(linecard_to_png(result[1], width = 840))
+        tmp = MessageSegment.image(linecard_to_png(result[1], width = 880))
         await bot.send(event,result[0])
         await bot.send(event,tmp)
         await asyncio.sleep(0.5)
@@ -670,7 +670,7 @@ class Dice(Game):
             f'领先：{user_data[session.win].group_accounts[group_id].nickname}\n'
             f'下一回合：{next_name}'
             )
-        await bot.send(event,message = MessageSegment.image(linecard_to_png(msg, width = 660)))
+        await bot.send(event,message = MessageSegment.image(linecard_to_png(msg, width = 700)))
         if session.round > 10:
             await self.end(bot, event)
 
@@ -907,7 +907,7 @@ class Poker(Game):
             "".join([f'【{self.pokerACT.suit[suit]}{self.pokerACT.point[point]}】' for suit, point in Passive["hand"]])
             )
         await asyncio.sleep(0.5)
-        await bot.send(event, message = MessageSegment.image(linecard_to_png(msg, width = 840)))
+        await bot.send(event, message = MessageSegment.image(linecard_to_png(msg, width = 880)))
 
         if next_name == "游戏结束":
             Passive["HP"] = Passive["HP"] + 100 if Passive["HP"] >= 40 else Passive["HP"]
@@ -936,7 +936,7 @@ class Poker(Game):
             "----\n"
             "P1初始手牌\n[center]" + 
             "".join([f'【{self.pokerACT.suit[suit]}{self.pokerACT.point[point]}】' for suit, point in self.P1["hand"]])
-            ), width = 840))
+            ), width = 880))
         return self.acceptmessage(tip1, tip2);
 
     def end_tips(self):
@@ -1224,7 +1224,7 @@ class Cantrell(Game):
                 session.win = session.player1_id if self.pt1[0] > self.pt2[0] else session.player2_id
                 await self.end(bot, event)
             else:
-                return MessageSegment.image(linecard_to_png(f"您已跟注{gold}金币\n" + msg, width = 840))
+                return MessageSegment.image(linecard_to_png(f"您已跟注{gold}金币\n" + msg, width = 880))
         else:
             self.gold = gold
             return MessageSegment.at(event.user_id) + f"您已加注{gold}金币"
@@ -1249,7 +1249,7 @@ class Cantrell(Game):
             "\n----\n"
             'P2初始手牌\n'
             "|" + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand2[0:3]]) + "   |   |"
-            ), width = 840))
+            ), width = 880))
         return self.acceptmessage(tip1, tip2);
 
     def end_tips(self):
@@ -1262,7 +1262,7 @@ class Cantrell(Game):
             "\n----\n"
             "P2手牌：\n"
             "|" + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand2]) +
-            f"\n牌型：\n{self.pt2[1]}"), width = 840))
+            f"\n牌型：\n{self.pt2[1]}"), width = 880))
 
 class Blackjack(Game):
     """
@@ -1538,7 +1538,7 @@ class HorseRace(AROF):
             #场地显示
             display = race.display()
         
-            output = linecard_to_png(display,font_size = 30)
+            output = linecard_to_png(display, font_size = 30)
 
             try:
                 await bot.send(event,(Message(text) + MessageSegment.image(output)))

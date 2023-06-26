@@ -83,17 +83,15 @@ def remove_tag(string, pattern):
 
 def line_wrap(line:str,width:int,font, start:int = 0):
     text_x = start
-    line_count = 1
     new_str = ""
     for char in line:
         text_x += font.getlength(char)
         if text_x > width:
             new_str += "\n" + char
             text_x = 0
-            line_count += 1 
         else:
             new_str += char
-    return new_str,line_count
+    return new_str
 
 def linecard(
     text:str,
@@ -140,34 +138,29 @@ def linecard(
     padding_x = padding[0]
     padding_y = padding[1]
 
-    X = []
-    Y = [0,]
-    Text = []
-
-    text_y = 0
-    maxFontLine = 0 # 如果本行是通过[nowrap]不换行标记拼接的多个行，那么记录最大的字体宽度以在换行时使用最大的字体
-
     align = "left"
+
     font = font_default
     cmap = cmap_default
     color = None
     passport = 0
     noautowrap = True
+    nowrap = False
 
+    x,max_x,y,charlist = (0.0,0.0,0.0,[])
     for line in lines:
         passport -= 1
-
         if res := remove_tag(line,linecard_pattern.align):
             line, align = res
             if align.startswith("[pixel]["):
                 align = align[8:-1]
+                x = 0
             else:
                 align = align[1:-1]
+        elif nowrap:
+            align = "nowrap"
         else:
-            if passport == 1:
-                pass
-            else:
-                align = "left"
+            align = "left"
 
         if res := remove_tag(line,linecard_pattern.font):
             line, font = res
@@ -215,96 +208,77 @@ def linecard(
 
         if res := remove_tag(line,linecard_pattern.nowrap):
             line = res[0]
-            maxFontLine = max(maxFontLine,int(font.size * spacing))
+            nowrap = True
         else:
-            if autowrap and not noautowrap and width and font.getlength(line) > width:
-                line,inner_line_count = line_wrap(line,width - padding_x,font)
-                text_y += max(maxFontLine,inner_line_count * int(font.size * spacing))
-            else:
-                text_y += max(maxFontLine,int(font.size * spacing))
-            maxFontLine = 0
+            nowrap = False
 
         if res := remove_tag(line,linecard_pattern.passport):
             line = res[0]
             passport = 2
 
-        X.append(int(font.getlength(line)))
-        Y.append(text_y)
-        Text.append([line, font, cmap, color, align])
-    
-    width = width if width else (max(X) + padding_x*2)
-    height = height if height else (Y[-1] + padding_y*2)
+        if autowrap and not noautowrap and width and font.getlength(line) > width:
+            line = line_wrap(line,width - padding_x,font,x)
 
-    Text_XY = []
-    for i, (line, font, cmap, color, align) in enumerate(Text):
-        if align == "right":
-            text_x = int(width - font.getlength(line) - padding_x)
-        elif align == "center":
-            text_x = (width - font.getlength(line) )//2
-        elif align.isdigit():
-            text_x = int(align)
+        if line == "----":
+            inner_tmp = font.size * spacing
+            charlist.append([line, None, y, inner_tmp, color, None])
+            y += inner_tmp
         else:
-            if Y[i] == Y[i-1]:
-                inner_x = X[i-1]
-                X[i] += X[i-1]
-            else:
-                inner_x = 0
-            text_x = inner_x + padding_x
+            linesegs = line.split('\n')
+            for seg in linesegs:
+                for char in seg:
+                    ordchar = ord(char)
+                    if ordchar in cmap:
+                        inner_font = font
+                    else:
+                        for fallback_font in fallback_fonts_cmap:
+                            if ordchar in fallback_fonts_cmap[fallback_font]:
+                                inner_font = ImageFont.truetype(font = fallback_font, size = font.size, encoding="utf-8")
+                                break
+                        else:
+                            char = "□"
+                            inner_font = font
+                    charlist.append([char, x, y, inner_font, color, align])
+                    x += inner_font.getlength(char)
 
-        text_y = Y[i] + padding_y
+                x,y = (x,y) if nowrap else (0, y + font.size * spacing)
 
-        # 这一行的起始位置
-        Text_XY.append([None,None,None,text_x,text_y])
-        new_line = ""
-        inner_index = 0
-        inner_iterations = len(line)
-        flag = False
-        while inner_index < inner_iterations:
-            char = line[inner_index]
-            ordchar = ord(char)
-            if ordchar in cmap:
-                new_line += char
-            else:
-                flag = True
-                if new_line:
-                    Text_XY[-1][0] = new_line
-                    Text_XY[-1][1] = font
-                    Text_XY[-1][2] = color
-                    Text_XY.append([None,None,None,int(Text_XY[-1][3] + font.getlength(new_line)),text_y])
-                for inner_font in fallback_fonts_cmap:
-                    if ordchar in fallback_fonts_cmap[inner_font]:
-                        inner_fallback_font = ImageFont.truetype(font = inner_font, size = font.size, encoding="utf-8")
-                        break
-                else:
-                    char = "□"
-                    inner_fallback_font = font
-
-                Text_XY[-1][0] = char
-                Text_XY[-1][1] = inner_fallback_font
-                Text_XY[-1][2] = color
-                Text_XY.append([None,None,None,int(Text_XY[-1][3] + inner_fallback_font.getlength(char)),text_y])
-                new_line = ""
-            inner_index += 1
-        if new_line:
-            Text_XY[-1][0] = new_line
-            Text_XY[-1][1] = font
-            Text_XY[-1][2] = color
-        else:
-            del Text_XY[-1]
-        if flag:
-            X[i] = Text_XY[-1][3]
-
+    width = width if width else int(max_x + padding_x*2)
+    height = height if height else int(y + padding_y*2)
     canvas = canvas if canvas else Image.new("RGBA", (width, height), bg_color)
     draw = ImageDraw.Draw(canvas)
 
-    for i,(line,font,color,text_x,text_y)in enumerate(Text_XY):
-        if line == "----":
+    for i, (char, x, y, font, color, align)in enumerate(charlist):
+        if char == "----":
             color = color if color else 'gray'
-            tmp = text_y + font.size//2
-            draw.line(((0, tmp), (width, tmp)), fill = color, width = 4)
+            inner_y = y + (font - 0.5)//2 + padding_y
+            draw.line(((0, inner_y), (width, inner_y)), fill = color, width = 4)
         else:
+            if align == "left":
+                start_x = padding_x
+            elif align == "nowrap":
+                pass
+            elif align.isdigit():
+                start_x = int(align)
+            else:
+                for inner_i,inner_y in enumerate(map(lambda x:(x[2]),charlist[i:])):
+                    if inner_y != y:
+                        inner_index = charlist[i + inner_i - 1]
+                        break
+                else:
+                    inner_index = charlist[-1]
+                inner_char = inner_index[0]
+                inner_font = inner_index[3]
+                inner_x = inner_index[1]
+                inner_x += inner_font.getlength(inner_char)
+                if align == "right":
+                    start_x = width - inner_x - padding_x
+                elif align == "center":
+                    start_x = (width - inner_x)//2
+                else:
+                    start_x = padding_x
             color = color if color else 'black'
-            draw.text((text_x, text_y),line, fill = color, font = font)
+            draw.text((start_x + x, y + padding_y), char, fill = color, font = font)
 
     if endline:
         draw.line(((0, height - 60), (width, height - 60)), fill = "gray", width = 4)

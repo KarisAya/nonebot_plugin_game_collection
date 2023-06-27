@@ -240,7 +240,7 @@ def linecard(
                             inner_font = font
                     charlist.append([char, x, y, inner_font, color, align])
                     x += inner_font.getlength(char)
-
+                max_x = max(max_x,x)
                 x,y = (x,y) if nowrap else (0, y + font.size * spacing)
 
     width = width if width else int(max_x + padding_x*2)

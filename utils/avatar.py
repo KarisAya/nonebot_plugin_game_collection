@@ -4,10 +4,10 @@ from io import BytesIO
 from PIL import Image
 
 async def download_avatar(user_id:int) -> bytes:
-    url = f"http://q1.qlogo.cn/g?b=qq&nk={user_id}&s=640"
+    url = f"https://q1.qlogo.cn/g?b=qq&nk={user_id}&s=640"
     if data := await download_url(url):
         return BytesIO(data)
-    url = f"http://q1.qlogo.cn/g?b=qq&nk={user_id}&s=100"
+    url = f"https://q1.qlogo.cn/g?b=qq&nk={user_id}&s=100"
     if data := await download_url(url):
         return BytesIO(data)
 

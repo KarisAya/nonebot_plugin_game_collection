@@ -17,18 +17,18 @@ try:
 except ModuleNotFoundError:
     import json
 
-from .utils.chart import linecard, group_info_head, info_Splicing
+from .utils.chart import linecard, group_info_head, info_splicing
 from .data import GroupAccount, Company, ExchangeInfo
 from .data import OHLC, props_library
 from .config import bot_name, revolt_gini, max_bet_gold, path
 
-from .Manager import data, company_index
-from .Manager import BG_path, update_company_index
-
 from . import Manager
 
+data = Manager.data
 user_data = data.user
 group_data = data.group
+
+company_index = Manager.company_index
 
 def check_company_name(company_name:str):
     """
@@ -36,7 +36,7 @@ def check_company_name(company_name:str):
     """
     if not company_name:
         return f"公司名称不能为空"
-    update_company_index()
+    Manager.update_company_index()
     if company_name in company_index:
         return f"{company_name} 已被注册"
     if " " in company_name or "\n" in company_name:
@@ -74,15 +74,15 @@ def public(event:GroupMessageEvent,company_name:str):
     company = group_data[group_id].company
     company.company_id = group_id
     company.company_name = company_name
-    company.level = 1
     company.time = time.time()
-    company.stock = 20000
-    company.issuance = 20000
+    company.level = sum(group_data[group_id].Achieve_revolution.values()) + 1
+    company.issuance = 20000*company.level
+    company.stock = company.issuance
     company.gold = gold * 0.8
     company.float_gold = company.gold
     company.group_gold = gold
     company.intro = f"发行初始信息\n金币 {round(gold,2)}\n基尼系数{round(gini,3)}\n{company_name} 名称检查通过\n发行成功！"
-    update_company_index()
+    Manager.update_company_index()
     data.save()
     return f'{company_name}发行成功，发行价格为每股{round((gold/ 20000),2)}金币'
 
@@ -102,7 +102,7 @@ def rename(event:GroupMessageEvent,company_name:str):
         return check
     old_company_name = company.company_name
     company.company_name = company_name
-    update_company_index()
+    Manager.update_company_index()
     return f'【{old_company_name}】已重命名为【{company_name}】'
 
 def value_update(group_account:GroupAccount):
@@ -460,7 +460,7 @@ async def group_info(bot:Bot, event:MessageEvent, group_id:int):
         if msg:
             info.append(linecard(msg + '\n', width = 880, font_size = 40,endline = "公司介绍"))
 
-    return MessageSegment.image(info_Splicing(info, BG_path(event.user_id)))
+    return MessageSegment.image(info_splicing(info, Manager.BG_path(event.user_id)))
 
 def stock_profile(company:Company) -> str:
     """
@@ -500,7 +500,7 @@ def Market_info_All(event:MessageEvent, ohlc:bool = False):
                     "data":{
                         "name":f"{bot_name}",
                         "uin":str(event.self_id),
-                        "content":MessageSegment.image(info_Splicing(info, BG_path(event.user_id)))}})
+                        "content":MessageSegment.image(info_splicing(info, Manager.BG_path(event.user_id)))}})
     return msg
 
 def update_intro(company_name:str, intro:str):

@@ -6,16 +6,16 @@ from nonebot.adapters.onebot.v11 import (
 import random
 
 from .utils.utils import get_message_at
-from .utils.chart import linecard_to_png
-from .data import props_library, props_index, element_library
+from .utils.chart import linecard_to_png,line_splicing
+from .data import GroupAccount, props_library, props_index, element_library
 from .config import bot_name, sign_gold, revolt_gold, max_bet_gold, gacha_gold
 
-from .Manager import data
+from .Alchemy import Alchemy
 from . import Manager
 
+data = Manager.data
 user_data = data.user
 group_data = data.group
-
 
 
 def random_props() -> str:
@@ -348,26 +348,38 @@ class Prop(str):
         user,group_account = Manager.locate_user(event)
         if not group_account:
             return "私聊未关联账户，请发送【关联账户】关联群内账户。"
-        props = user.props
-        if props.get("33101",0) < count:
-            return "数量不足"
 
-        props["33101"] -= count
+        tmp = count*3
+        props = user.props
+        if props.get("33101",0) < tmp:
+            return "每次炼金需要消耗3个初级元素，你持有的初级元素数量不足。"
+
+        props["33101"] -= tmp
         if props["33101"] < 1:
             del props["33101"]
 
         res = {}
-        for i in range(count*4):
-            element_code = f"0{random.randint(1,4)}01"
-            res.setdefault(element_code,0)
-            res[element_code] += 1
-        msg = "你获得了\n"
-        for element_code in res:
-            n = res[element_code]
-            user.alchemy.setdefault(element_code,0)
-            user.alchemy[element_code] += n
-            msg += f'{element_library[element_code]["name"]}：{n}个\n' 
-        return msg + "祝你好运~"
+        info = []
+        if count <= 20:
+            msg = ""
+            for _ in range(count):
+                originproduct = random.choices(Alchemy.elements,k = 3)
+                product = Alchemy.ProductsLibrary.get("".join(list(set(originproduct))),"")
+                msg += f'|{"|".join(Alchemy.ProductsName[x] for x in originproduct)}| >>>> {Alchemy.ProductsName[product]}\n'
+                res[product] = res.get(product, 0) + 1
+            info.append(f"合成结果：\n----\n{msg[:-1]}")
+        else:
+            res = Alchemy.do(count)
+        msg = ""
+        for product,N in res.items():
+            if product:
+                user.alchemy[product] = user.alchemy.get(product, 0) + N
+            msg += f'{Alchemy.ProductsName[product]}：{N}个\n'
+        info.append(f"你获得了：\n----\n{msg[:-1]}")
+        if count < 3:
+            return "\n".join(info) + "\n祝你好运"
+        else:
+            return MessageSegment.image(line_splicing(info))
 
     @classmethod
     def use_42101(cls, event:MessageEvent) -> str:
@@ -384,10 +396,9 @@ class Prop(str):
         else:
             at = int(at[0])
 
-        if at not in group_data[group_id].namelist:
-            return "对方没有账户。"
-
         user,group_account = Manager.locate_user(event)
+        target_user,target_group_account = Manager.locate_user_at(event,at)
+
         props = group_account.props
         if props.get("42101",0) < 1:
             return "数量不足"
@@ -396,8 +407,7 @@ class Prop(str):
         if props["42101"] < 1:
             del props["42101"]
 
-        target_user = user_data[at]
-        target_group_account = target_user.group_accounts[group_id]
+
         N = random.randint(0,50)
         if N < 30:
             gold = int(group_account.gold * N / 1000)
@@ -450,8 +460,8 @@ class Prop(str):
         target_id = random.choice([x[0] for x in ranklist if x[1] > revolt_gold[0]])
         if target_id == event.user_id:
             return f"道具使用失败，你损失了一个『{props_library['52101']['name']}』"
-        target_user = user_data[target_id]
-        target_group_account = target_user.group_accounts[group_id]
+
+        target_user,target_group_account = Manager.locate_user_at(event, target_id)
 
         change = int((group_account.gold - target_group_account.gold) / 2)
         limit = min((group_account.gold, target_group_account.gold))
@@ -611,13 +621,13 @@ class Prop(str):
         user_id = user.user_id
         for company_id in group_account.stocks:
             company = group_data[company_id].company
-            company.stock += group_account.stocks[company_id]
-            exchange = company.exchange
-            if user_id in exchange:
-                del exchange[user_id]
+            company.Buyback(group_account)
         user.gold -= group_account.gold
-        group_data[group_id].namelist.remove(user_id)
-        del group_account
+        group_account.__init__(
+            user_id = group_account.user_id,
+            group_id = group_account.group_id,
+            nickname = group_account.nickname
+            )
         return "你在本群的账户已重置，祝你好运~"
 
 def use_prop(event:MessageEvent, prop_name:str, count:int):

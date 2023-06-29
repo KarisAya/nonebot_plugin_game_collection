@@ -21,9 +21,9 @@ from .config import bot_name, security_gold, bet_gold, max_bet_gold, max_player,
 from .HorseRace.start import load_dlcs
 from .HorseRace.race_group import race_group
 
-from .Manager import data, try_send_private_msg
 from . import Manager
 
+data = Manager.data
 user_data = data.user
 group_data = data.group
 
@@ -1185,7 +1185,7 @@ class Cantrell(Game):
             "你的手牌：\n"
             + ("|" + "".join([f'{self.cantrell_suit[suit]}{self.cantrell_point[point]}|' for suit, point in hand[0:expose]]) + (5 - expose)*"   |")
             )
-        if not await try_send_private_msg(user_id = event.user_id, message = MessageSegment.image(linecard_to_png(msg))):
+        if not await Manager.try_send_private_msg(user_id = event.user_id, message = MessageSegment.image(linecard_to_png(msg))):
             await bot.send(event,f"私聊发送失败，请检查是否添加{bot_name}为好友。\n游戏继续！")
 
     async def cantrell_play(self, bot:Bot, event:GroupMessageEvent, gold:int):
@@ -1334,7 +1334,7 @@ class Blackjack(Game):
                 "你的手牌：\n"
                 f'|{"".join([f"{self.Blackjack_suit[suit]}{self.Blackjack_point[point]}|" for suit, point in hand])}\n'
                 + f'合计:{pt}点')
-            if not await try_send_private_msg(user_id = event.user_id, message = MessageSegment.image(linecard_to_png(msg))):
+            if not await Manager.try_send_private_msg(user_id = event.user_id, message = MessageSegment.image(linecard_to_png(msg))):
                 await bot.send(event,f"私聊发送失败，请检查是否添加{bot_name}为好友。\n你的手牌合计:{pt}点\n游戏继续！")
 
     async def Blackjack_Stand(self, bot:Bot, event:GroupMessageEvent):
@@ -1398,6 +1398,74 @@ class Blackjack(Game):
             "P2手牌：\n"
             f'|{"".join([f"{Blackjack_suit[suit]}{Blackjack_point[point]}|" for suit, point in hand2])}\n'
             f'合计:{Blackjack_pt(hand2)}点')))
+
+class ABCard(Game):
+    """
+    AB牌
+    """
+    name = "ABCard"
+    max_bet_gold:int = max_bet_gold *5
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        gold = kwargs["gold"]
+        self.gold:int = gold
+        self.hand1 = {"A","B","1","2","3"}
+        self.hand2 = {"A","B","1","2","3"}
+        self.session.gold = gold
+
+    async def action(self, bot:Bot, event:GroupMessageEvent, *args):
+        """
+        开枪！！！
+        """
+        session = self.session
+        if msg := session.shot_check(event):
+            return None if msg == " " else msg
+        group_id = session.group_id
+
+        index = self.index
+        MAG = self.bullet[index:]
+        count = args[0] if args[0] else 1
+        count = len(MAG) if count < 1 else count
+
+        msg = f"连开{count}枪！\n" if count > 1 else ""
+
+        if 1 in MAG[:count]:
+            session.win = session.player1_id if event.user_id == session.player2_id else session.player2_id
+            await bot.send(event,(
+                MessageSegment.at(event.user_id) + msg +
+                random.choice(["嘭！，你直接去世了","眼前一黑，你直接穿越到了异世界...(死亡)","终究还是你先走一步..."]) +
+                f"\n第 {index + MAG.index(1) + 1} 发子弹送走了你..."
+                ))
+            await self.end(bot, event)
+        else:
+            session.nextround()
+            self.index += count
+            next_name = user_data[session.next].group_accounts[group_id].nickname
+            await bot.send(event,msg + (
+                random.choice(["呼呼，没有爆裂的声响，你活了下来",
+                               "虽然黑洞洞的枪口很恐怖，但好在没有子弹射出来，你活下来了",
+                               f'{"咔 "*count}，看来运气不错，你活了下来']) +
+                f"\n下一枪中弹的概率：{round(self.bullet_num * 100 / (len(MAG) - count),2)}%\n"
+                f"轮到 {next_name}了"
+                ))
+
+    def game_tips(self, msg):
+        """
+        发起游戏：俄罗斯轮盘
+        """
+        return (("咔 " * self.bullet_num)[:-1] + "，装填完毕\n"
+                f'挑战金额：{self.session.gold}\n'
+                f'第一枪的概率为：{round(self.bullet_num * 100 / 7,2)}%\n'
+                f'{msg}')
+
+    def session_tips(self):
+        tip1 = "本场对决为【俄罗斯轮盘】\n"
+        tip2 = "开枪！"
+        return self.acceptmessage(tip1, tip2);
+
+    def end_tips(self):
+        return " ".join(("—" if x == 0 else "|") for x in self.bullet)
 
 class AROF():
     """
@@ -1602,42 +1670,6 @@ class HorseRace(AROF):
 
         del current_games[group_id]
         return "赛马场已重置。"
-
-def slot(event:MessageEvent, gold:int):
-    """
-    幸运花色
-    """
-    user,group_account = Manager.locate_user(event)
-    if not group_account:
-        return "私聊未关联账户，请发送【关联账户】关联群内账户。"
-    if gold > max_bet_gold:
-        return f'幸运花色每次最多{max_bet_gold}金币。'
-    if gold > group_account.gold:
-        return f'你没有足够的金币，你的金币：{user_data["group_account.gold:"]}。'
-    suit = {1:"♤",2:"♡",3:"♧",4:"♢"}
-    x = random.randint(1,4)
-    y = random.randint(1,4)
-    z = random.randint(1,4)
-    res = f"\n| {suit[x]} | {suit[y]} | {suit[z]} |\n"
-    l = len(set([x,y,z]))
-    if l == 1:
-        gold = gold * 7
-        msg =("你抽到的花色为：" +
-              res +
-              f"恭喜你获得了{gold}金币，祝你好运~")
-    elif l == 2:
-        gold = 0
-        msg =("你抽到的花色为：" +
-              res +
-              "祝你好运~")
-    else:
-        gold = -gold
-        msg =("你抽到的花色为：" +
-              res +
-              f"你失去了{-gold}金币 ，祝你好运~")
-    user.gold += gold
-    group_account.gold += gold
-    return msg
 
 def random_game(event:GroupMessageEvent, gold:int):
     """

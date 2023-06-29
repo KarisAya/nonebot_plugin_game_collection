@@ -1,7 +1,7 @@
 from typing import Dict
 from pydantic import BaseModel
 from pathlib import Path
-
+import random
 try:
     import ujson as json
 except ModuleNotFoundError:
@@ -13,6 +13,7 @@ class GroupAccount(BaseModel):
     """
     用户群账户
     """
+    user_id:int = None
     group_id:int = None
     nickname:str = None
     is_sign:bool = False
@@ -23,12 +24,15 @@ class GroupAccount(BaseModel):
     stocks:Dict[int,int] = {}
     props:Dict[str,int] = {}
 
-    def init(self,event:GroupMessageEvent):
+    def __init__(self, event:GroupMessageEvent = None, **obj):
         """
         初始化群账户
         """
-        self.group_id = event.group_id
-        self.nickname = event.sender.card or event.sender.nickname
+        super().__init__(**obj)
+        if event:
+            self.user_id = event.user_id
+            self.group_id = event.group_id
+            self.nickname = event.sender.card or event.sender.nickname
 
 class UserDict(BaseModel):
     """
@@ -47,12 +51,14 @@ class UserDict(BaseModel):
     props:Dict[str,int] = {}
     alchemy:Dict[str,int] = {}
 
-    def init(self,event:MessageEvent):
+    def __init__(self, event:MessageEvent = None, **obj):
         """
         初始化用户字典
         """
-        self.user_id = event.user_id
-        self.nickname = event.sender.nickname
+        super().__init__(**obj)
+        if event:
+            self.user_id = event.user_id
+            self.nickname = event.sender.nickname
 
 class UserData(Dict[int, UserDict]):
     """
@@ -83,6 +89,19 @@ class Company(BaseModel):
     intro:str = None
     exchange:Dict[int,ExchangeInfo] = {}
 
+    def Buyback(self, group_account:GroupAccount):
+        """
+        让公司回收本账户的股票
+        """
+        stocks = group_account.stocks
+        if count := stocks.get(self.company_id):
+            self.stock += count
+            stocks = 0
+            user_id = group_account.user_id
+            if user_id in self.exchange:
+                del self.exchange[user_id]
+
+
 class GroupDict(BaseModel):
     """
     群字典
@@ -92,13 +111,6 @@ class GroupDict(BaseModel):
     revolution_time:float = 0.0
     Achieve_revolution:Dict[int,int] = {}
     company:Company = Company()
-
-    def init(self,group_id:int):
-        """
-        初始化群字典
-        """
-        self.group_id = group_id
-        self.company.company_id = group_id
 
 class GroupData(Dict[int, GroupDict]):
     """
@@ -138,7 +150,100 @@ class DataBase(BaseModel):
 
         return Truedata
 
+    def verification(self):
+        """
+        数据校验
+        """
+        log = ""
+        user_data = self.user
+        group_data = self.group
+        namelist_check = {k:set() for k in group_data}
+        stock_check = {company.company_id:0 for company in map(lambda group:group.company ,group_data.values()) if company.company_name}
+        # 检查user_data
+        for user_id,user in user_data.items():
+            # 回归
+            user.user_id = user_id
+            # 清理未持有的道具
+            user.props = {k:v for k,v in user.props.items() if v > 0}
+            # 删除无效群账户
+            group_accounts = user.group_accounts = {k:v for k,v in user.group_accounts.items() if k in namelist_check}
+            gold = 0
+            for group_id,group_account in group_accounts.items():
+                gold += group_account.gold
+                # 回归
+                group_account.user_id = user_id
+                group_account.group_id = group_id
+                # 清理未持有的道具
+                group_account.props = {k:v for k,v in group_account.props.items() if v > 0}
+                # 删除无效及未持有的股票
+                stocks = group_account.stocks = {k:v for k,v in group_account.stocks.items() if k in stock_check and v > 0}
+                # 群名单检查
+                namelist_check[group_id].add(user_id)
+                # 股票数检查
+                for company_id,count in stocks.items():
+                    stock_check[company_id] += count
+            # 金币总数
+            log += f"{user.nickname} 金币总数异常。记录值：{user.gold} 实测值：{gold} 数据已修正。\n" if user.gold != gold else ""
+            user.gold = gold
+            # 修复炼金账户
+            user.alchemy = {k:v for k,v in user.alchemy.items() if k in ["1","2","3","4","5","6","7","8","9","0"]}
+        # 检查group_data
+        for group_id,group in group_data.items():
+            # 修正群名单记录
+            log += (
+                f"{group_id} 群名单异常。\n"
+                f"记录多值：{group.namelist - namelist_check[group_id]}\n"
+                f"记录少值：{namelist_check[group_id] - group.namelist}\n"
+                "数据已修正。\n"
+                ) if group.namelist != namelist_check[group_id] else ""
+            group.namelist = namelist_check[group_id]
+            if group_id in stock_check:
+                company = group.company
+                # 回归
+                company.company_id = group_id
+                # 修正公司等级
+                level = sum(group.Achieve_revolution.values()) + 1
+                log += (
+                    f"{company.company_name} 公司等级异常。\n"
+                    f"记录值：{company.level}\n"
+                    f"实测值：{level}\n"
+                    "数据已修正。\n"
+                    ) if company.stock + stock_check[group_id] != company.issuance else ""
+                company.level = level
+                # 修正股票发行量
+                company.issuance = 20000*company.level
+                # 修正股票库存
+                stock = company.issuance - stock_check[group_id]
+                log += (
+                    f"{company.company_name} 股票库存异常。\n"
+                    f"记录值：{company.stock}\n"
+                    f"实测值：{stock}\n"
+                    "数据已修正。\n"
+                    ) if company.stock + stock_check[group_id] != company.issuance else ""
+                company.stock = stock
+        self.save()
+        return log[:-1] if log else "数据一切正常！"
 
+    def Newday(self):
+        """
+        刷新每日
+        """
+        revolution_today = random.randint(1,5) == 1
+        for user in self.user.values():
+            # 刷新转账限额
+            user.transfer_limit = 0
+            # 全局道具有效期 - 1天
+            props = user.props
+            props = {k:min(v-1,30) if k[2] == '0' else v for k,v in props.items()}
+            for group_account in user.group_accounts.values():
+                # 刷新今日签到
+                group_account.is_sign = False
+                # 概率刷新重置签到
+                group_account.revolution = revolution_today
+                # 群内道具有效期 - 1天
+                props = group_account.props
+                props = {k:min(v-1,30) if k[2] == '0' else v for k,v in props.items()}
+        self.save()
 
 """+++++++++++++++++
 ——————————
@@ -180,10 +285,6 @@ def update_props_index(props_index):
 
 props_index:Dict[str,str] = {}
 update_props_index(props_index)
-
-# 加载元素库
-with open(resourcefile / "element_library.json", "r", encoding="utf8") as f:
-    element_library = json.load(f)
 
 # 加载菜单
 with open(resourcefile / "menu_data.json", "r", encoding="utf8") as f:

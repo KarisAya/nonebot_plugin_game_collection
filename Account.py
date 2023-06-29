@@ -16,17 +16,19 @@ from .utils.chart import (
     my_info_head,
     my_info_account,
     linecard,
-    info_Splicing
+    info_splicing
     )
 from .data import UserDict, GroupAccount
 from .data import props_library, props_index
 from .config import bot_name,sign_gold, revolt_gold, revolt_cd, revolt_gini, max_bet_gold
-from .Manager import BG_path,driver
-from .Manager import data, company_index, update_company_index
+
 from . import Manager
 
+data = Manager.data
 user_data = data.user
 group_data = data.group
+
+company_index = Manager.company_index
 
 def gold_create(event:MessageEvent,gold:int) -> str:
     """
@@ -311,7 +313,7 @@ async def my_info(event:MessageEvent) -> Message:
     if msg:
         info.append(linecard(msg, width = 880,endline = "股票信息"))
 
-    return MessageSegment.image(info_Splicing(info,BG_path(event.user_id)))
+    return MessageSegment.image(info_splicing(info,Manager.BG_path(event.user_id)))
 
 def my_props(event:MessageEvent) -> Message:
     """
@@ -350,8 +352,8 @@ def my_props(event:MessageEvent) -> Message:
                      bg_color = (255,255,255,153),
                      autowrap = True
                      ))
-    if msg:
-        return MessageSegment.image(info_Splicing(info,BG_path(event.user_id),spacing = 5))
+    if info:
+        return MessageSegment.image(info_splicing(info,Manager.BG_path(event.user_id),spacing = 5))
     else:
         return "您的仓库空空如也。"
 
@@ -419,7 +421,7 @@ async def group_rank(event:MessageEvent, title:str = "金币") -> str:
     if not (ranklist := Manager.group_ranklist(group_id, title)):
         return "无数据。"
     info = await draw_rank(ranklist, title, 20, group_id = group_id)
-    return MessageSegment.image(info_Splicing(info,BG_path(user_id), spacing = 5))
+    return MessageSegment.image(info_splicing(info,Manager.BG_path(user_id), spacing = 5))
 
 async def All_rank(event:MessageEvent, title:str = "金币", top:int = 10) -> list:
     """
@@ -428,7 +430,7 @@ async def All_rank(event:MessageEvent, title:str = "金币", top:int = 10) -> li
     if not (ranklist := Manager.All_ranklist(title)):
         return None
     info = await draw_rank(ranklist, title, 20)
-    return MessageSegment.image(info_Splicing(info,BG_path(event.user_id), spacing = 5))
+    return MessageSegment.image(info_splicing(info,Manager.BG_path(event.user_id), spacing = 5))
 
 def transfer_fee(amount:int,limit:int) -> int:
     limit = limit if limit > 0 else 0
@@ -470,22 +472,14 @@ def freeze(target:UserDict):
     target_id = target.user_id
     gold = target.gold
     value = 0.0
-    company_ids = set()
     group_accounts = target.group_accounts
-    for group_id in group_accounts:
-        group_account = group_accounts[group_id]
+    for group_id,group_account in group_accounts.items():
         value += group_account.value
-        stocks = group_account.stocks
         group = group_data[group_id]
-        for company_id in stocks:
-            group.company.stock += stocks[company_id]
-            company_ids.add(company_id)
+        for company_id in group_account.stocks:
+            company = group_data[company_id].company
+            company.Buyback(group_account)
         group.namelist.remove(target_id)
-
-    for company_id in company_ids:
-        exchange = group_data[company_id].company.exchange
-        if target_id in exchange:
-            del exchange[target_id]
 
     target.gold = 0
     target.group_accounts = {}
@@ -510,7 +504,7 @@ async def delist():
         清理无效账户
         """
         mapping = {}
-        bot_list = driver.bots.values()
+        bot_list = Manager.driver.bots.values()
         for bot in bot_list:
             group_list = await bot.get_group_list(no_cache = True)
             for group in group_list:
@@ -561,7 +555,7 @@ async def delist():
                 log += f'删除群账户：{user_id} - {group_id}\n'
                 del user_data[user_id].group_accounts[group_id]
                 namelist.discard(user_id)
-        update_company_index()
+        Manager.update_company_index()
         # 保存数据
         data.save()
         return log[:-1] if log else "没有要清理的数据！"

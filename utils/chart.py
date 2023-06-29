@@ -4,6 +4,7 @@ from io import BytesIO
 from PIL import Image,ImageDraw,ImageFont
 from PIL.Image import Image as IMG
 from fontTools.ttLib import TTFont
+from collections import Counter
 
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
@@ -34,9 +35,15 @@ cmap_default = TTFont(font_big.path, fontNumber = font_big.index).getBestCmap()
 
 global fallback_fonts_cmap
 fallback_fonts_cmap = {}
+default_fallback_path = fm.findfont(fm.FontProperties())
 for fallback in fallback_fonts:
     fallback_path = fm.findfont(fm.FontProperties(family=fallback))
+    if  fallback_path != default_fallback_path:
+        fallback_fonts_cmap[fallback_path] = TTFont(fallback_path, fontNumber = 0).getBestCmap()
+else:
+    fallback_path = default_fallback_path
     fallback_fonts_cmap[fallback_path] = TTFont(fallback_path, fontNumber = 0).getBestCmap()
+del default_fallback_path
 
 def linecard_to_png(
     text:str,
@@ -160,7 +167,10 @@ def linecard(
         elif nowrap:
             align = "nowrap"
         else:
-            align = "left"
+            if passport == 1:
+                pass
+            else:
+                align = "left"
 
         if res := remove_tag(line,linecard_pattern.font):
             line, font = res
@@ -287,27 +297,17 @@ def linecard(
 
     return canvas
 
-def gacha_info0(report:IMG, info:List[IMG]):
+def line_splicing(info:list):
     """
     抽卡信息拼接
-        report:抽卡报告
-        info:信息图片列表
     """
-    x = 880
-    y = report.size[1] + 10
-    length = len(info)
-    if length%2 == 1:
-        info.append(None)
-        length += 1
-
-    canvas = Image.new("RGB", (880,(130*length)//2 + report.size[1]), '#99CCFF')
-    canvas.paste(report)
-    for i in range(0, length, 2):
-        l,r = info[i:i+2]
-        canvas.paste(l, (0, y))
-        if r:
-            canvas.paste(r, (442, y))
-        y += 130
+    if len(info) == 1:
+        return linecard_to_png(info[0])
+    l = linecard(info[0],bg_color = "white")
+    r = linecard(info[1],bg_color = "white") 
+    canvas = Image.new("RGB", (l.size[0]+r.size[0],l.size[1]),"white")
+    canvas.paste(l, (0, 0))
+    canvas.paste(r, (l.size[0], 0))
     output = BytesIO()
     canvas.save(output,'png')
     return output
@@ -328,6 +328,104 @@ async def bar_chart(user_id:int, info:str, lenth:float):
     draw.text((80,10), info, fill = (0,0,0), font = font_normal)
     return canvas
 
+def integer_log(number, base):
+    result = 0
+    while number >= base:
+        number //= base
+        result += 1
+    return result
+
+async def alchemy_info(user:UserDict,nickname:str):
+    """
+    炼金账户
+    """
+    canvas = Image.new("RGBA", (880, 400))
+    avatar = Image.open(await download_avatar(user.user_id))
+    avatar = avatar.resize((160,160))
+    circle_mask = Image.new("RGBA", avatar.size, (255, 255, 255, 0))
+    ImageDraw.Draw(circle_mask).ellipse(((0,0),avatar.size), fill="black")
+    canvas.paste(avatar, (20, 20), circle_mask)
+    draw = ImageDraw.Draw(canvas)
+    draw.line(((20, 200), (480, 200)), fill = "gray", width = 4)
+
+    alchemy = Counter(user.alchemy)
+    # 创建变量标签
+    labels = ['蒸汽', '雷电', '岩浆', '尘埃', '沼泽', '寒冰']
+    # 创建变量值
+    values = [alchemy["5"], alchemy["6"], alchemy["7"], alchemy["8"], alchemy["9"], alchemy["0"]]
+    # 计算角度
+    angles = np.linspace(0.5*np.pi,2.5*np.pi,6,endpoint = False).tolist()
+    angles = [(x if x < 2*np.pi else x-2*np.pi) for x in angles]
+    # 闭合雷达图
+    values.append(values[0])
+    angles.append(angles[0])
+    # 绘制雷达图
+    mainproduct = max(values)
+    values = [x*4/mainproduct for x in values]
+    sns.set(font = "simsun")
+    plt.figure(figsize=(4, 4))
+    ax = plt.subplot(111, polar = True)
+    ax.plot(angles, values, linewidth=2, linestyle='solid')
+    ax.fill(angles, values, 'b', alpha=0.1)
+    ax.set_yticklabels([])
+    plt.xticks(angles[:-1], labels, fontsize = 12)
+    output = BytesIO()
+    plt.savefig(output, figcolor = "none",transparent=True)
+    canvas.paste(Image.open(output), (480, 0))
+
+    water,fire,earth,wind = alchemy["1"],alchemy["2"],alchemy["3"],alchemy["4"]
+    elements = [water, fire, earth, wind]
+    max_value = max(elements)
+    ethereum = max(min([water,fire,earth,wind]) -2,0)
+    products = max([alchemy["5"],alchemy["6"],alchemy["7"],alchemy["8"],alchemy["9"],alchemy["0"]])
+    tag = f'{"元素炼金师" if ethereum*4 > products else "传统炼金师"} Lv.{integer_log(ethereum,2)}'
+    draw.text((20,240),tag, fill = (0,0,0),font = font_big)
+    draw.text((21,241),tag, fill = (0,0,0),font = font_big)
+    tag = f"主要元素 {'|'.join({0:'水',1:'火',2:'土',3:'风'}[i] for i, value in enumerate(elements) if value == max_value)}"
+    draw.text((20,320),tag, fill = (0,0,0),font = font_big)
+    draw.text((21,321),tag, fill = (0,0,0),font = font_big)
+    draw.text((200,70),nickname, fill = (0,0,0), font = font_big)
+    info = [canvas]
+    def bar_chart(info:str, lenth:float, color:str = '99CCFF'):
+        """
+        条形图
+        """
+        canvas = Image.new("RGBA", (880, 60))
+        draw = ImageDraw.Draw(canvas)
+        draw.rectangle(((20,10), (860, 50)), fill = "#00000033")
+        draw.rectangle(((20,10), (80 + int(lenth*780), 50)), fill = color)
+        draw.text((30,10), info, fill = (0,0,0), font = font_normal)
+        return canvas
+
+    level = integer_log(water,2)
+    info.append(bar_chart(f"水元素Lv.{level}",water/2**(level+1),"#66CCFFCC"))
+    level = integer_log(fire,2)
+    info.append(bar_chart(f"火元素Lv.{level}",fire/2**(level+1),"#CC3300CC"))
+    level = integer_log(earth,2)
+    info.append(bar_chart(f"土元素Lv.{level}",earth/2**(level+1),"#996633CC"))
+    level = integer_log(wind,2)
+    info.append(bar_chart(f"风元素Lv.{level}",wind/2**(level+1),"#99CCFFCC"))
+
+    element = alchemy["5"]
+    level = integer_log(element,2)
+    info.append(bar_chart(f"蒸汽Lv.{level}",element/2**(level+1),"#CCFFFFCC"))
+    element = alchemy["6"]
+    level = integer_log(element,2)
+    info.append(bar_chart(f"沼泽Lv.{level}",element/2**(level+1),"#666633CC"))
+    element = alchemy["7"]
+    level = integer_log(element,2)
+    info.append(bar_chart(f"寒冰Lv.{level}",element/2**(level+1),"#0099FFCC"))
+    element = alchemy["8"]
+    level = integer_log(element,2)
+    info.append(bar_chart(f"岩浆Lv.{level}",element/2**(level+1),"#990000CC"))
+    element = alchemy["9"]
+    level = integer_log(element,2)
+    info.append(bar_chart(f"雷电Lv.{level}",element/2**(level+1),"#9900FFCC"))
+    element = alchemy["0"]
+    level = integer_log(element,2)
+    info.append(bar_chart(f"尘埃Lv.{level}",element/2**(level+1),"#99CCCCCC"))
+    return info
+
 async def my_info_head(user:UserDict, nickname:str):
     """
     我的资料卡第一个信息
@@ -337,10 +435,10 @@ async def my_info_head(user:UserDict, nickname:str):
     lose = user.lose
     canvas = Image.new("RGBA", (880, 300))
     avatar = Image.open(await download_avatar(user.user_id))
-    avatar = avatar.resize((250,250))
+    avatar = avatar.resize((260,260))
     circle_mask = Image.new("RGBA", avatar.size, (255, 255, 255, 0))
     ImageDraw.Draw(circle_mask).ellipse(((0,0),avatar.size), fill="black")
-    canvas.paste(avatar, (25, 25), circle_mask)
+    canvas.paste(avatar, (20, 20), circle_mask)
     draw = ImageDraw.Draw(canvas)
     draw.text((300,40),f"{nickname}", fill = (0,0,0),font = font_big)
     draw.line(((300, 120), (860, 120)), fill = "gray", width = 4)
@@ -412,10 +510,10 @@ async def group_info_head(group_name:str, company_name:str, group_id:int, member
     """
     canvas = Image.new("RGBA", (880, 300))
     avatar = Image.open(await download_groupavatar(group_id))
-    avatar = avatar.resize((250,250))
+    avatar = avatar.resize((260,260))
     circle_mask = Image.new("RGBA", avatar.size, (255, 255, 255, 0))
     ImageDraw.Draw(circle_mask).ellipse(((0,0),avatar.size), fill="black")
-    canvas.paste(avatar, (25, 25), circle_mask)
+    canvas.paste(avatar, (20, 20), circle_mask)
     draw = ImageDraw.Draw(canvas)
     font = ImageFont.truetype(font = fontname, size = 40, encoding = "utf-8")
     draw.text((300,40),f"{group_name}", fill = (0,0,0),font = font_big)
@@ -428,7 +526,7 @@ async def group_info_head(group_name:str, company_name:str, group_id:int, member
     draw.text((750,240),f"{round(100 * member_count[0]/member_count[1],1)}%", fill = (0,0,0),font = font_normal)
     return canvas
 
-def info_Splicing(info:List[IMG],BG_path, spacing:int = 20):
+def info_splicing(info:List[IMG],BG_path, spacing:int = 20):
     """
     信息拼接
         info:信息图片列表

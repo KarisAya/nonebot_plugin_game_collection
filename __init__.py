@@ -34,41 +34,39 @@ from . import Account
 from . import Market
 from . import Game
 from . import Prop
+from . import Alchemy
 
 from .utils.utils import get_message_at, number
-from .data import ExchangeInfo
+from .data import ExchangeInfo,menu_data
 from .config import revolt_cd, bet_gold, path, backup
-from .Manager import data, company_index
-from .Game import current_games
 
+from nonebot.plugin import PluginMetadata
 
-try:
-    from nonebot.plugin import PluginMetadata
-    from .data import menu_data
-    __plugin_meta__ = PluginMetadata(
-        name = "小游戏合集",
-        description = "各种群内小游戏",
-        usage = "",
-        extra = {
-            'menu_data':menu_data,
-            'menu_template':'default'
-            }
-        )
-except ModuleNotFoundError:
-    logger.info("当前nonebot版本无法使用插件元数据。")    
+__plugin_meta__ = PluginMetadata(
+    name = "小游戏合集",
+    description = "各种群内小游戏",
+    usage = "",
+    extra = {'menu_data':menu_data,'menu_template':'default'})
+
+data = Manager.data
+company_index = Manager.company_index
+current_games = Game.current_games
 
 scheduler = require("nonebot_plugin_apscheduler").scheduler
+
+def to_int(arg:Message, default:int = bet_gold):
+    num = arg.extract_plain_text().strip()
+    if num.isdigit():
+        return int(num)
+    else:
+        return default
 
 # 赛马创建
 RaceNew = on_command("赛马创建", aliases = {"创建赛马"}, permission = GROUP, priority = 20, block = True)
 
 @RaceNew.handle()
 async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
-    gold = arg.extract_plain_text().strip()
-    if gold.isdigit():
-        gold = int(gold)
-    else:
-        gold = bet_gold
+    gold = to_int(arg,bet_gold)
     msg =  Game.HorseRace.RaceNew(event, gold)
     await RaceNew.finish(msg, at_sender = True)
 
@@ -156,11 +154,7 @@ gold_create = on_command("获取金币", permission = SUPERUSER, priority = 20, 
 
 @gold_create.handle()
 async def _(event:MessageEvent, arg:Message = CommandArg()):
-    gold = arg.extract_plain_text().strip()
-    if gold.isdigit():
-        gold = int(gold)
-    else:
-        gold = 0
+    gold = to_int(arg,bet_gold)
     msg =  Account.gold_create(event,gold)
     await gold_create.finish(msg, at_sender=True)
 
@@ -181,7 +175,6 @@ async def _(event:MessageEvent, arg:Message = CommandArg(),):
             count = 1
     else:
         return
-
     msg = Account.props_create(event, prop_name, count)
     await give_props.finish(msg, at_sender = True)
 
@@ -229,7 +222,7 @@ async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg()):
         at = int(at[0])
     else:
         return
-    target = await Manager.locate_user_at(bot, event, at)
+    target = Manager.locate_user_at(event, at)
     msg = Account.transfer_gold(event, target, gold)
     await give_gold.finish(msg, at_sender = True)
 
@@ -254,7 +247,7 @@ async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg(),):
     else:
         return
 
-    target = await Manager.locate_user_at(bot, event, int(at))
+    target = Manager.locate_user_at(event, int(at))
     msg = Account.transfer_props(event, target, prop_name, count)
     await give_props.finish(msg, at_sender = True)
 
@@ -361,11 +354,7 @@ random_game = on_command("随机对战", permission = GROUP, priority = 5, block
 
 @random_game.handle()
 async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
-    gold = arg.extract_plain_text().strip()
-    if gold.isdigit():
-        gold = int(gold)
-    else:
-        gold = -1
+    gold = to_int(arg,-1)
     msg = Game.random_game(event, gold)
     await random_game.finish(msg)
 
@@ -415,19 +404,6 @@ async def _(bot:Bot, event:GroupMessageEvent, state:T_State):
     game = state["game"]
     await game.fold(bot, event)
 
-# 幸运花色
-slot = on_command("幸运花色", aliases = {"抽花色"}, permission = PRIVATE, priority = 20, block = True)
-
-@slot.handle()
-async def _(event:MessageEvent, arg:Message = CommandArg()):
-    gold = arg.extract_plain_text().strip()
-    if gold.isdigit():
-        gold = int(gold)
-    else:
-        gold = bet_gold
-    msg = Game.slot(event, gold)
-    await slot.finish(msg, at_sender=True)
-
 # 抽卡
 gacha = on_regex("^.+连抽?卡?|单抽", rule = to_me(), priority = 20, block = True)
 
@@ -460,6 +436,15 @@ async def _(event:MessageEvent, arg:Message = CommandArg()):
         return
     msg = Prop.use_prop(event, prop_name, count)
     await use_prop.finish(msg, at_sender=True)
+
+# 元素合成
+alchemy = on_command("元素合成", rule = to_me(), priority = 20, block = True)
+@alchemy.handle()
+async def _(event:MessageEvent, matcher:Matcher):
+
+        await alchemy.send(msg)
+
+
 
 # 关联账户
 connect = on_command("连接账户", aliases = {"关联账户"}, rule = to_me(), priority = 20, block = True)
@@ -498,6 +483,14 @@ my_info = on_command("我的信息", aliases = {"我的资料"}, priority = 20, 
 async def _(event:MessageEvent):
     msg = await Account.my_info(event)
     await my_info.finish(msg)
+
+# 炼金资料卡
+alchemy_info = on_command("炼金账户", aliases = {"炼金资料"}, priority = 20, block = True)
+
+@alchemy_info.handle()
+async def _(event:MessageEvent):
+    msg = await Alchemy.my_info(event)
+    await alchemy_info.finish(msg)
 
 # 我的道具
 my_props = on_command("我的道具", aliases = {"我的仓库"}, priority = 20, block = True)
@@ -794,10 +787,10 @@ async def _(bot:Bot, event:MessageEvent, matcher:Matcher, arg:Message = CommandA
 
 @freeze.got("code")
 
-async def _(bot:Bot, event:MessageEvent, matcher:Matcher, code :Message = Arg()):
+async def _(event:MessageEvent, matcher:Matcher, code :Message = Arg()):
     at,confirm = matcher.get_arg("freeze")
     if confirm == str(code):
-        target = await Manager.locate_user_at(bot, event, at)
+        target = Manager.locate_user_at(event, at)
         msg = Account.freeze(target[0])
         await freeze.finish(msg)
     else:
@@ -848,16 +841,15 @@ Newday = on_command("Newday", aliases = {"刷新每日", "刷新签到"}, permis
 @Newday.handle()
 @scheduler.scheduled_job("cron", hour = 0)
 async def _():
-    log = Manager.Newday()
-    logger.info("\n" + log)
+    Manager.update_company_index()
+    log = data.verification()
+    logger.info(f"\n{log}")
+    data,Newday()
     with open(path / "Newday.log","a",encoding = "utf8") as f:
-        f.write(
-            f"\n{datetime.datetime.fromtimestamp(time.time()).strftime('%Y 年 %m 月 %d 日 %H:%M:%S')}\n"
-            "——————————————\n"
-            + log + "\n"
-            "——————————————\n"
-            )
-
+        f.write(f"\n{datetime.datetime.fromtimestamp(time.time()).strftime('%Y 年 %m 月 %d 日 %H:%M:%S')}\n"
+                "——————————————\n"
+                f"{log}\n"
+                "——————————————\n")
     folders = [f for f in backup.iterdir() if f.is_dir()]
     for folder in folders:
         if time.time() - folder.stat().st_ctime > 604800:

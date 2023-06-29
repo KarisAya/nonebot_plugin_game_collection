@@ -1,5 +1,6 @@
 from typing import Tuple,Dict
 from pathlib import Path
+from collections import Counter
 from nonebot.adapters.onebot.v11 import (
     Bot,
     Message,
@@ -8,13 +9,12 @@ from nonebot.adapters.onebot.v11 import (
     MessageSegment,
     )
 from nonebot import get_driver
-from collections import Counter
+from nonebot.log import logger
 
 from .utils.utils import image_url
 from .utils.chart import linecard_to_png, gini_coef, default_BG
 from .utils.avatar import download_url
-from .data import DataBase, UserDict, GroupAccount, GroupDict
-from .data import props_library
+from .data import DataBase, UserDict, GroupAccount, GroupDict, Company, props_library
 from .config import revolt_gold, max_bet_gold, lucky_clover, path, BG_image
 
 driver = get_driver()
@@ -28,6 +28,9 @@ if datafile.exists():
         data = DataBase.loads(f.read())
 else:
     data = DataBase(file = datafile)
+
+log = data.verification()
+logger.info(f"\n{log}")
 
 user_data = data.user
 group_data = data.group
@@ -44,21 +47,18 @@ def locate_user(event:MessageEvent) ->Tuple[UserDict,GroupAccount]:
     定位个人账户
     """
     user_id = event.user_id
-    user = user_data.setdefault(user_id,UserDict())
-    user.init(event)
+    user = user_data.setdefault(user_id,UserDict(event))
     if isinstance(event,GroupMessageEvent):
         group_id = event.group_id
-        group = group_data.setdefault(group_id,GroupDict())
-        group.init(event.group_id)
+        group = group_data.setdefault(group_id,GroupDict(group_id = group_id,company = Company(company_id = group_id)))
         namelist = group.namelist
         if user_id in namelist:
             group_account = user.group_accounts[group_id]
-            group_account.init(event)
+            group_account.nickname = event.sender.card or event.sender.nickname
         else:
             namelist.add(user_id)
-            user.group_accounts[group_id] = GroupAccount()
+            user.group_accounts[group_id] = GroupAccount(event)
             group_account = user.group_accounts[group_id]
-            group_account.init(event)
             data.save()
     else:
         group_id = user.connect
@@ -69,27 +69,22 @@ def locate_user(event:MessageEvent) ->Tuple[UserDict,GroupAccount]:
 
     return user,group_account
 
-async def locate_user_at(bot:Bot, event:GroupMessageEvent, user_id:int) ->Tuple[UserDict,GroupAccount]:
+def locate_user_at(event:GroupMessageEvent, user_id:int) ->Tuple[UserDict,GroupAccount]:
     """
     定位at账户
     """
     if user_id not in user_data:
-        info = await bot.get_group_member_info(group_id = event.group_id, user_id = user_id)
-        user_data[user_id] = UserDict(user_id = user_id, nickname = info["nickname"])
-
+        user_data[user_id] = UserDict(user_id = user_id, nickname = str(user_id))
     user = user_data[user_id]
     group_id = event.group_id
-    group = group_data.setdefault(group_id,GroupDict())
-    group.init(event.group_id)
+    group = group_data.setdefault(group_id,GroupDict(group_id = group_id))
     namelist = group.namelist
 
     if user_id not in namelist:
         namelist.add(user_id)
-        user.group_accounts[group_id] = GroupAccount(group_id = group_id, nickname = user.nickname)
+        user.group_accounts[group_id] = GroupAccount(group_id = group_id,nickname = user.nickname)
         data.save()
-
     group_account = user.group_accounts[group_id]
-
     return user,group_account
 
 company_index:Dict[str,int] = {}
@@ -319,73 +314,6 @@ def Gini(group_id:int, limit:int = revolt_gold[0]) -> float:
     rank = [x for x in rank if x > limit]
     rank.sort()
     return gini_coef(rank)
-
-def Newday():
-    """
-    刷新每日
-    """
-    log = ""
-    group_check = {k:set() for k in group_data}
-    update_company_index()
-    company_ids = company_index.values()
-    stock_check = {k:0 for k in company_ids}
-    # 检查user_data
-    for user_id in user_data:
-        user = user_data[user_id]
-        user.transfer_limit = 0
-        props = user.props
-        props = {k:v-1 if k[2] == '0' else v for k, v in props.items()}
-        user.props = {k:v for k, v in props.items() if v > 0}
-        group_accounts = user.group_accounts
-        gold = 0
-        for group_id in list(group_accounts.keys()):
-            if group_id not in group_check:
-                log += f"{user.nickname} 群账户{group_id}无效，已删除。\n"
-                del group_accounts[group_id]
-            else:
-                group_check[group_id].add(user_id)
-                group_account = group_accounts[group_id]
-                group_account.is_sign = False
-                group_account.security = 0
-                gold += group_account.gold
-                props = group_account.props
-                props = {k:v-1 if k[2] == '0' else v for k, v in props.items()}
-                group_account.props = {k:v for k, v in props.items() if v > 0}
-                stocks = group_account.stocks
-                for company_id in list(stocks.keys()):
-                    if company_id in stock_check:
-                        stock_check[company_id] += stocks[company_id]
-                    else:
-                        log += f"{user.nickname} 群账户{group_id}内股票{company_id}回收异常，数据已修正。\n"
-                        del stocks[company_id]
-        if user.gold != gold:
-            log += f"{user.nickname} 金币总数异常。记录值：{user.gold} 实测值：{gold} 数据已修正。\n"
-            user.gold = gold
-
-    # 检查group_data
-    for group_id in group_data:
-        group = group_data[group_id]
-        if group.namelist != group_check[group_id]:
-            log += (
-                f"{group_id} 群名单异常。\n"
-                f"记录多值：{group.namelist - group_check[group_id]}\n"
-                f"记录少值：{group_check[group_id] - group.namelist}\n"
-                "数据已修正。\n"
-                )
-            group.namelist = group_check[group_id]
-
-        if group_id in company_ids:
-            company = group.company
-            if company.stock + stock_check[group_id] != company.issuance:
-                log += (
-                    f"{company.company_name} 股票数量异常。\n"
-                    f"记录值：{company.stock}\n"
-                    f"实测值：{company.issuance - stock_check[group_id]}\n"
-                    "数据已修正。\n"
-                    )
-                company.stock = company.issuance - stock_check[group_id]
-    data.save()
-    return log[:-1] if log else "数据一切正常！"
 
 async def try_send_private_msg(user_id:int, message: Message) -> bool:
     """

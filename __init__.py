@@ -6,6 +6,7 @@ from nonebot.adapters.onebot.v11 import (
     Bot,
     MessageEvent,
     GroupMessageEvent,
+    PrivateMessageEvent,
     Message,
 )
 from nonebot import get_driver
@@ -262,6 +263,7 @@ AllCreateGameCommand = {
     "LuckyNumber":{"猜数字"},
     "Cantrell":{"同花顺","港式五张","梭哈"},
     "Blackjack":{"21点"},
+    "ABCard":{"AB牌","ab牌"}
     }
 
 AllCreateGameCommand = {cmd: name for name, cmds in AllCreateGameCommand.items() for cmd in cmds}
@@ -278,6 +280,7 @@ def create_game_rule(event:GroupMessageEvent, state:T_State)-> bool:
         "LuckyNumber":Game.LuckyNumber,
         "Cantrell":Game.Cantrell,
         "Blackjack":Game.Blackjack,
+        "ABCard":Game.ABCard,
         }
     for cmd in AllCreateGameCommand:
         if msg.startswith(cmd):
@@ -305,6 +308,7 @@ AllPlayGameCommand = {
     "LuckyNumber":{"^\d{1,3}$"},
     "Cantrell":{"看牌","加注","跟注","开牌"},
     "Blackjack":{"停牌","抽牌","双倍下注"},
+    "ABCard":{"A","a","B","b","1","2","3",}
     }
 
 def game_play_rule(event:GroupMessageEvent, state:T_State)-> bool:
@@ -319,6 +323,12 @@ def game_play_rule(event:GroupMessageEvent, state:T_State)-> bool:
         if Name == "LuckyNumber":
             if msg.isdigit() and 0 < (N := int(msg)) <= 100:
                 state["arg"] = [N]
+                return True
+        if Name == "ABCard":
+            msg = str(event.message)
+            card = msg.upper()
+            if card in {"A","B","1","2","3"}:
+                state["arg"] = card
                 return True
         else:
             cmdlst = AllPlayGameCommand.get(Name)
@@ -347,7 +357,51 @@ game_play = on_message(rule = game_play_rule, permission = GROUP, priority = 20,
 async def _(bot:Bot, event:GroupMessageEvent, state:T_State):
     game = state["game"]
     msg = await game.play(bot, event, *state["arg"])
-    await create_game.finish(msg)
+    await game_play.finish(msg)
+
+async def game_play_private_rule(bot:Bot, event:PrivateMessageEvent, state:T_State)-> bool:
+    """
+    规则：私聊游戏进行
+    """
+    group_account = Manager.locate_user(event)[1]
+    if not group_account:
+        await bot.send(event,"私聊未关联账户，请发送【关联账户】关联群内账户。")
+        return False
+    group_id = group_account.group_id
+    game = current_games.get(group_id)
+    if game and game.name in ["ABCard"]:
+        msg = str(event.message)
+        card = msg.upper()
+        if card in {"A","B","1","2","3"}:
+            state["game"] = game
+            state["arg"] = card
+            state["group_id"] = group_id
+            return True
+    return False
+
+game_play_private = on_message(rule = game_play_private_rule, permission = PRIVATE, priority = 20, block = True)
+
+@game_play_private.handle()
+async def _(bot:Bot, event:PrivateMessageEvent, state:T_State):
+    game = state["game"]
+    simulate = GroupMessageEvent(
+        time = event.time,
+        self_id = event.self_id,
+        post_type = "message",
+        message_type = "group",
+        sub_type = "normal",
+        message_id = 0,
+        user_id = event.user_id,
+        message = event.message,
+        raw_message = event.raw_message,
+        font = event.font,
+        sender = event.sender,
+        group_id = state["group_id"],
+        anonymous = None
+        )
+    print(event)
+    msg = await game.play(bot, simulate, *state["arg"])
+    await game_play_private.finish(msg)
 
 # 随机对战
 random_game = on_command("随机对战", permission = GROUP, priority = 5, block = True)
@@ -436,15 +490,6 @@ async def _(event:MessageEvent, arg:Message = CommandArg()):
         return
     msg = Prop.use_prop(event, prop_name, count)
     await use_prop.finish(msg, at_sender=True)
-
-# 元素合成
-alchemy = on_command("元素合成", rule = to_me(), priority = 20, block = True)
-@alchemy.handle()
-async def _(event:MessageEvent, matcher:Matcher):
-
-        await alchemy.send(msg)
-
-
 
 # 关联账户
 connect = on_command("连接账户", aliases = {"关联账户"}, rule = to_me(), priority = 20, block = True)

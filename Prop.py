@@ -7,7 +7,7 @@ import random
 
 from .utils.utils import get_message_at
 from .utils.chart import linecard_to_png,line_splicing
-from .data import GroupAccount, props_library, props_index, element_library
+from .data import GroupAccount, props_library, props_index
 from .config import bot_name, sign_gold, revolt_gold, max_bet_gold, gacha_gold
 
 from .Alchemy import Alchemy

@@ -352,7 +352,8 @@ async def alchemy_info(user:UserDict,nickname:str):
     # 创建变量标签
     labels = ['蒸汽', '雷电', '岩浆', '尘埃', '沼泽', '寒冰']
     # 创建变量值
-    values = [alchemy["5"], alchemy["6"], alchemy["7"], alchemy["8"], alchemy["9"], alchemy["0"]]
+    values = [alchemy["5"], alchemy["9"], alchemy["8"], alchemy["0"], alchemy["6"], alchemy["7"]]
+    products = max(values)
     # 计算角度
     angles = np.linspace(0.5*np.pi,2.5*np.pi,6,endpoint = False).tolist()
     angles = [(x if x < 2*np.pi else x-2*np.pi) for x in angles]
@@ -378,7 +379,6 @@ async def alchemy_info(user:UserDict,nickname:str):
     elements = [water, fire, earth, wind]
     max_value = max(elements)
     ethereum = max(min([water,fire,earth,wind]) -2,0)
-    products = max([alchemy["5"],alchemy["6"],alchemy["7"],alchemy["8"],alchemy["9"],alchemy["0"]])
     tag = f'{"元素炼金师" if ethereum*4 > products else "传统炼金师"} Lv.{integer_log(ethereum,2)}'
     draw.text((20,240),tag, fill = (0,0,0),font = font_big)
     draw.text((21,241),tag, fill = (0,0,0),font = font_big)

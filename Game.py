@@ -1462,7 +1462,7 @@ class ABCard(Game):
                     msg = f"双方出牌 {self.first} - {card}\n"
                     if self.first == card:
                         msg += "本轮是平局\n"
-                    elif self.first == "A" or (self.first == "1" and card == "2") or (self.first == "2" and card == "3") or (self.first == "3" and card == "1"):
+                    elif self.first == "A" or card == "B" or (self.first == "1" and card == "2") or (self.first == "2" and card == "3") or (self.first == "3" and card == "1"):
                         self.pt1 += 1
                         msg += MessageSegment.at(user_id = session.player1_id) + "赢得了本轮对决\n"
                     else:

@@ -13,9 +13,9 @@
 
 通过pip安装无视本段。
 
-[nonebot_plugin_imageutils](https://github.com/noneplugin/nonebot-plugin-imageutils) PIL工具插件，方便图片操作，支持文字转图片
-
 [nonebot_plugin_apscheduler](https://github.com/nonebot/plugin-apscheduler) APScheduler 定时任务插件
+
+fonttools 字体相关的操作
 
 matplotlib 数据可视化
 

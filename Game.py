@@ -705,7 +705,7 @@ class Poker(Game):
     def __init__(self, **kwargs):
         super().__init__()
         gold = kwargs["gold"]
-        deck = self.random_poker()
+        deck = self.random_poker(2)
         hand = deck[0:3].copy()
         del deck[0:3]
         self.deck:list = deck + [[0,0],[0,0],[0,0],[0,0]]
@@ -715,11 +715,12 @@ class Poker(Game):
         self.session.gold = gold
 
     @staticmethod
-    def random_poker():
+    def random_poker(n:int = 1):
         """
         生成随机牌库
         """
         poker_deck = [[i,j] for i in range(1,5) for j in range(1,14)]
+        poker_deck = poker_deck*n
         random.shuffle(poker_deck)
         return poker_deck
 
@@ -989,7 +990,7 @@ class LuckyNumber(Game):
 
     def game_tips(self, msg):
         """
-        发起游戏：扑克对战
+        发起游戏：猜数字
         """
         return (f"随机 1-100 数字已生成。"
                 f"挑战金额：{self.gold}/次\n"
@@ -1452,9 +1453,11 @@ class ABCard(Game):
                     self.pt2 += 1
                     msg += MessageSegment.at(user_id = session.player2_id) + "赢得了本轮对决\n"
                 msg += f"双方比分 {self.pt1} - {self.pt2}\n"
+                msg += f"当前赌注 {session.gold} 金币\n"
                 msg += f"P1手牌| {' | '.join(self.hand1)} |\n"
                 msg += f"P2手牌| {' | '.join(self.hand2)} |"
                 await bot.send_group_msg(group_id = group_id,message = msg)
+                session.gold += self.gold
                 session.nextround()
                 if session.round == 9:
                     self.first = self.hand1[0]
@@ -1468,7 +1471,9 @@ class ABCard(Game):
                     else:
                         self.pt2 += 1
                         msg += MessageSegment.at(user_id = session.player2_id) + "赢得了本轮对决\n"
+                    session.gold += self.gold
                     msg += f"双方比分 {self.pt1} - {self.pt2}\n"
+                    msg += f"当前赌注 {session.gold} 金币\n"
                     session.win = session.player1_id if self.pt1 > self.pt2 else session.player2_id
                     msg+= "获胜者：" + MessageSegment.at(user_id = session.win)
                     await asyncio.sleep(0.5)
@@ -1484,7 +1489,7 @@ class ABCard(Game):
         发起游戏：AB牌
         """
         return ("双方手牌准备完毕\n"
-                f'挑战金额：{self.session.gold}\n'
+                f'挑战金额：{self.session.gold}/轮\n'
                 f'{msg}')
 
     def session_tips(self):

@@ -361,6 +361,7 @@ async def alchemy_info(user:UserDict,nickname:str):
     angles.append(angles[0])
     # 绘制雷达图
     mainproduct = max(values)
+    mainproduct = max(mainproduct,1)
     values = [x*4/mainproduct for x in values]
     sns.set(font = "simsun")
     plt.figure(figsize=(4, 4))
@@ -370,7 +371,7 @@ async def alchemy_info(user:UserDict,nickname:str):
     ax.set_yticklabels([])
     plt.xticks(angles[:-1], labels, fontsize = 12)
     output = BytesIO()
-    plt.savefig(output, figcolor = "none",transparent=True)
+    plt.savefig(output,transparent = True)
     canvas.paste(Image.open(output), (480, 0))
 
     water,fire,earth,wind = alchemy["1"],alchemy["2"],alchemy["3"],alchemy["4"]

@@ -263,7 +263,8 @@ AllCreateGameCommand = {
     "LuckyNumber":{"猜数字"},
     "Cantrell":{"同花顺","港式五张","梭哈"},
     "Blackjack":{"21点"},
-    "ABCard":{"AB牌","ab牌"}
+    "ABCard":{"AB牌","ab牌"},
+    "GunFight":{"西部枪战","西部对战","牛仔对战","牛仔对决"},
     }
 
 AllCreateGameCommand = {cmd: name for name, cmds in AllCreateGameCommand.items() for cmd in cmds}
@@ -281,6 +282,7 @@ def create_game_rule(event:GroupMessageEvent, state:T_State)-> bool:
         "Cantrell":Game.Cantrell,
         "Blackjack":Game.Blackjack,
         "ABCard":Game.ABCard,
+        "GunFight":Game.GunFight,
         }
     for cmd in AllCreateGameCommand:
         if msg.startswith(cmd):
@@ -308,30 +310,33 @@ AllPlayGameCommand = {
     "LuckyNumber":{"^\d{1,3}$"},
     "Cantrell":{"看牌","加注","跟注","开牌"},
     "Blackjack":{"停牌","抽牌","双倍下注"},
-    "ABCard":{"A","a","B","b","1","2","3",}
+    "ABCard":{"A","a","B","b","1","2","3"},
+    "GunFight":{"装弹","开枪","闪避","闪枪","预判开枪"},
     }
 
-def game_play_rule(event:GroupMessageEvent, state:T_State)-> bool:
+def game_play_rule(event:MessageEvent, state:T_State)-> bool:
     """
     规则：游戏进行
     """
-    group_id = event.group_id
+    user,group_account = Manager.locate_user(event)
+    if not group_account:
+        return False
+    group_id = user.connect
     game = current_games.get(group_id)
     if game and (Name := game.name) not in ["HorseRace"]:
+        cmdlst = AllPlayGameCommand.get(Name)
         msg = str(event.message)
         state["game"] = game
         if Name == "LuckyNumber":
             if msg.isdigit() and 0 < (N := int(msg)) <= 100:
-                state["arg"] = [N]
+                state["arg"] = (N,)
                 return True
-        if Name == "ABCard":
-            msg = str(event.message)
-            card = msg.upper()
-            if card in {"A","B","1","2","3"}:
-                state["arg"] = card
+        elif Name in {"Blackjack","ABCard","GunFight"}:
+            card = str(event.message)
+            if card in cmdlst:
+                state["arg"] = (card,)
                 return True
         else:
-            cmdlst = AllPlayGameCommand.get(Name)
             for cmd in cmdlst:
                 if msg.startswith(cmd):
                     msg = msg[len(cmd):].strip()
@@ -340,68 +345,22 @@ def game_play_rule(event:GroupMessageEvent, state:T_State)-> bool:
                             gold = int(msg)
                         else:
                             gold = None
-                        state["arg"] = [{"看牌":0,"加注":1,"跟注":1,"开牌":1}[cmd], gold]
-                    elif Name == "Blackjack":
-                        state["arg"] = [{"停牌":0,"抽牌":1,"双倍下注":2}[cmd]]
+                        state["arg"] = ({"看牌":0,"加注":1,"跟注":1,"开牌":1}[cmd], gold)
                     elif msg.isdigit():
-                        state["arg"] = [int(msg)]
+                        state["arg"] = (int(msg),)
                     else:
-                        state["arg"] = [None]
+                        state["arg"] = (None,)
 
                     return True
     return False
 
-game_play = on_message(rule = game_play_rule, permission = GROUP, priority = 20, block = True)
+game_play = on_message(rule = game_play_rule, priority = 15, block = True)
 
 @game_play.handle()
-async def _(bot:Bot, event:GroupMessageEvent, state:T_State):
+async def _(bot:Bot, event:MessageEvent, state:T_State):
     game = state["game"]
-    msg = await game.play(bot, event, *state["arg"])
+    msg = await game.play(bot, event.user_id, *state["arg"])
     await game_play.finish(msg)
-
-async def game_play_private_rule(bot:Bot, event:PrivateMessageEvent, state:T_State)-> bool:
-    """
-    规则：私聊游戏进行
-    """
-    group_account = Manager.locate_user(event)[1]
-    if not group_account:
-        await bot.send(event,"私聊未关联账户，请发送【关联账户】关联群内账户。")
-        return False
-    group_id = group_account.group_id
-    game = current_games.get(group_id)
-    if game and game.name in ["ABCard"]:
-        msg = str(event.message)
-        card = msg.upper()
-        if card in {"A","B","1","2","3"}:
-            state["game"] = game
-            state["arg"] = card
-            state["group_id"] = group_id
-            return True
-    return False
-
-game_play_private = on_message(rule = game_play_private_rule, permission = PRIVATE, priority = 20, block = True)
-
-@game_play_private.handle()
-async def _(bot:Bot, event:PrivateMessageEvent, state:T_State):
-    game = state["game"]
-    simulate = GroupMessageEvent(
-        time = event.time,
-        self_id = event.self_id,
-        post_type = "message",
-        message_type = "group",
-        sub_type = "normal",
-        message_id = 0,
-        user_id = event.user_id,
-        message = event.message,
-        raw_message = event.raw_message,
-        font = event.font,
-        sender = event.sender,
-        group_id = state["group_id"],
-        anonymous = None
-        )
-    print(event)
-    msg = await game.play(bot, simulate, *state["arg"])
-    await game_play_private.finish(msg)
 
 # 随机对战
 random_game = on_command("随机对战", permission = GROUP, priority = 5, block = True)
@@ -438,25 +397,25 @@ refuse = on_command("拒绝挑战", aliases={"拒绝决斗", "拒绝对决"}, ru
 @refuse.handle()
 async def _(event:GroupMessageEvent, state:T_State):
     game = state["game"]
-    msg = game.refuse(event)
+    msg = game.refuse(event.user_id)
     await refuse.finish(msg)
 
 # 超时结算
 overtime = on_command("超时结算", rule = session_check, permission = GROUP, priority = 20, block = True)
 
 @overtime.handle()
-async def _(bot:Bot, event:GroupMessageEvent, state:T_State):
+async def _(bot:Bot, state:T_State):
     game = state["game"]
-    msg = await game.overtime(bot, event)
+    msg = await game.overtime(bot)
     await overtime.finish(msg)
 
 # 认输结算
 fold = on_fullmatch(("认输", "投降", "结束"), rule = session_check, permission = GROUP, priority = 20, block = True)
 
 @fold.handle()
-async def _(bot:Bot, event:GroupMessageEvent, state:T_State):
+async def _(bot:Bot, state:T_State):
     game = state["game"]
-    await game.fold(bot, event)
+    await game.fold(bot)
 
 # 抽卡
 gacha = on_regex("^.+连抽?卡?|单抽", rule = to_me(), priority = 20, block = True)

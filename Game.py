@@ -1458,6 +1458,7 @@ class ABCard(Game):
                 msg += f"P2手牌| {' | '.join(self.hand2)} |"
                 await bot.send_group_msg(group_id = group_id,message = msg)
                 session.gold += self.gold
+                session.gold = min(session.gold, session.bet_limit)
                 session.nextround()
                 if session.round == 9:
                     self.first = self.hand1[0]
@@ -1472,6 +1473,7 @@ class ABCard(Game):
                         self.pt2 += 1
                         msg += MessageSegment.at(user_id = session.player2_id) + "赢得了本轮对决\n"
                     session.gold += self.gold
+                    session.gold = min(session.gold, session.bet_limit)
                     msg += f"双方比分 {self.pt1} - {self.pt2}\n"
                     msg += f"当前赌注 {session.gold} 金币\n"
                     session.win = session.player1_id if self.pt1 > self.pt2 else session.player2_id

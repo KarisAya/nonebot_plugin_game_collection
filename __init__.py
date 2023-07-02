@@ -1,3 +1,4 @@
+from os import name
 from nonebot.adapters.onebot.v11 import (
     GROUP,
     PRIVATE,
@@ -62,65 +63,118 @@ def to_int(arg:Message, default:int = bet_gold):
     else:
         return default
 
-# 赛马创建
-RaceNew = on_command("赛马创建", aliases = {"创建赛马"}, permission = GROUP, priority = 20, block = True)
+AllGameTips = {
+    "HorseRace":"赛马活动未开始，请输入【赛马创建】创建赛马场",
+    "NewGame":"AROF未开始，请输入【AROF创建】创建AROF",
+    }
 
-@RaceNew.handle()
-async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
-    gold = to_int(arg,bet_gold)
-    msg =  Game.HorseRace.RaceNew(event, gold)
-    await RaceNew.finish(msg, at_sender = True)
+# 加入游戏
+AllJoinGameCommand = {
+    "HorseRace":{"赛马加入","加入赛马"},
+    "NewGame":{"游戏加入","加入游戏"},
+    }
 
-# 赛马加入
-RaceJoin = on_command(
-    "赛马加入",
-    aliases = {"加入赛马"},
-    permission = GROUP,
-    priority = 20,
-    block = True
-    )
+AllJoinGameCommand = {cmd: name for name, cmds in AllJoinGameCommand.items() for cmd in cmds}
+async def join_game_rule(bot:Bot, event:GroupMessageEvent, state:T_State) -> bool:
+    """
+    规则：加入游戏
+    """
+    msg = str(event.message)
+    for cmd in AllJoinGameCommand:
+        if msg.startswith(cmd):
+            game = current_games.get(event.group_id)
+            name = AllJoinGameCommand[cmd]
+            if game:
+                if game.name == name:
+                    state["Game"] = game
+                    state["arg"] = msg[len(cmd):].strip()
+                    return True
+                return False
+            else:
+                await bot.send(event,AllGameTips[name])
+                return False
+    else:
+        return False
 
-@RaceJoin.handle()
-async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
-    if not (game := current_games.get(event.group_id)):
-        msg = "赛马活动未开始，请输入【赛马创建】创建赛马场"
-    elif game.name == "HorseRace":
-        msg =  game.RaceJoin(event, arg.extract_plain_text().strip())
-    await RaceJoin.finish(msg, at_sender = True)
+join_game = on_message(rule = join_game_rule, permission = GROUP, priority = 20, block = True)
 
-# 赛马开始
-RaceStart = on_command(
-    "赛马开始",
-    aliases = {"开始赛马"},
-    permission = GROUP,
-    priority = 20,
-    block = True
-    )
-@RaceStart.handle()
+@join_game.handle()
+async def _(event:GroupMessageEvent, state:T_State):
+    game = state["Game"]
+    msg = game.join(event,state["arg"])
+    await join_game.finish(msg)
+
+# 开始游戏
+AllRunGameCommand = {
+    "HorseRace":{"赛马开始","开始赛马"},
+    "NewGame":{"游戏开始","开始游戏"},
+    }
+AllRunGameCommand = {cmd: name for name, cmds in AllRunGameCommand.items() for cmd in cmds}
+
+async def run_game_rule(bot:Bot, event:GroupMessageEvent, state:T_State) -> bool:
+    """
+    规则：开始游戏
+    """
+    msg = str(event.message)
+    for cmd in AllRunGameCommand:
+        if msg.startswith(cmd):
+            game = current_games.get(event.group_id)
+            name = AllRunGameCommand[cmd]
+            if game:
+                if game.name == name:
+                    state["Game"] = game
+                    return True
+                return False
+            else:
+                await bot.send(event,AllGameTips[name])
+                return False
+    else:
+        return False
+
+async def AROF_check(event:GroupMessageEvent, state:T_State):
+    """
+    本群有AROF
+    """
+    group_id = event.group_id
+    if group_id in current_games and current_games[group_id].name in ["NewGame"]:
+        state["game"] = current_games[group_id]
+        return True
+    else:
+        return False
+
+# 回合开始
+AROF_start = on_command("回合开始", rule = AROF_check, priority = 20, block = True)
+
+@AROF_start.handle()
 async def _(bot:Bot, event:GroupMessageEvent):
-    if not (game := current_games.get(event.group_id)):
-        msg = "赛马活动未开始，请输入【赛马创建】创建赛马场"
-    elif game.name == "HorseRace":
-        msg = await game.RaceStart(bot, event)
-    await RaceStart.finish(msg)
+    game = current_games[event.group_id]
+    msg = await game.AROF_start(bot,event.user_id)
+    await AROF_start.finish(msg)
 
-# 赛马重置
-RaceReStart = on_command(
-    "赛马重置",
-    aliases = {"重置赛马"},
-    permission = GROUP,
-    priority = 20,
-    block = True
-    )
+# 回合结束
+AROF_end = on_command("回合结束", rule = AROF_check, priority = 20, block = True)
+@AROF_end.handle()
+async def _(bot:Bot, event:GroupMessageEvent):
+    game = current_games[event.group_id]
+    msg = await game.AROF_end(bot,event.user_id)
+    await AROF_end.finish(msg)
 
-@RaceReStart.handle()
+# 行动
+AROF_action = on_command("行动", rule = AROF_check, checkpriority = 20, block = True)
 
-async def _(event:GroupMessageEvent):
-    if not (game := current_games.get(event.group_id)):
-        msg = "赛马活动未开始，请输入【赛马创建】创建赛马场"
-    elif game.name == "HorseRace":
-        msg = game.RaceReStart(event)
-    await RaceReStart.finish(msg)
+@AROF_action.handle()
+async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg()):
+    game = current_games[event.group_id]
+    msg = await game.AROF_action(bot,event.user_id,*arg.extract_plain_text().strip().split())
+    await AROF_action.finish(msg)
+
+run_game = on_message(rule = run_game_rule, permission = GROUP, priority = 20, block = True)
+
+@run_game.handle()
+async def _(bot:Bot, state:T_State):
+    game = state["Game"]
+    msg = await game.run(bot)
+    await run_game.finish(msg)
 
 # 赛马暂停
 RaceStop = on_command(
@@ -131,7 +185,6 @@ RaceStop = on_command(
     priority = 20,
     block = True
     )
-
 @RaceStop.handle()
 async def _(event:GroupMessageEvent):
     current_games[event.group_id].race_group.start = 2
@@ -265,25 +318,31 @@ AllCreateGameCommand = {
     "Blackjack":{"21点"},
     "ABCard":{"AB牌","ab牌"},
     "GunFight":{"西部枪战","西部对战","牛仔对战","牛仔对决"},
+    "HorseRace":{"赛马创建","创建赛马"},
+    "NewGame":{"游戏创建","创建游戏"},
     }
 
 AllCreateGameCommand = {cmd: name for name, cmds in AllCreateGameCommand.items() for cmd in cmds}
+
+AllGames = {
+    "Russian":Game.Russian,
+    "Dice":Game.Dice,
+    "Poker":Game.Poker,
+    "LuckyNumber":Game.LuckyNumber,
+    "Cantrell":Game.Cantrell,
+    "Blackjack":Game.Blackjack,
+    "ABCard":Game.ABCard,
+    "GunFight":Game.GunFight,
+    "HorseRace":Game.HorseRace,
+    "NewGame":Game.NewGame,
+    }
 
 def create_game_rule(event:GroupMessageEvent, state:T_State)-> bool:
     """
     规则：创建对局
     """
     msg = str(event.message)
-    AllGames = {
-        "Russian":Game.Russian,
-        "Dice":Game.Dice,
-        "Poker":Game.Poker,
-        "LuckyNumber":Game.LuckyNumber,
-        "Cantrell":Game.Cantrell,
-        "Blackjack":Game.Blackjack,
-        "ABCard":Game.ABCard,
-        "GunFight":Game.GunFight,
-        }
+
     for cmd in AllCreateGameCommand:
         if msg.startswith(cmd):
             state["Game"] = AllGames[AllCreateGameCommand[cmd]]
@@ -325,6 +384,8 @@ def game_play_rule(event:MessageEvent, state:T_State)-> bool:
     game = current_games.get(group_id)
     if game and (Name := game.name) not in ["HorseRace"]:
         cmdlst = AllPlayGameCommand.get(Name)
+        if not cmdlst:
+            return False
         msg = str(event.message)
         state["game"] = game
         if Name == "LuckyNumber":
@@ -413,9 +474,18 @@ async def _(bot:Bot, state:T_State):
 fold = on_fullmatch(("认输", "投降", "结束"), rule = session_check, permission = GROUP, priority = 20, block = True)
 
 @fold.handle()
-async def _(bot:Bot, state:T_State):
+async def _(bot:Bot, event:GroupMessageEvent, state:T_State):
     game = state["game"]
-    await game.fold(bot)
+    await game.fold(bot, event.user_id)
+
+# 游戏重置
+restart = on_command("游戏重置", aliases={"重置游戏"}, rule = session_check, permission = GROUP, priority = 20, block = True)
+
+@restart.handle()
+async def _(state:T_State):
+    game = state["game"]
+    msg = game.restart()
+    await restart.finish(msg)
 
 # 抽卡
 gacha = on_regex("^.+连抽?卡?|单抽", rule = to_me(), priority = 20, block = True)

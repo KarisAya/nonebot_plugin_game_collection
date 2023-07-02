@@ -292,6 +292,18 @@ class Game(ABC):
             except GameOverException:
                 pass
 
+    def restart(self):
+        """
+        游戏重置
+        """
+        session = self.session
+        group_id = session.group_id
+        overtime = time.time() - session.time
+        if overtime < 60:
+            return f"当前游戏已创建 {int(overtime)} 秒，未超时。"
+        del current_games[group_id]
+        return "游戏已重置。"
+
     @classmethod
     def start(cls, event:GroupMessageEvent, **kwargs) -> Tuple[bool,Message]:
         """
@@ -1576,29 +1588,96 @@ class AROF():
     """
     其他类
     """
-    def accept(self, event:GroupMessageEvent):
+    name:str = "AROF"
+
+    def __init__(self):
+        self.session:Session = Session()
+
+    @staticmethod
+    def parse_arg(arg:str):
+        if arg.isdigit():
+            gold = int(arg)
+        else:
+            gold = bet_gold
+        return {"gold":gold}
+
+    @classmethod
+    def creat(cls, event:GroupMessageEvent, **kwargs):
+        """
+        发起多人游戏
+        """
+        flag, msg = cls.start(event, **kwargs)
+        if flag == False:
+            return msg
+        return current_games[event.group_id].game_tips(msg)
+
+    @classmethod
+    def start(cls, event:GroupMessageEvent, **kwargs) -> Tuple[bool,Message]:
+        """
+        创建多人游戏
+        """
+        game = current_games.get(event.group_id)
+        if game:
+            if msg := game.create_check():
+                return False, msg
+            if msg := game.session.create_check(event):
+                return False, msg
+        group_id = kwargs["group_id"] = event.group_id
+        user_id = kwargs["user_id"] = event.user_id
+        game = current_games[group_id] = cls(**kwargs)
+        return True, MessageSegment.at(user_id)
+
+    def create_check(self):
+        session = self.session
+        world = self.world
+        overtime = time.time() - session.time + 180
+        if overtime < 180:
+            if world.start == 0:
+                return "一场游戏正在报名中"
+            else:
+                return f"一场游戏正在进行中，遇到问题可以{f'在{t}秒后' if (t := int(180 - overtime)) > 0 else ''}输入【游戏重置】重置游戏"
+
+    @abstractmethod
+    def join(self, event:GroupMessageEvent, *args):
+        """
+        加入游戏
+        """
+
+    def accept(self):
         """
         接受挑战
         """
         return None
 
-    def refuse(self, event:GroupMessageEvent):
+    def refuse(self):
         """
         拒绝挑战
         """
         return None
 
-    async def overtime(self, bot:Bot, event:GroupMessageEvent):
+    async def overtime(self):
         """
         超时结算
         """
         return None
 
-    async def fold(self, bot:Bot, event:GroupMessageEvent):
+    async def fold(self):
         """
         认输
         """
         return None
+
+    def restart(self):
+        """
+        游戏重置
+        """
+        session = self.session
+        group_id = session.group_id
+        overtime = time.time() - session.time + 180
+        if overtime < 180:
+            return f"当前游戏已创建 {int(overtime)} 秒，未超时。"
+        del current_games[group_id]
+        return "游戏已重置。"
 
 from .HorseRace.start import load_dlcs
 from .HorseRace.race_group import race_group
@@ -1611,78 +1690,51 @@ class HorseRace(AROF):
 
     events_list = load_dlcs()
 
-    def __init__(self, event:GroupMessageEvent, gold:int ):
-        self.session = Session(
-            time = time.time() + 180,
-            player1_id = event.user_id,
-            at = -1,
-            gold = gold,
-            )
-        self.race_group = race_group()
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.session.time = time.time() + 180
+        self.session.group_id = kwargs["group_id"]
+        self.session.player1_id = kwargs["user_id"]
+        self.session.at = -1
+        self.session.gold = kwargs["gold"]
+        self.world = race_group()
 
-    def create_check(self):
-        session = self.session
-        race:race_group = self.race_group
-        overtime = time.time() - session.time + 180
-        if race.start == 0:
-            if overtime < 120:
-                return "一场赛马正在报名中"
-        else:
-            return f"一场赛马正在进行中，遇到问题可以{f'在{t}秒后' if (t := int(180 - overtime)) > 0 else ''}输入【赛马重置】重置游戏"
-
-        return None
-
-    @classmethod
-    def RaceNew(cls, event:GroupMessageEvent, gold:int):
-        """
-        赛马创建
-        """
-        game = current_games.get(event.group_id)
-        if game:
-            if game.name == cls.name and (msg := game.create_check()):
-                return msg
-            if msg := game.session.create_check(event):
-                return msg
-        current_games[event.group_id] =  cls(event, gold)
-        return ("\n"
-                 "> 创建赛马比赛成功！\n"
-                 "> 输入 【赛马加入 名字】 即可加入赛马。")
-
-    def RaceJoin(self, event:GroupMessageEvent, horsename:str):
+    def join(self, event:GroupMessageEvent, *args):
         """
         赛马加入
         """
         if self.name != "HorseRace":
-            return "其他对战进行中。"
+            return "其他游戏进行中。"
+        session = self.session
         user,group_account = Manager.locate_user(event)
         user_id = user.user_id
-        session = self.session
         if (gold := group_account.gold) < session.gold:
             return f"报名赛马需要{self.session.gold}金币，你的金币：{gold}。"
-        race:race_group = self.race_group
+        race = self.world
         if race.start != 0:
             return
         if (query_of_player := race.query_of_player()) >= max_player:
             return "加入失败！赛马场就那么大，满了满了！"
         if race.is_player_in(user_id) == True:
             return "加入失败！您已经加入了赛马场!"
+        horsename = args[0] if args else None
         if not horsename:
             return "请输入你的马儿名字"
         horsename = horsename[:2]+"酱" if len(horsename) > 5 else horsename
         race.add_player(horsename, user_id, group_account.nickname)
-        user.gold -= session.gold
-        group_account.gold -= session.gold
-        return  ("\n"
-                 "> 加入赛马成功\n"
-                 "> 赌上马儿性命的一战即将开始!\n"
-                 f"> 赛马场位置:{query_of_player + 1}/{max_player}")
+        return  (
+            MessageSegment.at(user_id) + "\n" +
+            "> 加入赛马成功\n"
+            "> 赌上马儿性命的一战即将开始!\n"
+            f"> 赛马场位置:{query_of_player + 1}/{max_player}"
+            )
 
-    async def RaceStart(self, bot:Bot, event:GroupMessageEvent):
+    async def run(self, bot:Bot):
         """
         赛马开始
         """
         events_list = self.events_list
-        race:race_group = self.race_group
+        race = self.world
         if (player_count := race.query_of_player()) == 0:
             return
         if race.start == 1:
@@ -1693,13 +1745,13 @@ class HorseRace(AROF):
             else:
                 return f"开始失败！赛马开局需要最少{min_player}人参与"
 
-        group_id = event.group_id
         session = self.session
+        group_id = session.group_id
         session.time = time.time() + 180
-        await bot.send(event,(f'> 比赛开始\n'
-                              f'> 当前奖金：{session.gold * player_count}金币'))
+        await bot.send_group_msg(group_id = group_id, message = (
+            f'> 比赛开始\n'
+            f'> 当前奖金：{session.gold * player_count}金币'))
         await asyncio.sleep(0.5)
-
         while race.start == 1:
             # 回合数+1
             race.round_add()
@@ -1717,11 +1769,11 @@ class HorseRace(AROF):
             output = linecard_to_png(display, font_size = 30)
 
             try:
-                await bot.send(event,(Message(text) + MessageSegment.image(output)))
+                await bot.send_group_msg(group_id = group_id, message = (Message(text) + MessageSegment.image(output)))
             except:
                 text = ""
                 try:
-                    await bot.send(event,(MessageSegment.image(output)))
+                    await bot.send_group_msg(group_id = group_id,message =(MessageSegment.image(output)))
                 except:
                     pass
 
@@ -1733,57 +1785,214 @@ class HorseRace(AROF):
                     uid = x.playeruid
                     if uid in user_data:
                         user = user_data[uid]
-                        user.gold += session.gold
-                        user.group_accounts[group_id].gold += session.gold
-
+                        user.gold -= session.gold
+                        user.group_accounts[group_id].gold  -= session.gold
                 del current_games[group_id]
-                return "比赛已结束，鉴定为无马生还"
+                await bot.send_group_msg(group_id = group_id,message = "比赛已结束，鉴定为无马生还")
+                return
 
             #全员胜利计算
             winer = race.is_win_all()
             winer_list="\n"
             if winer != []:
-                await bot.send(event,(f'> 比赛结束\n'
-                                      f'> {bot_name}正在为您生成战报...'))
+                await bot.send_group_msg(group_id = group_id,message = (
+                    f'> 比赛结束\n'
+                    f'> {bot_name}正在为您生成战报...'))
                 await asyncio.sleep(1)
                 gold = int(session.gold * player_count / len(winer))
+                for x in race.player:
+                    uid = x.playeruid
+                    if uid in user_data:
+                        user = user_data[uid]
+                        user.gold -= session.gold
+                        user.group_accounts[group_id].gold -= session.gold
                 for x in winer:
                     uid = x[1]
                     winer_list += "> "+ x[0] + "\n"
                     if uid in user_data:
                         user = user_data[uid]
                         user.gold += gold
-                        user.group_accounts[group_id].gold += gold
+                        user.group_accounts[group_id].gold  += gold
                 del current_games[group_id]
-                return (f"> 比赛已结束，胜者为：{winer_list}"
-                        f"> 本次奖金：{gold} 金币")
+                await bot.send_group_msg(group_id = group_id,message = (
+                    f"> 比赛已结束，胜者为：{winer_list}"
+                    f"> 本次奖金：{gold} 金币"))
+                return
             await asyncio.sleep(1)
 
-    def RaceReStart(self, event:GroupMessageEvent):
+    def game_tips(self, msg):
         """
-        赛马重置
+        发起游戏：赛马
         """
-        group_id = event.group_id
-        session = self.session
-        overtime = time.time() - session.time + 180
-        if overtime < 180:
-            return f"当前赛马已创建 {int(overtime)} 秒，未超时。"
-        race:race_group = self.race_group
-        for x in race.player:
-            uid = x.playeruid
-            if uid in user_data:
-                user = user_data[uid]
-                user.gold += session.gold
-                user.group_accounts[group_id].gold += session.gold
+        return (
+            msg + "\n" +
+            "> 创建赛马比赛成功！\n"
+            f"> 本场金额：{self.session.gold}金币\n"
+            "> 输入 【赛马加入 名字】 即可加入赛马。"
+            )
 
-        del current_games[group_id]
-        return "赛马场已重置。"
+from .NewGame.a import World
 
 class NewGame(AROF):
     """
-    新游戏
+    AROF游戏
     """
     name:str = "NewGame"
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.session.time = time.time() + 180
+        self.session.group_id = kwargs["group_id"]
+        self.session.player1_id = kwargs["user_id"]
+        self.session.at = -1
+        self.session.gold = kwargs["gold"]
+        self.world = World()
+
+    def join(self, event:GroupMessageEvent, *args):
+        """
+        AROF加入
+        """
+        if self.name != "NewGame":
+            return "其他游戏进行中。"
+        session = self.session
+        user,group_account = Manager.locate_user(event)
+        user_id = user.user_id
+        if (gold := group_account.gold) < session.gold:
+            return f"报名AROF需要{self.session.gold}金币，你的金币：{gold}。"
+        world:World = self.world
+        if world.start != 0:
+            return
+        if user_id in world.ids:
+            return "你已经加入了游戏"
+        if len(world.players) > 14:
+            return "人满了"
+        index = None
+        team = None
+        if args:
+            if len(args) == 1:
+                args = args[0]
+                if args.isdigit():
+                    index = int(args)
+                else:
+                    team = args
+            else:
+                index = args[0]
+                team = args[1]
+                if index.isdigit():
+                    index = int(args)
+                else:
+                    team = index
+                    index = None
+        if index:
+            if 0< index <= 14:
+                if index in world.players:
+                    return f"{index}号位置已经有人了\n请选择\n{','.join(i for i in range(1,15) if i not in world.castles)}" 
+            else:
+                return f"位置不存在。请选择\n{','.join(i for i in range(1,15) if i not in world.castles)}"
+        else:
+            index = random.choice([i for i in range(1,15) if i not in world.castles])
+
+        world.add_player(group_account,index,team or user_id)
+        return  (
+            MessageSegment.at(user_id) + "\n" +
+            "> AROF加入成功\n"
+            "> 战争即将开始!\n"
+            f"> 你的位置是 {index} 号城\n"
+            f"> 你的队伍是 {team if team else '个人'}"
+            )
+
+    async def run(self, bot:Bot):
+        """
+        AROF开始
+        """
+        world:World = self.world
+        N = len(world.players)
+        if N == 0:
+            return
+        if world.start != 0:
+            return
+        if N >= min_player:
+            world.start = 1
+        else:
+            return f"开始失败！AROF需要最少{min_player}人参与"
+        group_id = self.session.group_id
+        await bot.send_group_msg(group_id = group_id, message = MessageSegment.image(world.draw()))
+        msg = "请" + MessageSegment.at(world.ids[0]) + "开始行动"
+        await bot.send_group_msg(group_id = group_id, message = msg)
+
+    async def AROF_start(self, bot:Bot, user_id:int):
+        """
+        开始行动
+        """
+        world:World = self.world
+        start = world.start
+        if start == 0:
+            return
+        start -= 1
+        if world.ids[start] != user_id:
+            return "现在不是你的回合。"
+        if world.act != 0:
+            return "你的回合已开始。"
+        world.act = 1
+        world.round += 1
+        msg = ""
+        for index in range(0,15):
+            if (castle := world.castles.get(index)) and castle.user_id == world.ids[start]:
+                msg += f"你的{index}号城获得了：\n{castle.turntable()}\n"
+        group_id = self.session.group_id
+        await bot.send_group_msg(group_id = group_id, message = msg[:-1])
+        await asyncio.sleep(1)
+        await bot.send_group_msg(group_id = group_id, message = MessageSegment.image(world.draw()))
+
+    async def AROF_end(self, bot:Bot, user_id:int):
+        """
+        结束行动
+        """
+        world:World = self.world
+        start = world.start
+        if start == 0:
+            return
+        start -= 1
+        if world.ids[start] != user_id:
+            return "现在不是你的回合。"
+        world.act = 0
+        msg = ""
+        world.start += 1
+        if world.start > (len(world.ids)):
+            world.start = 1
+            world.round += 1
+        msg = "请" + MessageSegment.at(world.ids[world.start - 1]) + "开始行动"
+        group_id = self.session.group_id
+        await bot.send_group_msg(group_id = group_id, message = msg)
+
+    async def AROF_action(self, bot:Bot, user_id:int, *args):
+        """
+        行动
+        """
+        world:World = self.world
+        start = world.start
+        if start == 0:
+            return
+        start -= 1
+        if world.ids[start] != user_id:
+            return "现在不是你的回合。"
+        if world.act == 0:
+            await self.AROF_start(bot,user_id)
+            await asyncio.sleep(1)
+        msg = "|".join(args)
+        group_id = self.session.group_id
+        await bot.send_group_msg(group_id = group_id, message = msg)
+
+    def game_tips(self, msg):
+        """
+        发起游戏：AROF
+        """
+        return (
+            msg + "\n" +
+            "> 创建AROF成功！\n"
+            f"> 本场金额：{self.session.gold}金币\n"
+            "> 输入 【AROF加入 队伍】 即可加入AROF。"
+            )
 
 def random_game(event:GroupMessageEvent, gold:int):
     """

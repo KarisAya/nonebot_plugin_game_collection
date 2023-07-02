@@ -1,5 +1,4 @@
-﻿from itertools import count
-from nonebot.adapters.onebot.v11 import (
+﻿from nonebot.adapters.onebot.v11 import (
     Bot,
     MessageEvent,
     GroupMessageEvent,

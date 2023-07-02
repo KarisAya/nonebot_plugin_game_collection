@@ -1,4 +1,5 @@
 from os import name
+from webbrowser import get
 from nonebot.adapters.onebot.v11 import (
     GROUP,
     PRIVATE,
@@ -79,7 +80,7 @@ async def join_game_rule(bot:Bot, event:GroupMessageEvent, state:T_State) -> boo
     """
     规则：加入游戏
     """
-    msg = str(event.message)
+    msg = event.message.extract_plain_text()
     for cmd in AllJoinGameCommand:
         if msg.startswith(cmd):
             game = current_games.get(event.group_id)
@@ -115,7 +116,7 @@ async def run_game_rule(bot:Bot, event:GroupMessageEvent, state:T_State) -> bool
     """
     规则：开始游戏
     """
-    msg = str(event.message)
+    msg = event.message.extract_plain_text()
     for cmd in AllRunGameCommand:
         if msg.startswith(cmd):
             game = current_games.get(event.group_id)
@@ -284,7 +285,7 @@ async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg()):
 give_props = on_command("送道具", aliases = {"赠送道具"}, permission = GROUP, priority = 20, block = True)
 
 @give_props.handle()
-async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg(),):
+async def _(event:GroupMessageEvent, arg:Message = CommandArg(),):
     arg = arg.extract_plain_text().strip().split()
     at = get_message_at(event.message)
     test = len(arg)
@@ -341,7 +342,7 @@ def create_game_rule(event:GroupMessageEvent, state:T_State)-> bool:
     """
     规则：创建对局
     """
-    msg = str(event.message)
+    msg = event.message.extract_plain_text()
 
     for cmd in AllCreateGameCommand:
         if msg.startswith(cmd):
@@ -386,16 +387,15 @@ def game_play_rule(event:MessageEvent, state:T_State)-> bool:
         cmdlst = AllPlayGameCommand.get(Name)
         if not cmdlst:
             return False
-        msg = str(event.message)
+        msg = event.message.extract_plain_text()
         state["game"] = game
         if Name == "LuckyNumber":
             if msg.isdigit() and 0 < (N := int(msg)) <= 100:
                 state["arg"] = (N,)
                 return True
         elif Name in {"Blackjack","ABCard","GunFight"}:
-            card = str(event.message)
-            if card in cmdlst:
-                state["arg"] = (card,)
+            if msg in cmdlst:
+                state["arg"] = (msg,)
                 return True
         else:
             for cmd in cmdlst:

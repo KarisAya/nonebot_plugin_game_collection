@@ -918,7 +918,7 @@ async def _():
     Manager.update_company_index()
     log = data.verification()
     logger.info(f"\n{log}")
-    data,Newday()
+    data.Newday()
     with open(path / "Newday.log","a",encoding = "utf8") as f:
         f.write(f"\n{datetime.datetime.fromtimestamp(time.time()).strftime('%Y 年 %m 月 %d 日 %H:%M:%S')}\n"
                 "——————————————\n"

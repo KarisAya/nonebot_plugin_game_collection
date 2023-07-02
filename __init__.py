@@ -160,7 +160,7 @@ async def _(bot:Bot, event:GroupMessageEvent):
     await AROF_end.finish(msg)
 
 # 行动
-AROF_action = on_command("行动", rule = AROF_check, checkpriority = 20, block = True)
+AROF_action = on_command("行动", rule = AROF_check, priority = 20, block = True)
 
 @AROF_action.handle()
 async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg()):

@@ -527,8 +527,7 @@ def company_update(company:Company):
     """
     company_id = company.company_id
     # 更新全群金币数
-    group_gold = Manager.group_wealths(company_id)
-    company.group_gold = group_gold
+    group_gold = company.group_gold = Manager.group_wealths(company_id)
     # 固定资产回归值 = 80%全群金币数 + 40%股票融资 总计：80%~120%全群金币数
     line = group_gold * (1.2 - 0.4 * (company.stock / company.issuance))
     # 公司金币数回归到固定资产回归值
@@ -538,8 +537,11 @@ def company_update(company:Company):
     float_gold += company.float_gold * random.gauss(0,0.03) + company.gold * random.uniform(-0.1, 0.1)
     # 股票价格向债务价值回归
     gold = company.gold
-    deviation = gold - float_gold
-    float_gold += deviation * 0.1 * abs(deviation)/gold
+    if gold:
+        deviation = gold - float_gold
+        float_gold +=  0.1 * deviation * abs(deviation) / gold
+    else:
+        float_gold = 0.0
     # 更新浮动价格
     company.float_gold = float_gold
     # 记录价格历史

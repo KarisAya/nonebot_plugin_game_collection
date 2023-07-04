@@ -182,6 +182,7 @@ class DataBase(BaseModel):
                 # 股票数检查
                 for company_id,count in stocks.items():
                     stock_check[company_id] += count
+                group_account.value == 0 if group_account.value == float("nan") else group_account.value
             # 金币总数
             log += f"{user.nickname} 金币总数异常。记录值：{user.gold} 实测值：{gold} 数据已修正。\n" if user.gold != gold else ""
             user.gold = gold
@@ -211,7 +212,7 @@ class DataBase(BaseModel):
                     ) if company.stock + stock_check[group_id] != company.issuance else ""
                 company.level = level
                 # 修正股票发行量
-                company.issuance = 20000*company.level
+                company.issuance = 20000*level
                 # 修正股票库存
                 stock = company.issuance - stock_check[group_id]
                 log += (
@@ -221,6 +222,9 @@ class DataBase(BaseModel):
                     "数据已修正。\n"
                     ) if company.stock + stock_check[group_id] != company.issuance else ""
                 company.stock = stock
+                company.gold = 0.0 if company.gold == float("nan") else company.gold
+                company.float_gold = 0.0 if company.float_gold == float("nan") else company.float_gold
+                company.group_gold = 0.0 if company.group_gold == float("nan") else company.group_gold
         self.save()
         return log[:-1] if log else "数据一切正常！"
 

@@ -1,7 +1,7 @@
-from typing import Tuple,Set
+from typing import Tuple
 from pydantic import BaseModel, Extra
 
-class Config(BaseModel, extra=Extra.ignore):
+class Config(BaseModel, extra = Extra.ignore):
     # 每日签到的范围
     sign_gold:Tuple[int, int] = (200, 500)
     # 每日补贴的范围

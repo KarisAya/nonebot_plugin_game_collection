@@ -2,13 +2,11 @@ from os import name
 from webbrowser import get
 from nonebot.adapters.onebot.v11 import (
     GROUP,
-    PRIVATE,
     GROUP_ADMIN,
     GROUP_OWNER,
     Bot,
     MessageEvent,
     GroupMessageEvent,
-    PrivateMessageEvent,
     Message,
 )
 from nonebot import get_driver
@@ -41,14 +39,15 @@ from . import Alchemy
 
 from .utils.utils import get_message_at, number
 from .data import ExchangeInfo,menu_data
-from .config import revolt_cd, bet_gold, path, backup
+from .config import Config, revolt_cd, bet_gold, path, backup
 
 from nonebot.plugin import PluginMetadata
 
 __plugin_meta__ = PluginMetadata(
     name = "小游戏合集",
     description = "各种群内小游戏",
-    usage = "",
+    usage = "金币签到",
+    config = Config,
     extra = {'menu_data':menu_data,'menu_template':'default'})
 
 data = Manager.data

@@ -349,12 +349,11 @@ class Prop(str):
         if not group_account:
             return "私聊未关联账户，请发送【关联账户】关联群内账户。"
 
-        tmp = count*3
         props = user.props
-        if props.get("33101",0) < tmp:
-            return "每次炼金需要消耗3个初级元素，你持有的初级元素数量不足。"
+        if props.get("33101",0) < count:
+            return "数量不足"
 
-        props["33101"] -= tmp
+        props["33101"] -= count
         if props["33101"] < 1:
             del props["33101"]
 

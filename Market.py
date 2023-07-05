@@ -8,6 +8,7 @@ from nonebot.adapters.onebot.v11 import (
     )
 
 import random
+import math
 import time
 import datetime
 import asyncio
@@ -531,15 +532,18 @@ def company_update(company:Company):
     # 固定资产回归值 = 80%全群金币数 + 40%股票融资 总计：80%~120%全群金币数
     line = group_gold * (1.2 - 0.4 * (company.stock / company.issuance))
     # 公司金币数回归到固定资产回归值
-    company.gold += (line - company.gold)/96
-    # 股票价格变化 = 趋势性影响（正态分布） + 随机性影响（平均分布）
-    float_gold = company.float_gold
-    float_gold += company.float_gold * random.gauss(0,0.03) + company.gold * random.uniform(-0.1, 0.1)
-    # 股票价格向债务价值回归
     gold = company.gold
-    if gold:
+    gold += (line - gold)/96
+    company.gold = gold
+    if gold > 0.0:
+        # 股票价格变化 = 趋势性影响（正态分布） + 随机性影响（平均分布）
+        float_gold = company.float_gold
+        float_gold += float_gold * random.gauss(0,0.03) + gold * random.uniform(-0.1, 0.1)
+        # 股票价格向债务价值回归
         deviation = gold - float_gold
-        float_gold +=  0.1 * deviation * abs(deviation) / gold
+        float_gold +=  0.1 * deviation * abs(deviation / gold)
+        # Nan检查
+        float_gold = group_gold if math.isnan(float_gold) else float_gold
     else:
         float_gold = 0.0
     # 更新浮动价格

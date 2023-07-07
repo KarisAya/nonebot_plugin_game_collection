@@ -248,7 +248,7 @@ class Game(ABC):
         return Message(
             f"{MessageSegment.at(session.player2_id)}接受了对决！\n" +
             tip1 +
-            f"赌注为 {'随机' if session.gold == -1 else session.gold} 金币\n" +
+            f"赌注为 {session.gold} 金币\n" +
             f"请{MessageSegment.at(session.player1_id)}{tip2}"
             )
 

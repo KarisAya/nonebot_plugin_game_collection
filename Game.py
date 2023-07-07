@@ -171,6 +171,7 @@ class Game(ABC):
     max_bet_gold:int = max_bet_gold
 
     def __init__(self):
+        self.gold:int = 0
         self.session:Session = Session()
 
     @staticmethod
@@ -472,7 +473,7 @@ class Russian(Game):
     def __init__(self, **kwargs):
         super().__init__()
         gold = kwargs["gold"]
-        bullet_num = kwargs["bullet_num"]
+        bullet_num = kwargs.get("bullet_num",1)
         self.gold:int = gold
         self.bullet_num:int = bullet_num
         self.bullet:list = self.random_bullet(bullet_num)
@@ -553,7 +554,7 @@ class Russian(Game):
         发起游戏：俄罗斯轮盘
         """
         return (("咔 " * self.bullet_num)[:-1] + "，装填完毕\n"
-                f'挑战金额：{self.session.gold}\n'
+                f'挑战金额：{self.gold}\n'
                 f'第一枪的概率为：{round(self.bullet_num * 100 / 7,2)}%\n'
                 f'{msg}')
 
@@ -927,7 +928,7 @@ class Poker(Game):
         发起游戏：扑克对战
         """
         return ("唰唰~，随机牌堆已生成\n"
-                f'挑战金额：{self.session.gold}\n'
+                f'挑战金额：{self.gold}\n'
                 f'{msg}')
 
     def session_tips(self):
@@ -1025,7 +1026,7 @@ class Cantrell(Game):
     def __init__(self, **kwargs):
         super().__init__()
         gold = kwargs["gold"]
-        level = kwargs["level"]
+        level = kwargs.get("level",1)
         level = 1 if level < 1 else level
         level = 5 if level > 5 else level
         deck = Poker.random_poker()
@@ -1382,7 +1383,7 @@ class Blackjack(Game):
         发起游戏：21点
         """
         return ("唰唰~，随机牌堆已生成\n"
-                f'挑战金额：{self.session.gold}\n'
+                f'挑战金额：{self.gold}\n'
                 f'{msg}')
 
     def session_tips(self):
@@ -1500,7 +1501,7 @@ class ABCard(Game):
         发起游戏：AB牌
         """
         return ("双方手牌准备完毕\n"
-                f'挑战金额：{self.session.gold}/轮\n'
+                f'挑战金额：{self.gold}/轮\n'
                 f'{msg}')
 
     def session_tips(self):
@@ -1579,7 +1580,7 @@ class GunFight(Game):
         发起游戏：西部枪战
         """
         return ("场地准备完毕\n"
-                f'挑战金额：{self.session.gold}\n'
+                f'挑战金额：{self.gold}\n'
                 f'{msg}')
 
     def session_tips(self):
@@ -1598,7 +1599,7 @@ def random_game(event:GroupMessageEvent, gold:int):
     if group_account.props.get("32002",0) < 1:
         return f"你未持有持有【{props_library['32002']['name']}】，无法发起随机对战。"
 
-    cls = random.choice([Russian,Dice,Poker,LuckyNumber,Cantrell,Blackjack])
+    cls = random.choice([Russian,Dice,Poker,LuckyNumber,Cantrell,Blackjack,ABCard,GunFight])
     return cls.creat(event, gold = gold)
 
 class AROF():

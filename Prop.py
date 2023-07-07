@@ -621,14 +621,11 @@ class Prop(str):
             company = group_data[company_id].company
             company.Buyback(group_account)
         user.gold -= group_account.gold
-        n = group_account.props.get("02101")
         group_account.__init__(
             user_id = group_account.user_id,
             group_id = group_account.group_id,
             nickname = group_account.nickname
             )
-        if n:
-            group_account.props["02101"] = n
         return "你在本群的账户已重置，祝你好运~"
 
 def use_prop(event:MessageEvent, prop_name:str, count:int):

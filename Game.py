@@ -171,7 +171,6 @@ class Game(ABC):
     max_bet_gold:int = max_bet_gold
 
     def __init__(self):
-        self.gold:int = 0
         self.session:Session = Session()
 
     @staticmethod
@@ -474,6 +473,7 @@ class Russian(Game):
         super().__init__()
         gold = kwargs["gold"]
         bullet_num = kwargs["bullet_num"]
+        self.gold:int = gold
         self.bullet_num:int = bullet_num
         self.bullet:list = self.random_bullet(bullet_num)
         self.index:int = 0
@@ -710,6 +710,7 @@ class Poker(Game):
         gold = kwargs["gold"]
         deck = self.random_poker(2)
         hand = deck[0:3].copy()
+        self.gold:int = gold
         del deck[0:3]
         self.deck:list = deck + [[0,0],[0,0],[0,0],[0,0]]
         self.ACT:int = 1
@@ -1288,6 +1289,7 @@ class Blackjack(Game):
         super().__init__()
         gold = kwargs["gold"]
         deck = Poker.random_poker()
+        self.gold:int = gold
         self.deck = deck[2:]
         self.hand1 = [deck[0],]
         self.hand2 = [deck[1],]
@@ -1519,6 +1521,7 @@ class GunFight(Game):
     def __init__(self, **kwargs):
         super().__init__()
         gold = kwargs["gold"]
+        self.gold:int = gold
         self.MAG1 = 1
         self.MAG2 = 1
         self.first = None

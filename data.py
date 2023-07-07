@@ -113,6 +113,7 @@ class GroupDict(BaseModel):
     Achieve_revolution:Dict[int,int] = {}
     company:Company = Company()
 
+
 class GroupData(Dict[int, GroupDict]):
     """
     群数据

@@ -171,6 +171,7 @@ class Game(ABC):
     max_bet_gold:int = max_bet_gold
 
     def __init__(self):
+        self.gold:int = 0
         self.session:Session = Session()
 
     @staticmethod
@@ -226,7 +227,9 @@ class Game(ABC):
             user_data[session.player1_id].group_accounts[group_id].gold,
             user_data[session.player2_id].group_accounts[group_id].gold)
         bet_limit = bet_limit if bet_limit > 0 else 0
-        session.gold = random.randint(0, bet_limit)if session.gold == -1 else session.gold
+        if session.gold == -1:
+            session.gold = random.randint(0, bet_limit)
+            self.gold = session.gold
         session.bet_limit = bet_limit
         session.next = session.player1_id
         return self.session_tips()
@@ -245,7 +248,7 @@ class Game(ABC):
         return Message(
             f"{MessageSegment.at(session.player2_id)}接受了对决！\n" +
             tip1 +
-            f"赌注为 {session.gold} 金币\n" +
+            f"赌注为 {'随机' if session.gold == -1 else session.gold} 金币\n" +
             f"请{MessageSegment.at(session.player1_id)}{tip2}"
             )
 
@@ -567,7 +570,7 @@ class Dice(Game):
     掷色子
     """
     name = "Dice"
-    max_bet_gold:int = max_bet_gold *10
+    max_bet_gold:int = max_bet_gold
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -691,7 +694,7 @@ class Dice(Game):
     def end_tips(self):
         return (
             f'玩家 1\n'
-            f'组合：{" ".join(str(x) for x in self.dice_array2)}\n'
+            f'组合：{" ".join(str(x) for x in self.dice_array1)}\n'
             f'玩家 2\n'
             f'组合：{" ".join(str(x) for x in self.dice_array2)}')
 
@@ -700,7 +703,7 @@ class Poker(Game):
     扑克对战
     """
     name = "Poker"
-    max_bet_gold:int = max_bet_gold *10
+    max_bet_gold:int = max_bet_gold *5
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -1411,7 +1414,7 @@ class ABCard(Game):
     AB牌
     """
     name = "ABCard"
-    max_bet_gold:int = max_bet_gold *5
+    max_bet_gold:int = max_bet_gold
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -1583,6 +1586,17 @@ class GunFight(Game):
 
     def end_tips(self):
         return "" 
+
+def random_game(event:GroupMessageEvent, gold:int):
+    """
+    发起游戏：随机对战
+    """
+    group_account = Manager.locate_user(event)[1]
+    if group_account.props.get("32002",0) < 1:
+        return f"你未持有持有【{props_library['32002']['name']}】，无法发起随机对战。"
+
+    cls = random.choice([Russian,Dice,Poker,LuckyNumber,Cantrell,Blackjack])
+    return cls.creat(event, gold = gold)
 
 class AROF():
     """
@@ -1831,13 +1845,13 @@ class HorseRace(AROF):
             "> 输入 【赛马加入 名字】 即可加入赛马。"
             )
 
-from .NewGame.a import World
+from .Fortress.core import World
 
-class NewGame(AROF):
+class Fortress(AROF):
     """
-    AROF游戏
+    要塞战
     """
-    name:str = "NewGame"
+    name:str = "Fortress"
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -1850,15 +1864,15 @@ class NewGame(AROF):
 
     def join(self, event:GroupMessageEvent, *args):
         """
-        AROF加入
+        要塞战加入
         """
-        if self.name != "NewGame":
+        if self.name != "Fortress":
             return "其他游戏进行中。"
         session = self.session
         user,group_account = Manager.locate_user(event)
         user_id = user.user_id
         if (gold := group_account.gold) < session.gold:
-            return f"报名AROF需要{self.session.gold}金币，你的金币：{gold}。"
+            return f"报名要塞战需要{self.session.gold}金币，你的金币：{gold}。"
         world:World = self.world
         if world.start != 0:
             return
@@ -1895,7 +1909,7 @@ class NewGame(AROF):
         world.add_player(group_account,index,team or user_id)
         return  (
             MessageSegment.at(user_id) + "\n" +
-            "> AROF加入成功\n"
+            "> 要塞战加入成功\n"
             "> 战争即将开始!\n"
             f"> 你的位置是 {index} 号城\n"
             f"> 你的队伍是 {team if team else '个人'}"
@@ -1903,7 +1917,7 @@ class NewGame(AROF):
 
     async def run(self, bot:Bot):
         """
-        AROF开始
+        要塞战开始
         """
         world:World = self.world
         N = len(world.players)
@@ -1914,7 +1928,7 @@ class NewGame(AROF):
         if N >= min_player:
             world.start = 1
         else:
-            return f"开始失败！AROF需要最少{min_player}人参与"
+            return f"开始失败！要塞战需要最少{min_player}人参与"
         group_id = self.session.group_id
         await bot.send_group_msg(group_id = group_id, message = MessageSegment.image(world.draw()))
         msg = "请" + MessageSegment.at(world.ids[0]) + "开始行动"
@@ -1985,22 +1999,11 @@ class NewGame(AROF):
 
     def game_tips(self, msg):
         """
-        发起游戏：AROF
+        发起游戏：要塞战
         """
         return (
             msg + "\n" +
-            "> 创建AROF成功！\n"
+            "> 要塞战创建成功！\n"
             f"> 本场金额：{self.session.gold}金币\n"
-            "> 输入 【AROF加入 队伍】 即可加入AROF。"
+            "> 输入 【要塞加入 编号 队伍】 即可加入要塞战。"
             )
-
-def random_game(event:GroupMessageEvent, gold:int):
-    """
-    发起游戏：随机对战
-    """
-    group_account = Manager.locate_user(event)[1]
-    if group_account.props.get("32002",0) < 1:
-        return f"你未持有持有【{props_library['32002']['name']}】，无法发起随机对战。"
-
-    cls = random.choice([Russian,Dice,Poker,LuckyNumber,Cantrell,Blackjack])
-    return cls.creat(event, gold = gold)

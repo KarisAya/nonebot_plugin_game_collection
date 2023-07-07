@@ -1,5 +1,3 @@
-from os import name
-from webbrowser import get
 from nonebot.adapters.onebot.v11 import (
     GROUP,
     GROUP_ADMIN,
@@ -65,13 +63,13 @@ def to_int(arg:Message, default:int = bet_gold):
 
 AllGameTips = {
     "HorseRace":"赛马活动未开始，请输入【赛马创建】创建赛马场",
-    "NewGame":"AROF未开始，请输入【AROF创建】创建AROF",
+    "Fortress":"要塞战未开始，请输入【要塞战创建】创建要塞战游戏",
     }
 
 # 加入游戏
 AllJoinGameCommand = {
     "HorseRace":{"赛马加入","加入赛马"},
-    "NewGame":{"游戏加入","加入游戏"},
+    "Fortress":{"要塞加入","堡垒加入","加入要塞","加入堡垒"},
     }
 
 AllJoinGameCommand = {cmd: name for name, cmds in AllJoinGameCommand.items() for cmd in cmds}
@@ -107,7 +105,7 @@ async def _(event:GroupMessageEvent, state:T_State):
 # 开始游戏
 AllRunGameCommand = {
     "HorseRace":{"赛马开始","开始赛马"},
-    "NewGame":{"游戏开始","开始游戏"},
+    "Fortress":{"游戏开始","开始游戏"},
     }
 AllRunGameCommand = {cmd: name for name, cmds in AllRunGameCommand.items() for cmd in cmds}
 
@@ -136,7 +134,7 @@ async def AROF_check(event:GroupMessageEvent, state:T_State):
     本群有AROF
     """
     group_id = event.group_id
-    if group_id in current_games and current_games[group_id].name in ["NewGame"]:
+    if group_id in current_games and current_games[group_id].name in {"Fortress"}:
         state["game"] = current_games[group_id]
         return True
     else:
@@ -319,7 +317,7 @@ AllCreateGameCommand = {
     "ABCard":{"AB牌","ab牌"},
     "GunFight":{"西部枪战","西部对战","牛仔对战","牛仔对决"},
     "HorseRace":{"赛马创建","创建赛马"},
-    "NewGame":{"游戏创建","创建游戏"},
+    "Fortress":{"堡垒战创建","要塞战创建","创建堡垒战","创建要塞战"},
     }
 
 AllCreateGameCommand = {cmd: name for name, cmds in AllCreateGameCommand.items() for cmd in cmds}
@@ -334,7 +332,7 @@ AllGames = {
     "ABCard":Game.ABCard,
     "GunFight":Game.GunFight,
     "HorseRace":Game.HorseRace,
-    "NewGame":Game.NewGame,
+    "Fortress":Game.Fortress,
     }
 
 def create_game_rule(event:GroupMessageEvent, state:T_State)-> bool:
@@ -382,7 +380,7 @@ def game_play_rule(event:MessageEvent, state:T_State)-> bool:
         return False
     group_id = user.connect
     game = current_games.get(group_id)
-    if game and (Name := game.name) not in ["HorseRace"]:
+    if game and (Name := game.name) not in {"HorseRace"}:
         cmdlst = AllPlayGameCommand.get(Name)
         if not cmdlst:
             return False

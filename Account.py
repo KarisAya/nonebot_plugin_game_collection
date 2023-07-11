@@ -291,7 +291,7 @@ async def my_info(event:MessageEvent) -> Message:
         "签到 [nowrap]\n"
         f"[color][{is_sign[1]}]{is_sign[0]}\n"
         "补贴 还剩 [nowrap]\n"
-        f"[color][{security[1]}]{security[0]} 次"
+        f"[color][{security[1]}]{security[0]}[nowrap]\n 次"
         )
     # 加载资产分析
     dist = []

@@ -555,6 +555,15 @@ async def _(event:MessageEvent):
     msg = await Account.my_info(event)
     await my_info.finish(msg)
 
+# 元素精炼
+alchemy_refine = on_command("元素精炼", priority = 20, block = True)
+
+@alchemy_refine.handle()
+async def _(event:MessageEvent, arg:Message = CommandArg()):
+    Products = arg.extract_plain_text().strip().split()
+    msg = Alchemy.alchemy_refine(event,Products)
+    await alchemy_refine.finish(msg)
+
 # 炼金资料卡
 alchemy_info = on_command("炼金账户", aliases = {"炼金资料"}, priority = 20, block = True)
 

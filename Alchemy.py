@@ -49,6 +49,8 @@ class Alchemy:
         "9":"雷电",
         "0":"尘埃"
         }
+    ProductsCode = {v:k for k,v in ProductsName.items()}
+
     @classmethod
     def do(cls,N:int):
         """
@@ -69,6 +71,29 @@ class Alchemy:
         for product,N in status.items():
             result += {k:v*N for k,v in cls.ProductsProperties[product].items()}
         return result
+
+def alchemy_refine(event:MessageEvent,Products:list) -> Message:
+    """
+    元素精炼
+    """
+    if not Products:
+        return "未指定需要精炼的元素"
+    codedict = {}
+    user = Manager.locate_user(event)[0]
+    alchemy = user.alchemy
+    msg = "精炼成功！你消耗了："
+    sumn = 0
+    for product in Products:
+        if (code := Alchemy.ProductsCode.get(product)) and (n := alchemy.get(code)):
+            codedict[code] = n
+            alchemy[code] = 0
+            msg += f"\n{product}：{n}个"
+            sumn += n
+    if not codedict:
+        return "精炼失败。你没有指定的元素。"
+    props = user.props
+    props["33101"] = sumn + props.get("33101",0)
+    return msg
 
 async def my_info(event:MessageEvent) -> Message:
     """

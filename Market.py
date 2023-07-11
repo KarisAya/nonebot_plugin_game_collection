@@ -381,7 +381,7 @@ def Exchange_sell(event:MessageEvent, info:Tuple[int,ExchangeInfo]):
         quote = exchange_info.quote
         unit = company.group_gold if company.group_gold < company.float_gold else company.float_gold
         unit = unit / company.issuance
-        if quote < (1  if (tmp := unit/4) < 1 else tmp) or quote > (max_bet_gold if (tmp := 10 * unit) < max_bet_gold else tmp):
+        if quote > max(max_bet_gold, 10 * unit):
             tips = "报价异常，发布失败。"
         else:
             if exchange.get(user_id):

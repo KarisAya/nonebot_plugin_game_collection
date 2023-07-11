@@ -236,7 +236,7 @@ class DataBase(BaseModel):
         """
         刷新每日
         """
-        revolution_today = random.randint(1,5) == 1
+        revolution_today = random.randint(1,5) != 1
         for user in self.user.values():
             # 刷新转账限额
             user.transfer_limit = 0

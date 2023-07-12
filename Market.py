@@ -145,6 +145,7 @@ def buy(event:MessageEvent, buy:int, company_name:str):
         return "已售空，请等待结算或在交易市场购买。"
 
     group_gold = Manager.group_wealths(company_id) or 0
+    group_gold = group_gold * company.level
     company.group_gold = group_gold
     if group_gold < 10 * max_bet_gold:
         return f"【{company_name}】金币过少({group_gold})，无法交易。"
@@ -172,12 +173,10 @@ def buy(event:MessageEvent, buy:int, company_name:str):
             )        
     else:
         company.stock -= buy
-        group_account.stocks.setdefault(company_id,0)
-        group_account.stocks[company_id] += buy
+        group_account.stocks[company_id] = group_account.stocks.get(company_id,0) + buy
         user.gold -= value
         group_account.gold -= value
         company.gold += value
-        company.float_gold += value
         company.group_gold = group_gold
         value_update(group_account)
         return (
@@ -214,6 +213,7 @@ def settle(event:MessageEvent, settle:int, company_name:str):
     company_name = company.company_name
 
     group_gold = Manager.group_wealths(company_id) or 0
+    group_gold = group_gold * company.level
     company.group_gold = group_gold
     if group_gold < 10 * max_bet_gold:
         return f"【{company_name}】金币过少({group_gold})，无法交易。"
@@ -244,7 +244,6 @@ def settle(event:MessageEvent, settle:int, company_name:str):
     user.gold += value - fee
     group_account.gold += value - fee
     company.gold -= value
-    company.float_gold -= value
     company.group_gold = group_gold
     if user.user_id in company.exchange:
         del company.exchange[user.user_id]
@@ -529,6 +528,7 @@ def company_update(company:Company):
     company_id = company.company_id
     # 更新全群金币数
     group_gold = company.group_gold = Manager.group_wealths(company_id)
+    group_gold = group_gold * company.level
     # 固定资产回归值 = 80%全群金币数 + 40%股票融资 总计：80%~120%全群金币数
     line = group_gold * (1.2 - 0.4 * (company.stock / company.issuance))
     # 公司金币数回归到固定资产回归值

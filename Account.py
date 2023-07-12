@@ -460,15 +460,15 @@ def intergroup_transfer_gold(event:MessageEvent, gold:int, company_name:str):
     else:
         return f"你在 {company_name} 没有创建账户"
 
-    user.transfer_limit += gold
     group_account.gold -= gold
     ExRate = min((group_data[group_account.group_id].company.level or 1)/group_data[company_id].company.level,1)
-    gold = int(ExRate * gold + 0.5)
-    fee = transfer_fee(gold, (10 * max_bet_gold) - user.transfer_limit)
+    tgold = int(ExRate * gold + 0.5)
+    fee = transfer_fee(tgold, (10 * max_bet_gold) - user.transfer_limit)
+    target_group_account.gold += tgold - fee
+    user.transfer_limit += tgold
     user.gold -= fee
-    target_group_account.gold += gold - fee
 
-    return f"向 {company_name} 转移 {gold}金币，扣除手续费：{fee}，实际到账金额{gold - fee}"
+    return f"向 {company_name} 转移 {gold}金币。汇率：{round(ExRate,2)}、手续费：{fee}\n实际到账金额{tgold - fee}"
 
 def freeze(target:UserDict):
     target_id = target.user_id

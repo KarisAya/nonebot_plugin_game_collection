@@ -901,7 +901,7 @@ async def _():
         logger.info("\n" + log)
 
 # 市场重置
-Market_reset = on_command("市场重置", permission = SUPERUSER, priority = 20, block = True)
+Market_reset = on_fullmatch("市场重置", permission = SUPERUSER, priority = 20, block = True)
 
 @Market_reset.handle()
 async def _():

@@ -408,7 +408,10 @@ async def group_info(bot:Bot, event:MessageEvent, group_id:int):
     info = []
     # 加载群信息
     company_name = company.company_name
-    group_info = await bot.get_group_info(group_id = group_id)
+    try:
+        group_info = await bot.get_group_info(group_id = group_id)
+    except:
+        group_info = {"group_name":"群聊已注销","member_count":3000}
     group_name = group_info["group_name"]
     member_count = group_info["member_count"]
     if member_count == 0:

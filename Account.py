@@ -433,8 +433,7 @@ async def All_rank(event:MessageEvent, title:str = "金币", top:int = 10) -> li
     return MessageSegment.image(info_splicing(info,Manager.BG_path(event.user_id), spacing = 5))
 
 def transfer_fee(amount: int, limit: int) -> int:
-    step = max_bet_gold * 10
-    levels = [[0.02, step],[0.2, step],[0.4, step],[0.6, float('inf')]]
+    levels = [[0.02, max_bet_gold * 10],[0.2, max_bet_gold * 40],[0.4, max_bet_gold * 50],[0.6, float('inf')]]
     fee = 0
     for n,(level_tax, level_step) in enumerate(levels):
         if limit >= level_step:

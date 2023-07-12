@@ -524,8 +524,9 @@ def company_update(company:Company):
     """
     company_id = company.company_id
     # 更新全群金币数
-    group_gold = company.group_gold = Manager.group_wealths(company_id)
+    group_gold = Manager.group_wealths(company_id)
     group_gold = group_gold * company.level
+    company.group_gold = group_gold
     # 固定资产回归值 = 80%全群金币数 + 40%股票融资 总计：80%~120%全群金币数
     line = group_gold * (1.2 - 0.4 * (company.stock / company.issuance))
     # 公司金币数回归到固定资产回归值
@@ -575,7 +576,7 @@ def reset():
     company_ids = set([company_index[company_id] for company_id in company_index])
     for company_id in company_ids:
         company = group_data[company_id].company
-        group_gold = company.group_gold = Manager.group_wealths(company_id)
+        group_gold = Manager.group_wealths(company_id)
         group_gold = group_gold * company.level
         company.group_gold = group_gold
         company.float_gold = group_gold * (1.2 - 0.4 * (company.stock / company.issuance))

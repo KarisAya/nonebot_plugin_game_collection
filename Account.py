@@ -18,7 +18,7 @@ from .utils.chart import (
     linecard,
     info_splicing
     )
-from .data import UserDict, GroupAccount
+from .data import Company, UserDict, GroupAccount
 from .data import props_library, props_index
 from .config import bot_name,sign_gold, revolt_gold, revolt_cd, revolt_gini, max_bet_gold
 
@@ -461,9 +461,11 @@ def intergroup_transfer_gold(event:MessageEvent, gold:int, company_name:str):
         return f"你在 {company_name} 没有创建账户"
 
     user.transfer_limit += gold
+    group_account.gold -= gold
+    ExRate = min((group_data[group_account.group_id].company.level or 1)/group_data[company_id].company.level,1)
+    gold = int(ExRate * gold + 0.5)
     fee = transfer_fee(gold, (10 * max_bet_gold) - user.transfer_limit)
     user.gold -= fee
-    group_account.gold -= gold
     target_group_account.gold += gold - fee
 
     return f"向 {company_name} 转移 {gold}金币，扣除手续费：{fee}，实际到账金额{gold - fee}"

@@ -67,11 +67,11 @@ def public(event:GroupMessageEvent,company_name:str):
         return f"本群已在市场注册，注册名：{company.company_name}"
     if check := check_company_name(company_name):
         return check
-    if (gold := (Manager.group_wealths(group_id) or 0)) < (limit := 15 * max_bet_gold):
+    gold = Manager.group_wealths(group_id)
+    if gold < (limit := 15 * max_bet_gold):
         return f"本群金币（{round(gold,2)}）小于{limit}，注册失败。"
     if (gini := Manager.Gini(group_id)) > 0.56:
         return f"本群基尼系数（{round(gini,3)}）过高，注册失败。"
-    gold = Manager.group_wealths(group_id)
     company = group_data[group_id].company
     company.company_id = group_id
     company.company_name = company_name
@@ -144,8 +144,8 @@ def buy(event:MessageEvent, buy:int, company_name:str):
     if buy < 1:
         return "已售空，请等待结算或在交易市场购买。"
 
-    group_gold = Manager.group_wealths(company_id) or 0
-    group_gold = group_gold * company.level
+    group_gold = Manager.group_wealths(company_id,company.level)
+
     if group_gold < 10 * max_bet_gold:
         return f"【{company_name}】金币过少({group_gold})，无法交易。"
 
@@ -211,8 +211,8 @@ def settle(event:MessageEvent, settle:int, company_name:str):
     company = group_data[company_id].company
     company_name = company.company_name
 
-    group_gold = Manager.group_wealths(company_id) or 0
-    group_gold = group_gold * company.level
+    group_gold = Manager.group_wealths(company_id,company.level)
+
     if group_gold < 10 * max_bet_gold:
         return f"【{company_name}】金币过少({group_gold})，无法交易。"
 
@@ -524,8 +524,7 @@ def company_update(company:Company):
     """
     company_id = company.company_id
     # 更新全群金币数
-    group_gold = Manager.group_wealths(company_id)
-    group_gold = group_gold * company.level
+    group_gold = Manager.group_wealths(company_id,company.level)
     company.group_gold = group_gold
     # 固定资产回归值 = 80%全群金币数 + 40%股票融资 总计：80%~120%全群金币数
     line = group_gold * (1.2 - 0.4 * (company.stock / company.issuance))
@@ -576,8 +575,7 @@ def reset():
     company_ids = set([company_index[company_id] for company_id in company_index])
     for company_id in company_ids:
         company = group_data[company_id].company
-        group_gold = Manager.group_wealths(company_id)
-        group_gold = group_gold * company.level
+        group_gold = Manager.group_wealths(company_id,company.level)
         company.group_gold = group_gold
         company.float_gold = group_gold * (1.2 - 0.4 * (company.stock / company.issuance))
         company.gold = company.float_gold

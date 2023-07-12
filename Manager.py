@@ -169,18 +169,18 @@ def Achieve_list(locate:Tuple[UserDict,GroupAccount]):
 
     return rank
 
-def group_wealths(group_id:int) -> float:
+def group_wealths(group_id:int, level:int = 1) -> float:
     """
     群内总资产
     """
     if group_id in group_data:
         namelist = group_data[group_id].namelist
     else:
-        return None
-    total = 0
+        return 0
+    total = 0.0
     for user_id in namelist:
         group_account = user_data[user_id].group_accounts[group_id]
-        total += group_account.gold + group_account.value
+        total += group_account.gold*level + group_account.value
     return total
 
 def group_ranklist(group_id:int , title:str) -> list:

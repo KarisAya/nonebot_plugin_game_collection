@@ -111,7 +111,7 @@ def revolution(group_id:int) -> str:
     if time.time() - group.revolution_time < revolt_cd:
         return f"重置正在冷却中，结束时间：{datetime.datetime.fromtimestamp(group.revolution_time + revolt_cd).strftime('%H:%M:%S')}"
 
-    if (gold := (Manager.group_wealths(group_id) or 0)) < (limit := 15 * max_bet_gold):
+    if (gold := Manager.group_wealths(group_id)) < (limit := 15 * max_bet_gold):
         return f"本群金币（{round(gold,2)}）小于{limit}，未满足重置条件。"
 
     if (gini := Manager.Gini(group_id)) < revolt_gini:
@@ -432,12 +432,23 @@ async def All_rank(event:MessageEvent, title:str = "金币", top:int = 10) -> li
     info = await draw_rank(ranklist, title, 20)
     return MessageSegment.image(info_splicing(info,Manager.BG_path(event.user_id), spacing = 5))
 
-def transfer_fee(amount:int,limit:int) -> int:
-    limit = limit if limit > 0 else 0
-    if amount <= limit:
-        fee = amount * 0.02
-    else:
-        fee = limit * 0.02 + (amount - limit) * 0.2
+def transfer_fee(amount: int, limit: int) -> int:
+    step = max_bet_gold * 10
+    levels = [[0.02, step],[0.2, step],[0.4, step],[0.6, float('inf')]]
+    fee = 0
+    for n,(level_tax, level_step) in enumerate(levels):
+        if limit >= level_step:
+            limit -= level_step
+            continue
+        levels[n][1] -= limit
+        break
+    for level_tax, level_step in levels[n:]:
+        if amount <= level_step:
+            fee += amount * level_tax
+            break
+        fee += level_step * level_tax
+        amount -= level_step
+
     return int(fee)
 
 def intergroup_transfer_gold(event:MessageEvent, gold:int, company_name:str):
@@ -461,14 +472,15 @@ def intergroup_transfer_gold(event:MessageEvent, gold:int, company_name:str):
         return f"你在 {company_name} 没有创建账户"
 
     group_account.gold -= gold
-    ExRate = min((group_data[group_account.group_id].company.level or 1)/group_data[company_id].company.level,1)
+    ExRate = group_data[group_account.group_id].company.level/group_data[company_id].company.level
+    ExRate = ExRate if ExRate else 1.0
     tgold = int(ExRate * gold + 0.5)
-    fee = transfer_fee(tgold, (10 * max_bet_gold) - user.transfer_limit)
+    fee = transfer_fee(tgold, user.transfer_limit)
     target_group_account.gold += tgold - fee
     user.transfer_limit += tgold
     user.gold -= fee
 
-    return f"向 {company_name} 转移 {gold}金币。汇率：{round(ExRate,2)}、手续费：{fee}\n实际到账金额{tgold - fee}"
+    return f"向 {company_name} 转移{gold}金币。\n汇率：{round(ExRate,2)} 手续费：{fee}({round(100*fee/tgold,2)}%)\n实际到账金额：{tgold - fee}"
 
 def freeze(target:UserDict):
     target_id = target.user_id

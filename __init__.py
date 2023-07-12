@@ -900,6 +900,14 @@ async def _():
     if log:
         logger.info("\n" + log)
 
+# 市场重置
+Market_reset = on_command("市场重置", permission = SUPERUSER, priority = 20, block = True)
+
+@Market_reset.handle()
+async def _():
+    Market.reset()
+    await Market_reset.finish("市场已重置。")
+
 # 数据备份
 Backup = on_command("Backup", aliases = {"数据备份", "游戏备份"}, permission = SUPERUSER, priority = 20, block = True)
 

@@ -146,7 +146,6 @@ def buy(event:MessageEvent, buy:int, company_name:str):
 
     group_gold = Manager.group_wealths(company_id) or 0
     group_gold = group_gold * company.level
-    company.group_gold = group_gold
     if group_gold < 10 * max_bet_gold:
         return f"【{company_name}】金币过少({group_gold})，无法交易。"
 
@@ -214,7 +213,6 @@ def settle(event:MessageEvent, settle:int, company_name:str):
 
     group_gold = Manager.group_wealths(company_id) or 0
     group_gold = group_gold * company.level
-    company.group_gold = group_gold
     if group_gold < 10 * max_bet_gold:
         return f"【{company_name}】金币过少({group_gold})，无法交易。"
 
@@ -378,8 +376,7 @@ def Exchange_sell(event:MessageEvent, info:Tuple[int,ExchangeInfo]):
             tips = "交易信息无效。"
     else:
         quote = exchange_info.quote
-        unit = company.group_gold if company.group_gold < company.float_gold else company.float_gold
-        unit = unit / company.issuance
+        unit = min(company.group_gold,company.float_gold) / company.issuance
         if quote > max(max_bet_gold, 10 * unit):
             tips = "报价异常，发布失败。"
         else:
@@ -471,7 +468,7 @@ def stock_profile(company:Company) -> str:
     issuance = company.issuance
     msg = (
         f"固定资产 {'{:,}'.format(round(company.gold,2))}\n"
-        f"市场流动 {'{:,}'.format(round(company.group_gold))}\n"
+        f"市场流动 {'{:,}'.format(round(group_gold))}\n"
         f"发行价格 {'{:,}'.format(round(max(group_gold,float_gold)/issuance,2))}\n"
         f"结算价格 {'{:,}'.format(round(float_gold/issuance,2))}\n"
         f"剩余数量 {company.stock}\n"
@@ -570,3 +567,16 @@ def update():
             value_update(group_accounts[group_id])
 
     return log[:-1]
+
+def reset():
+    """
+    市场重置
+    """
+    company_ids = set([company_index[company_id] for company_id in company_index])
+    for company_id in company_ids:
+        company = group_data[company_id].company
+        group_gold = company.group_gold = Manager.group_wealths(company_id)
+        group_gold = group_gold * company.level
+        company.group_gold = group_gold
+        company.float_gold = group_gold * (1.2 - 0.4 * (company.stock / company.issuance))
+        company.gold = company.float_gold

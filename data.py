@@ -190,7 +190,7 @@ class DataBase(BaseModel):
             log += f"{user.nickname} 金币总数异常。记录值：{user.gold} 实测值：{gold} 数据已修正。\n" if user.gold != gold else ""
             user.gold = gold
             # 修复炼金账户
-            user.alchemy = {k:v for k,v in user.alchemy.items() if k in ["1","2","3","4","5","6","7","8","9","0"]}
+            user.alchemy = {k:v for k,v in user.alchemy.items() if k in {"1","2","3","4","5","6","7","8","9","0"}}
         # 检查group_data
         for group_id,group in group_data.items():
             # 修正群名单记录

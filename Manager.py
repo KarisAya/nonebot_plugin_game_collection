@@ -63,7 +63,7 @@ def locate_user(event:MessageEvent) ->Tuple[UserDict,GroupAccount]:
     else:
         group_id = user.connect
         if group_id:
-            group_account = user.group_accounts[group_id]
+            group_account = user.group_accounts.get(group_id)
         else:
             group_account = None
 

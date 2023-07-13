@@ -753,7 +753,7 @@ async def _(matcher:Matcher, event:MessageEvent, arg:Message = CommandArg()):
 @Exchange_sell.got("info", prompt = "请输入出售数量和单价，用空格隔开。")
 async def _(matcher:Matcher, event:MessageEvent, info:Message = Arg()):
     info = info.extract_plain_text().strip().split()
-    if len(info) == 2 and info[1].isdigit():
+    if len(info) == 2 and info[0].isdigit():
         n = int(info[0])
     elif info[0] == "取消":
         await Exchange_sell.finish()
@@ -784,9 +784,9 @@ async def _(bot:Bot, event:MessageEvent, arg:Message = CommandArg()):
     await group_info.finish(msg)
 
 # 市场信息
-Market_info_0 = on_command("市场信息",aliases={"查看市场"}, priority = 20, block = True)
+Market_info = on_command("市场信息",aliases={"查看市场"}, priority = 20, block = True)
 
-@Market_info_0.handle()
+@Market_info.handle()
 async def _(bot:Bot, event:MessageEvent, arg:Message = CommandArg()):
     company_name = arg.extract_plain_text().strip()
     if company_name:
@@ -795,24 +795,25 @@ async def _(bot:Bot, event:MessageEvent, arg:Message = CommandArg()):
             msg = await Market.group_info(bot,event,company_id)
         else:
             msg = f"没有 {company_name} 的注册信息"
-        await Market_info_0.send(msg)
+        await Market_info.send(msg)
     else:
-        if msg := Market.Market_info_All(event,False):
+        if msg := Market.Market_info_All(event):
             if len(msg) == 1:
-                await Market_info_0.send(msg[0]["data"]["content"])
+                await Market_info.send(msg[0]["data"]["content"])
             elif isinstance(event, GroupMessageEvent):
                 await bot.send_group_forward_msg(group_id = event.group_id, messages = msg)
             else:
                 await bot.send_private_forward_msg(user_id = event.user_id, messages = msg)
         else:
-            await Market_info_0.send("市场为空")
+            await Market_info.send("市场为空")
 
-#Market_info_1 = on_command("市场行情",aliases={"市场走势"}, priority = 20, block = True)
+# 市场价格表
+Market_pricelist = on_command("市场价格表",aliases={"股票价格表"}, priority = 20, block = True)
 
-#@Market_info_1.handle()
-#async def _(bot:Bot, event:MessageEvent, arg:Message = CommandArg()):
-#    msg = Market.Market_info_All(event,True)
-#    await Market_info_1.finish(msg)
+@Market_pricelist.handle()
+async def _(event:MessageEvent):
+    msg = Market.pricelist(event.user_id)
+    await Market_pricelist.finish(msg)
 
 # 更新公司简介
 update_intro = on_command(

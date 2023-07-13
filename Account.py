@@ -503,7 +503,7 @@ def intergroup_transfer_gold(event:MessageEvent, gold:int, company_name:str):
 
     group_account.gold -= gold
     ExRate = group_data[group_account.group_id].company.level/group_data[company_id].company.level
-    ExRate = ExRate if ExRate else 1.0
+    ExRate = min(ExRate,10) if ExRate else 1.0
     tgold = int(ExRate * gold + 0.5)
     fee = transfer_fee(tgold, user.transfer_limit)
     target_group_account.gold += tgold - fee

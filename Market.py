@@ -12,16 +12,17 @@ import math
 import time
 import datetime
 import asyncio
+import pickle
 
 try:
     import ujson as json
 except ModuleNotFoundError:
     import json
 
-from .utils.chart import linecard, group_info_head, info_splicing
+from .utils.chart import linecard, group_info_head, info_splicing, linecard_to_png
 from .data import GroupAccount, Company, ExchangeInfo
-from .data import OHLC, props_library
-from .config import bot_name, revolt_gini, max_bet_gold, bet_gold, path
+from .data import OHLC, Market_INFO, props_library
+from .config import bot_name, revolt_gini, max_bet_gold, bet_gold, path, cache
 
 from . import Manager
 
@@ -285,46 +286,36 @@ def Exchange_buy(event:MessageEvent, buy:int, company_name:str):
     company = group_data[company_id].company
     company_name = company.company_name
 
-    exchange = company.exchange
-    user_id = user.user_id
-
-    rank = [x for x in exchange.items() if x[0] != user_id]
+    rank = [x for x in company.exchange.items() if x[0] != user.user_id]
+    if not rank:
+        return f"没有正在出售的 {company_name}"
     rank.sort(key = lambda x:x[1].quote)
-    
-    my_gold = group_account.gold
 
     gold = 0
-    count = 0
-    n = 0
-    i = 0
-
-    if (l := len(rank)) < 1:
-        return f"没有正在出售的 {company_name}"
-
-    lastinfo = None
-
-    while count < buy and i < l:
-        tmp = rank[i]
-        n = tmp[1].n
-        quote = tmp[1].quote
-        count += n
-        if count > buy:
-            lastinfo = (tmp[0],ExchangeInfo(group_id = tmp[1].group_id, quote = quote,n = (count - buy)))
-            n = n - (count - buy)
-            count = buy
-        unsettled = int((quote * n) + 0.5)
+    Exlist = []
+    my_gold = group_account.gold
+    for user_id,exchange in rank:
+        n = exchange.n
+        Exlist.append([user_id,n])
+        if buy < n:
+            Exlist[-1][1] = buy
+            break
+        buy -= n
+        unsettled = int((exchange.quote * n) + 0.5)
         gold += unsettled
-        rank[i] = [tmp[0], tmp[1].group_id, n, unsettled]
         if gold > my_gold:
             return f"你的金币不足（{my_gold}）"
-        i += 1
-
+    gold = 0
+    count = 0
     group_account.stocks.setdefault(company_id,0)
-    rank = rank[:i]
-    for x in rank:
-        seller_user = user_data[x[0]]
-        seller_group_account = seller_user.group_accounts[x[1]]
-        unsettled = x[3]
+    for user_id,n in Exlist:
+        exchange = company.exchange[user_id]
+        # 定位卖家
+        seller_user = user_data[user_id]
+        seller_group_account = seller_user.group_accounts[exchange.group_id]
+        # 金币结算
+        unsettled = int((exchange.quote * n) + 0.5)
+        gold += unsettled
         user.gold -=  unsettled
         group_account.gold -= unsettled
         if seller_group_account.props.get("42001",0):
@@ -333,15 +324,16 @@ def Exchange_buy(event:MessageEvent, buy:int, company_name:str):
             fee = int(unsettled * 0.02)
         seller_user.gold += unsettled - fee
         seller_group_account.gold += unsettled - fee
-        n = x[2]
-        group_account.stocks[company_id] += n
+        # 股票结算
         seller_group_account.stocks[company_id] -= n
+        group_account.stocks[company_id] += n
+        count += n
+        # 更新卖家群账户信息
         value_update(seller_group_account)
-        del exchange[x[0]]
-    else:
-        value_update(group_account)
-    if lastinfo:
-        exchange[lastinfo[0]] = lastinfo[1]
+        exchange.n -= n
+    # 更新买家群账户信息
+    value_update(group_account)
+    company.exchange = {k:v for k,v in company.exchange.items() if v.n > 0}
 
     return (
         f"{company_name}\n"
@@ -512,7 +504,7 @@ def stock_profile(company:Company) -> str:
         )
     return msg
 
-def Market_info_All(event:MessageEvent, ohlc:bool = False):
+def Market_info_All(event:MessageEvent):
     """
     市场信息总览
     """
@@ -523,19 +515,48 @@ def Market_info_All(event:MessageEvent, ohlc:bool = False):
         company = group_data[company_id].company
         companys.append(company)
     companys.sort(key = lambda x:x.group_gold, reverse = True)
-
-    lst = [companys[i:i+5] for i in range(0, len(companys), 5)]
+    lst = []
+    l = 0
+    for company in companys:
+        lst.append(company.company_name +"\n" + "——————————————\n" + stock_profile(company)[:-1])
+        l += 1
+    lst = [lst[i:i+5] for i in range(0, l, 5)]
     msg = []
-    for seg in lst:
-        info = []
-        for company in seg:
-            info.append(linecard(company.company_name +"\n" + "----\n" + stock_profile(company)[:-1],width = 880))
+    for x in lst:
         msg.append({"type":"node",
                     "data":{
                         "name":f"{bot_name}",
                         "uin":str(event.self_id),
-                        "content":MessageSegment.image(info_splicing(info, Manager.BG_path(event.user_id)))}})
+                        "content":"——————————————\n".join(x)}})
     return msg
+
+def pricelist(user_id:int):
+    """
+    市场价格表
+    """
+    global company_index
+    company_ids = set([company_index[company_id] for company_id in company_index])
+    companys = []
+    for company_id in company_ids:
+        company = group_data[company_id].company
+        companys.append(company)
+    companys.sort(key = lambda x:x.group_gold, reverse = True)
+    msg = ""
+    for company in companys:
+        group_gold = company.group_gold
+        float_gold = company.float_gold
+        gold = max(group_gold,float_gold)
+        issuance = company.issuance
+        stock = company.stock
+        msg += (
+            "----\n"
+            f"[pixel][20]{company.company_name}\n"
+            f"[pixel][20]发行 [nowrap]\n[color][{'green' if gold == float_gold else 'red'}]{'{:,}'.format(round(gold/issuance,2))}[nowrap]\n"
+            f"[pixel][300]结算 [nowrap]\n[color][green]{'{:,}'.format(round(float_gold/issuance,2))}[nowrap]\n"
+            f"[pixel][600]数量 [nowrap]\n[color][{'green' if stock else 'red'}]{stock}\n"
+            )
+
+    return MessageSegment.image(info_splicing([linecard(msg,width = 880,endline = "市场价格表")], Manager.BG_path(user_id)))
 
 def update_intro(company_name:str, intro:str):
     if company_name in company_index:

@@ -90,18 +90,22 @@ class Company(BaseModel):
     intro:str = None
     exchange:Dict[int,ExchangeInfo] = {}
 
-    def Buyback(self, group_account:GroupAccount):
+    def Buyback(self, group_account:GroupAccount, n:int = None):
         """
         让公司回收本账户的股票
         """
-        stocks = group_account.stocks
-        if count := stocks.get(self.company_id):
+        stock = group_account.stocks.get(self.company_id,0)
+        count = min(n,stock) if n else stock
+        stock = stock - count
+        if count:
             self.stock += count
-            stocks = 0
             user_id = group_account.user_id
-            if user_id in self.exchange:
-                del self.exchange[user_id]
-
+            group_account.stocks[self.company_id] = group_account.stocks.get(self.company_id) - count
+            if user_id in self.exchange and (exchange := self.exchange[user_id]).group_id == group_account.group_id:
+                if exchange.n > count:
+                    exchange.n -= count
+                else:
+                    del self.exchange[user_id]
 
 class GroupDict(BaseModel):
     """

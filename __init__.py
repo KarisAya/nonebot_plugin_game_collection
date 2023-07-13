@@ -555,6 +555,14 @@ async def _(event:MessageEvent):
     msg = await Account.my_info(event)
     await my_info.finish(msg)
 
+# 我的交易信息
+my_exchange = on_fullmatch(("我的交易信息","我的报价","我的股票"), priority = 20, block = True)
+
+@my_exchange.handle()
+async def _(event:MessageEvent):
+    msg = await Account.my_exchange(event)
+    await my_exchange.finish(msg)
+
 # 元素精炼
 alchemy_refine = on_command("元素精炼", priority = 20, block = True)
 
@@ -877,7 +885,7 @@ async def _(event:MessageEvent, matcher:Matcher, code :Message = Arg()):
         await freeze.finish("【冻结】已取消。")
 
 # 清理无效账户
-delist = on_command("清理无效账户", rule = to_me(), permission = SUPERUSER, priority = 20, block = True)
+delist = on_fullmatch("清理无效账户", rule = to_me(), permission = SUPERUSER, priority = 20, block = True)
 
 @delist.handle()
 async def _():

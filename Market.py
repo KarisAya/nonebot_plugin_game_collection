@@ -249,7 +249,12 @@ def settle(event:MessageEvent, settle:int, company_name:str):
     company.group_gold = group_gold
     company.float_gold = float_gold
     # 更新交易市场
-    exchange.n = stock if (user_id := user.user_id) in company.exchange and (exchange := company.exchange[user_id]).group_id == group_account.group_id and stock< exchange.n else exchange.n
+    user_id = user.user_id
+    if user_id in company.exchange:
+        exchange = company.exchange[user_id]
+        if exchange.group_id == group_account.group_id:
+            if stock < exchange.n:
+                exchange.n = stock
     # 更新群账户信息
     value_update(group_account)
     return (

@@ -21,8 +21,8 @@ except ModuleNotFoundError:
 
 from .utils.chart import linecard, group_info_head, info_splicing, linecard_to_png
 from .data import GroupAccount, Company, ExchangeInfo
-from .data import OHLC, Market_INFO, props_library
-from .config import bot_name, revolt_gini, max_bet_gold, bet_gold, path, cache
+from .data import OHLC, props_library
+from .config import bot_name, revolt_gini, max_bet_gold, bet_gold, path
 
 from . import Manager
 

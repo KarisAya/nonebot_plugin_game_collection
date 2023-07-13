@@ -314,12 +314,6 @@ def OHLC(path, company_id):
     """
     return subprocess.Popen([python,f"{resourcefile}/subprocess/ohlc.py", path, str(company_id)], shell = True)
 
-def Market_INFO(path):
-    """
-    Market_INFO子程序
-    """
-    return subprocess.Popen([python,f"{resourcefile}/subprocess/Market_INFO.py", path], shell = True)
-
 """
 from . import Data
 from .Data import (

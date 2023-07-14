@@ -527,6 +527,24 @@ async def group_info_head(group_name:str, company_name:str, group_id:int, member
     draw.text((750,240),f"{round(100 * member_count[0]/member_count[1],1)}%", fill = (0,0,0),font = font_normal)
     return canvas
 
+async def my_exchange_head(group_account:GroupAccount):
+    """
+    我的交易信息第一个信息
+    """
+    gold = group_account.gold
+    canvas = Image.new("RGBA", (880, 250))
+    avatar = Image.open(await download_avatar(group_account.user_id))
+    avatar = avatar.resize((210,210))
+    circle_mask = Image.new("RGBA", avatar.size, (255, 255, 255, 0))
+    ImageDraw.Draw(circle_mask).ellipse(((0,0),avatar.size), fill="black")
+    canvas.paste(avatar, (20, 20), circle_mask)
+    draw = ImageDraw.Draw(canvas)
+    draw.text((250,40),f"{group_account.nickname}", fill = (0,0,0),font = font_big)
+    draw.line(((250, 120), (860, 120)), fill = "gray", width = 4)
+    draw.text((250,140),f"金币 {'{:,}'.format(group_account.gold)}", fill = (0,0,0),font = font_normal)
+    draw.text((250,190),f"股票 {'{:,}'.format(round(group_account.value,2))}", fill = (0,0,0),font = font_normal)
+    return canvas
+
 def info_splicing(info:List[IMG],BG_path, spacing:int = 20):
     """
     信息拼接

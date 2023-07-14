@@ -34,6 +34,7 @@ from . import Market
 from . import Game
 from . import Prop
 from . import Alchemy
+from .HorseRace.start import load_dlcs
 
 from .utils.utils import get_message_at, number
 from .data import ExchangeInfo,menu_data
@@ -60,6 +61,13 @@ def to_int(arg:Message, default:int = bet_gold):
         return int(num)
     else:
         return default
+
+RaceReload = on_command("赛马事件重载", priority=5, permission=SUPERUSER, block=True)
+@RaceReload.handle()
+async def _():
+    events_list, logs = load_dlcs()
+    out = '\n'.join(logs)
+    await RaceReload.finish(out)
 
 AllGameTips = {
     "HorseRace":"赛马活动未开始，请输入【赛马创建】创建赛马场",

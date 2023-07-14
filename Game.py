@@ -1706,7 +1706,7 @@ class HorseRace(AROF):
     """
     name:str = "HorseRace"
 
-    events_list = load_dlcs()
+    events_list, logs = load_dlcs()
 
     def __init__(self, **kwargs):
         super().__init__()

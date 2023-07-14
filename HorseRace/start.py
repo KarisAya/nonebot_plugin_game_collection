@@ -9,6 +9,7 @@ from ..data import resourcefile
 
 def load_dlcs():
     events_list = []
+    logs = []
     files = Path(resourcefile / "horserace").iterdir()
     for x in files:
         log = f"加载事件文件：{x.name}......"
@@ -17,9 +18,16 @@ def load_dlcs():
                 events = deal_events(json.load(f))
                 events_list.extend(events)
             logger.info(log + "成功!")
+            flag = True
         except Exception as e:
             logger.info(log + "失败：" + e)
-    return events_list
+            flag = False
+        if flag:
+            log + "成功!"
+        if not flag:
+            log + "失败!"
+        logs.append(log)
+    return events_list, logs
 
 def deal_events(events):
     events_out = []

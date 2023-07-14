@@ -902,13 +902,6 @@ async def _():
             )
     await delist.finish("清理完成！")
 
-# 股市更新
-@scheduler.scheduled_job("cron", minute = "0,*/5")
-async def _():
-    log = Market.update()
-    if log:
-        logger.info("\n" + log)
-
 # 市场重置
 Market_reset = on_fullmatch("市场重置", permission = SUPERUSER, priority = 20, block = True)
 
@@ -917,11 +910,18 @@ async def _():
     Market.reset()
     await Market_reset.finish("市场已重置。")
 
+# 市场更新
+@scheduler.scheduled_job("cron", minute = "*/5")
+async def _():
+    log = Market.update()
+    if log:
+        logger.info("\n" + log)
+
 # 数据备份
 Backup = on_command("Backup", aliases = {"数据备份", "游戏备份"}, permission = SUPERUSER, priority = 20, block = True)
 
 @Backup.handle()
-@scheduler.scheduled_job("cron", hour = "0,*/4")
+@scheduler.scheduled_job("cron", hour = "*/4")
 async def _():
     now = time.strftime('%Y-%m-%d %H-%M-%S', time.localtime(time.time()))
     now = now.split()
@@ -957,7 +957,7 @@ async def _():
 DataSave = on_command("DataSave", aliases = {"保存数据", "保存游戏"},permission = SUPERUSER, priority = 20, block = True)
 
 @DataSave.handle()
-@scheduler.scheduled_job("cron", minute = "0,*/10")
+@scheduler.scheduled_job("cron", minute = "*/10")
 async def _():
     data.save()
     with open(Market.market_history_file, "w", encoding = "utf8") as f:

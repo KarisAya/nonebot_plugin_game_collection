@@ -53,8 +53,6 @@ data = Manager.data
 company_index = Manager.company_index
 current_games = Game.current_games
 
-scheduler = require("nonebot_plugin_apscheduler").scheduler
-
 def to_int(arg:Message, default:int = bet_gold):
     num = arg.extract_plain_text().strip()
     if num.isdigit():
@@ -918,8 +916,12 @@ async def _():
     Market.reset()
     await Market_reset.finish("市场已重置。")
 
+require("nonebot_plugin_apscheduler")
+
+from nonebot_plugin_apscheduler import scheduler
+
 # 市场更新
-@scheduler.scheduled_job("cron", minute = "*/5")
+@scheduler.scheduled_job("cron", minute = "*/5", misfire_grace_time = 120)
 async def _():
     log = Market.update()
     if log:
@@ -929,7 +931,7 @@ async def _():
 Backup = on_command("Backup", aliases = {"数据备份", "游戏备份"}, permission = SUPERUSER, priority = 20, block = True)
 
 @Backup.handle()
-@scheduler.scheduled_job("cron", hour = "*/4")
+@scheduler.scheduled_job("cron", hour = "*/4", misfire_grace_time = 120)
 async def _():
     now = time.strftime('%Y-%m-%d %H-%M-%S', time.localtime(time.time()))
     now = now.split()
@@ -944,7 +946,7 @@ async def _():
 Newday = on_command("Newday", aliases = {"刷新每日", "刷新签到"}, permission = SUPERUSER, priority = 20, block = True)
 
 @Newday.handle()
-@scheduler.scheduled_job("cron", hour = 0)
+@scheduler.scheduled_job("cron", hour = 0, misfire_grace_time = 120)
 async def _():
     Manager.update_company_index()
     log = data.verification()
@@ -965,7 +967,7 @@ async def _():
 DataSave = on_command("DataSave", aliases = {"保存数据", "保存游戏"},permission = SUPERUSER, priority = 20, block = True)
 
 @DataSave.handle()
-@scheduler.scheduled_job("cron", minute = "*/10")
+@scheduler.scheduled_job("cron", minute = "*/10", misfire_grace_time = 120)
 async def _():
     data.save()
     with open(Market.market_history_file, "w", encoding = "utf8") as f:

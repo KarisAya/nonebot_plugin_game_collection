@@ -15,6 +15,7 @@ from .utils.chart import (
     bar_chart,
     my_info_head,
     my_info_account,
+    my_exchange_head,
     linecard,
     info_splicing
     )
@@ -341,7 +342,7 @@ async def my_exchange(event:MessageEvent) -> Message:
                 msg += f"[pixel][20]报价 [nowrap]\n[color][green]{exchange.quote}[nowrap]\n[pixel][400]发布 [nowrap]\n[color][green]{exchange.n}\n"
             info.append(linecard(msg, width = 880,endline = f"报价账户：{account_name}" if account_name else "无报价"))
     if info:
-        info.insert(0,await my_info_head(user,group_account.nickname))
+        info.insert(0,await my_exchange_head(group_account))
         return MessageSegment.image(info_splicing(info,Manager.BG_path(event.user_id)))
     else:
         return "你的股票信息为空。"

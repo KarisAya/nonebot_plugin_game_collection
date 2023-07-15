@@ -164,7 +164,7 @@ def buy(event:MessageEvent, buy:int, company_name:str):
     if buy < 1:
         return "已售空，请等待结算或在交易市场购买。"
 
-    group_gold = Manager.group_wealths(company_id,company.level) + company.bank
+    group_gold = Manager.group_wealths(company_id,company.level) + company.bank*company.level
 
     if group_gold < 10 * max_bet_gold:
         return f"【{company_name}】金币过少({group_gold})，无法交易。"
@@ -236,7 +236,7 @@ def settle(event:MessageEvent, settle:int, company_name:str):
     company = group_data[company_id].company
     company_name = company.company_name
 
-    group_gold = Manager.group_wealths(company_id,company.level) + company.bank
+    group_gold = Manager.group_wealths(company_id,company.level) + company.bank*company.level
 
     if group_gold < 10 * max_bet_gold:
         return f"【{company_name}】金币过少({group_gold})，无法交易。"
@@ -416,7 +416,7 @@ def Exchange_sell(event:MessageEvent, info:Tuple[int,ExchangeInfo]):
             exchange[user_id] = exchange_info
 
         # 自动结算交易市场上的股票
-        group_gold = Manager.group_wealths(company_id,company.level) + company.bank
+        group_gold = Manager.group_wealths(company_id,company.level) + company.bank*company.level
         unit = group_gold/100000
         value = 0.0
         settle = 0
@@ -608,7 +608,7 @@ def company_update(company:Company):
     """
     company_id = company.company_id
     # 更新全群金币数
-    group_gold = Manager.group_wealths(company_id,company.level) + company.bank
+    group_gold = Manager.group_wealths(company_id,company.level) + company.bank*company.level
     company.group_gold = group_gold
     # 固定资产回归值 = 全群金币数 + 股票融资(每倍100000股)
     SI = company.issuance
@@ -692,7 +692,7 @@ def reset():
     company_ids = set([company_index[company_id] for company_id in company_index])
     for company_id in company_ids:
         company = group_data[company_id].company
-        group_gold = Manager.group_wealths(company_id,company.level) + company.bank
+        group_gold = Manager.group_wealths(company_id,company.level) + company.bank*company.level
         company.group_gold = group_gold
         company.float_gold = group_gold * (1 + (company.issuance - company.stock) / 100000)
         company.gold = company.float_gold

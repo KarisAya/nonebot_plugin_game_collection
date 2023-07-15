@@ -150,10 +150,12 @@ def revolution(group_id:int) -> str:
     for user_id in group.namelist:
         user_data[user_id].group_accounts[group_id].revolution = False
     company = group.company
-    if company.level:
-        company.level += 1
-        company.issuance = 20000*company.level
-        company.bank = int(company.bank * Manager.group_wealths(group_id)/group_gold)
+    level = company.level
+    if level:
+        level += 1
+        company.level = level
+        company.issuance = 20000*level
+        company.bank = int(company.bank * (level - 1) / level)
     data.save()
     return f"重置成功！恭喜{first_name}进入挂件榜☆！\n当前系数为：{round(gini,3)}，重置签到已刷新。"
 

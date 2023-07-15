@@ -212,7 +212,7 @@ async def _(event:MessageEvent, arg:Message = CommandArg()):
 props_create = on_command("获取道具", permission = SUPERUSER, priority = 20, block = True)
 
 @props_create.handle()
-async def _(event:MessageEvent, arg:Message = CommandArg(),):
+async def _(event:MessageEvent, arg:Message = CommandArg()):
     arg = arg.extract_plain_text().strip().split()
     test = len(arg)
     if test == 1:
@@ -227,6 +227,29 @@ async def _(event:MessageEvent, arg:Message = CommandArg(),):
         return
     msg = Account.props_create(event, prop_name, count)
     await give_props.finish(msg, at_sender = True)
+
+# 银行存取
+bank = on_command("群金库",permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER,priority = 20,block = True)
+
+@bank.handle()
+async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
+    arg = arg.extract_plain_text().strip()
+    sign = arg[0]
+    if sign == "取":
+        sign = 1
+    elif sign == "存":
+        sign = -1
+    elif arg.startswith("查看"):
+        await bank.finish(f"本群金库还有{data.group[event.group_id].company.bank}枚金币。", at_sender = True)
+    else:
+        return
+    gold = arg[1:].strip()
+    if not gold.isdigit():
+        return
+    else:
+        gold = int(gold)
+    msg = Market.bank(event,sign,gold)
+    await bank.finish(msg, at_sender = True)
 
 # 金币签到
 sign = on_command("金币签到", aliases = {"轮盘签到"}, priority = 20, block = True)

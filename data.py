@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from pathlib import Path
 import random
 import math
+
 try:
     import ujson as json
 except ModuleNotFoundError:
@@ -22,6 +23,7 @@ class GroupAccount(BaseModel):
     security:int = 0
     gold:int = 0
     value:float = 0.0
+    transfer:int = 0
     stocks:Dict[int,int] = {}
     props:Dict[str,int] = {}
 
@@ -48,7 +50,6 @@ class UserDict(BaseModel):
     Achieve_lose:int = 0
     group_accounts:Dict[int,GroupAccount] = {}
     connect:int = 0
-    transfer_limit:int = 0
     props:Dict[str,int] = {}
     alchemy:Dict[str,int] = {}
 
@@ -87,6 +88,7 @@ class Company(BaseModel):
     gold:float = 0.0
     float_gold:float = 0.0
     group_gold:float = 0.0
+    bank:int = 0
     intro:str = None
     exchange:Dict[int,ExchangeInfo] = {}
 
@@ -102,10 +104,34 @@ class Company(BaseModel):
             user_id = group_account.user_id
             group_account.stocks[self.company_id] = group_account.stocks.get(self.company_id) - count
             if user_id in self.exchange and (exchange := self.exchange[user_id]).group_id == group_account.group_id:
-                if exchange.n > count:
-                    exchange.n -= count
-                else:
-                    del self.exchange[user_id]
+                exchange.n -= count
+
+    def transfer_tax(self, amount: int, transfer_today: int) -> int:
+        """
+        计算本群转账税
+            transfer_today:今日已使用额度
+        """
+        level = self.level
+        if not level:
+            return int(amount*0.1 + 0.5)
+        step = self.float_gold/(25*level)
+        levels = [[0.01, step],[0.1, step * 2],[0.2, step * 2],[0.4, float('inf')]]
+        fee = 0
+        for n,(level_tax, level_step) in enumerate(levels):
+            if transfer_today >= level_step:
+                transfer_today -= level_step
+                continue
+            levels[n][1] -= transfer_today
+            break
+
+        for level_tax, level_step in levels[n:]:
+            if amount <= level_step:
+                fee += amount * level_tax
+                break
+            fee += level_step * level_tax
+            amount -= level_step
+
+        return int(fee)
 
 class GroupDict(BaseModel):
     """
@@ -229,6 +255,8 @@ class DataBase(BaseModel):
                     "数据已修正。\n"
                     ) if company.stock + stock_check[group_id] != company.issuance else ""
                 company.stock = stock
+                # 修正交易市场
+                company.exchange = {user_id:exchange for user_id,exchange in company.exchange.items() if exchange.n > 0}
                 # Nan检查
                 company.gold = 0.0 if math.isnan(company.gold) else company.gold
                 company.float_gold = 0.0 if math.isnan(company.float_gold) else company.float_gold
@@ -242,14 +270,14 @@ class DataBase(BaseModel):
         """
         revolution_today = random.randint(1,5) != 1
         for user in self.user.values():
-            # 刷新转账限额
-            user.transfer_limit = 0
             # 全局道具有效期 - 1天
             props = user.props
             props = {k:min(v-1,30) if k[2] == '0' else v for k,v in props.items()}
             for group_account in user.group_accounts.values():
                 # 刷新今日签到
                 group_account.is_sign = False
+                # 刷新转账限额
+                group_account.transfer = 0
                 # 概率刷新重置签到
                 group_account.revolution = revolution_today
                 # 群内道具有效期 - 1天

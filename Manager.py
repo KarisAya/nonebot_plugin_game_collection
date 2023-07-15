@@ -15,7 +15,7 @@ from .utils.utils import image_url
 from .utils.chart import linecard_to_png, gini_coef, default_BG
 from .utils.avatar import download_url
 from .data import DataBase, UserDict, GroupAccount, GroupDict, Company, props_library
-from .config import revolt_gold, max_bet_gold, lucky_clover, path, BG_image
+from .config import revolt_gold, max_bet_gold, lucky_clover, path, BG_image,bet_gold
 
 driver = get_driver()
 
@@ -298,7 +298,7 @@ def All_ranklist(title:str) -> list:
     rank.sort(key=lambda x:x[1],reverse=True)
     return rank
 
-def Gini(group_id:int, limit:int = revolt_gold[0]) -> float:
+def Gini(group_id:int, limit:int = bet_gold) -> float:
     """
     本群基尼系数
     """

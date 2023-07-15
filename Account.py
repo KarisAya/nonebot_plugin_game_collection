@@ -171,6 +171,7 @@ def transfer_gold(event:GroupMessageEvent, target:Tuple[UserDict,GroupAccount], 
         tips = f"『{props_library['42001']['name']}』免手续费"
     else:
         fee = int(gold * 0.02)
+        group_data[self_group_account.group_id].company.bank += fee
         tips = f"扣除2%手续费：{fee}，实际到账金额{gold - fee}"
 
     self_user.gold -= gold
@@ -464,24 +465,6 @@ async def All_rank(event:MessageEvent, title:str = "金币", top:int = 10) -> li
     info = await draw_rank(ranklist, title, 20)
     return MessageSegment.image(info_splicing(info,Manager.BG_path(event.user_id), spacing = 5))
 
-def transfer_fee(amount: int, limit: int) -> int:
-    levels = [[0.02, max_bet_gold * 10],[0.2, max_bet_gold * 40],[0.4, max_bet_gold * 50],[0.6, float('inf')]]
-    fee = 0
-    for n,(level_tax, level_step) in enumerate(levels):
-        if limit >= level_step:
-            limit -= level_step
-            continue
-        levels[n][1] -= limit
-        break
-    for level_tax, level_step in levels[n:]:
-        if amount <= level_step:
-            fee += amount * level_tax
-            break
-        fee += level_step * level_tax
-        amount -= level_step
-
-    return int(fee)
-
 def intergroup_transfer_gold(event:MessageEvent, gold:int, company_name:str):
     """
     跨群转移金币到自己的账户
@@ -502,16 +485,36 @@ def intergroup_transfer_gold(event:MessageEvent, gold:int, company_name:str):
     else:
         return f"你在 {company_name} 没有创建账户"
 
-    group_account.gold -= gold
-    ExRate = group_data[group_account.group_id].company.level/group_data[company_id].company.level
-    ExRate = min(ExRate,10) if ExRate else 1.0
-    tgold = int(ExRate * gold + 0.5)
-    fee = transfer_fee(tgold, user.transfer_limit)
-    target_group_account.gold += tgold - fee
-    user.transfer_limit += tgold
-    user.gold -= fee
+    company = group_data[group_account.group_id].company
+    tcompany = group_data[company_id].company
 
-    return f"向 {company_name} 转移{gold}金币。\n汇率：{round(ExRate,2)} 手续费：{fee}({round(100*fee/tgold,2)}%)\n实际到账金额：{tgold - fee}"
+    ExRate = (company.level or 1.0)/tcompany.level
+    ExRate = min(ExRate,10)
+    ExRate = max(ExRate,0.1)
+
+    # 转出税
+    tax = company.transfer_tax(gold, group_account.transfer)
+    company.bank += tax
+    group_account.transfer += gold
+    # 转出
+    user.gold -= gold
+    group_account.gold -= gold
+    # 转入税
+    tgold = int(ExRate * (gold - tax) + 0.5)
+    ttax = tcompany.transfer_tax(tgold, target_group_account.transfer)
+    tcompany.bank += ttax
+    target_group_account.transfer += tgold
+    # 转入
+    tgold -= ttax
+    user.gold += tgold
+    target_group_account.gold += tgold
+
+    return (
+        f"向 {company_name} 转移{gold}金币。\n"
+        f"汇率 {round(ExRate,2)} \n"
+        f"手续费 {tax}({round(100*tax/gold,2)}%){ttax} ({round(100*ttax/(tgold+ttax),2)}%)\n"
+        f"实际到账金额 {tgold}"
+        )
 
 def freeze(target:UserDict):
     target_id = target.user_id

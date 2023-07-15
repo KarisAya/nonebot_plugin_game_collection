@@ -484,6 +484,7 @@ class Prop(str):
             user.gold -= fee
             group_account.gold -= change
             group_account.gold -= fee
+            group_data[group_id].company.bank += fee
             msg1 = f"\n你{tag}了{abs(change + fee)}金币(扣除5%手续费：{fee})。"
 
         flag = target_group_account.props.get("42001",0)
@@ -498,6 +499,7 @@ class Prop(str):
             target_user.gold -= fee
             target_group_account.gold += change
             target_group_account.gold -= fee
+            group_data[group_id].company.bank += fee
             msg2 = f"\n对方{tag}了{abs(change - fee)}金币(扣除5%手续费：{fee})。"
 
         return f"你与{target_group_account.nickname}平分了金币。" + msg1 + msg2

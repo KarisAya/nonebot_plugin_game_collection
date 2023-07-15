@@ -77,8 +77,9 @@ def public(event:GroupMessageEvent,company_name:str):
     company.company_name = company_name
     company.time = time.time()
     company.level = sum(group_data[group_id].Achieve_revolution.values()) + 1
-    company.issuance = 20000*company.level
+    company.issuance = 80000 + 20000*company.level
     company.stock = company.issuance
+    gold = gold * company.level
     company.gold = gold * 0.8
     company.float_gold = company.gold
     company.group_gold = gold
@@ -171,23 +172,25 @@ def buy(event:MessageEvent, buy:int, company_name:str):
     SI = company.issuance
     value = 0.0
     inner_buy = 0
-    my_gold = group_account.gold
+    level = group_data[group_account.group_id].company.level or 1
+    my_gold = level*group_account.gold
+    unit = group_gold/100000
     for _ in range(buy):
         value += max(group_gold, float_gold)/SI
-        float_gold += float_gold/SI
+        float_gold += unit
         if my_gold > value:
             inner_buy += 1
         else:
             break
-    value = int(value)
     if inner_buy < 1:
-        return f"购买失败，你的金币不足（{my_gold}）！"
+        return f"购买失败，你的金币不足（{group_account.gold}）！"
     # 结算股票
     company.stock -= inner_buy
     group_account.stocks[company_id] = group_account.stocks.get(company_id,0) + inner_buy
     # 结算金币
-    user.gold -= value
-    group_account.gold -= value
+    gold = int(value/level + 0.5)
+    user.gold -= gold
+    group_account.gold -= gold
     company.gold += value
     # 更新公司信息
     company.group_gold = group_gold
@@ -205,7 +208,7 @@ def buy(event:MessageEvent, buy:int, company_name:str):
         "——————————\n"
         f"数量：{inner_buy}\n"
         f"单价：{round(value/inner_buy,2)}\n"
-        f"总计：{value}\n"
+        f"总计：{int(value+0.5)}（{gold}）\n"
         "——————————\n"
         "交易成功！"
         )
@@ -227,9 +230,9 @@ def settle(event:MessageEvent, settle:int, company_name:str):
 
     my_stock = group_account.stocks.get(company_id,0)
 
-    if my_stock < settle:
-        return f"你没有足够的股份...你的 {company_name} 还有 {my_stock} 个"
-
+    settle = min(settle,my_stock)
+    if settle < 1:
+        return f"您未持有 {company_name}"
     company = group_data[company_id].company
     company_name = company.company_name
 
@@ -237,21 +240,21 @@ def settle(event:MessageEvent, settle:int, company_name:str):
 
     if group_gold < 10 * max_bet_gold:
         return f"【{company_name}】金币过少({group_gold})，无法交易。"
-
+    my_company = group_data[group_account.group_id].company
     float_gold = company.float_gold
     SI = company.issuance
     value = 0.0
+    unit = group_gold/100000
     for _ in range(settle):
         value += float_gold/SI
-        float_gold -= float_gold/SI
-    value = int(value)
-
+        float_gold -= unit
+    gold = value/(my_company.level or 1)
     if group_account.props.get("42001",0):
         fee = 0
         tips = f"『{props_library['42001']['name']}』免手续费"
     else:
-        fee = int(value * 0.02)
-        group_data[group_account.group_id].company.bank += fee
+        fee = int(gold * 0.02)
+        my_company.bank += fee
         tips = f"扣除2%手续费：{fee}"
 
     # 结算股票
@@ -262,8 +265,9 @@ def settle(event:MessageEvent, settle:int, company_name:str):
     else:
         stock = group_account.stocks[company_id] = group_account.stocks.get(company_id) - settle
     # 结算金币
-    user.gold += value - fee
-    group_account.gold += value - fee
+    gold = int(gold) - fee
+    user.gold += gold
+    group_account.gold += gold
     company.gold -= value
     # 更新公司信息
     company.group_gold = group_gold
@@ -282,7 +286,7 @@ def settle(event:MessageEvent, settle:int, company_name:str):
         "——————————\n"
         f"数量：{settle}\n"
         f"单价：{round(value/settle,2)}\n"
-        f"总计：{value} - {fee}\n"
+        f"总计：{int(value)}（{gold+fee}）\n"
         "——————————\n"
         "交易成功！\n" + tips
         )
@@ -310,9 +314,10 @@ def Exchange_buy(event:MessageEvent, buy:int, company_name:str):
         return f"没有正在出售的 {company_name}"
     rank.sort(key = lambda x:x[1].quote)
 
-    gold = 0
+    value = 0.0
     Exlist = []
-    my_gold = group_account.gold
+    level = group_data[group_account.group_id].company.level or 1
+    my_gold = group_account.gold * level
     for user_id,exchange in rank:
         n = exchange.n
         Exlist.append([user_id,n])
@@ -320,11 +325,11 @@ def Exchange_buy(event:MessageEvent, buy:int, company_name:str):
             Exlist[-1][1] = buy
             break
         buy -= n
-        unsettled = int((exchange.quote * n) + 0.5)
-        gold += unsettled
-        if gold > my_gold:
-            return f"你的金币不足（{my_gold}）"
-    gold = 0
+        unsettled = exchange.quote * n
+        value += unsettled
+        if value > my_gold:
+            return f"你的金币不足（{group_account.gold}）"
+    value = 0.0
     count = 0
     group_account.stocks.setdefault(company_id,0)
     for user_id,n in Exlist:
@@ -332,21 +337,25 @@ def Exchange_buy(event:MessageEvent, buy:int, company_name:str):
         # 定位卖家
         seller_user = user_data[user_id]
         seller_group_account = seller_user.group_accounts[exchange.group_id]
-        # 金币结算
-        unsettled = int((exchange.quote * n) + 0.5)
-        user.gold -=  unsettled
-        group_account.gold -= unsettled
+        seller_level = group_data[exchange.group_id].company.level or 1
+        # 记录信息
+        unsettled = exchange.quote * n
+        value += unsettled
+        count += n
+        # 卖家金币结算
+        unsettled = int(unsettled/seller_level + 0.5)
         seller_user.gold += unsettled
         seller_group_account.gold += unsettled
         # 股票结算
         seller_group_account.stocks[company_id] -= n
         group_account.stocks[company_id] += n
-        # 记录信息
-        gold += unsettled
-        count += n
         # 更新卖家群账户信息
         value_update(seller_group_account)
         exchange.n -= n
+    # 买家金币结算
+    gold = int(value/level + 0.5)
+    user.gold -= gold
+    group_account.gold -= gold
     # 更新买家群账户信息
     value_update(group_account)
     company.exchange = {k:v for k,v in company.exchange.items() if v.n > 0}
@@ -355,8 +364,8 @@ def Exchange_buy(event:MessageEvent, buy:int, company_name:str):
         f"{company_name}\n"
         "——————————\n"
         f"数量：{count}\n"
-        f"单价：{round(gold/count,2)}\n"
-        f"总计：{gold}\n"
+        f"单价：{round(value/count,2)}\n"
+        f"总计：{int(value+0.5)}（{gold}）\n"
         "——————————\n"
         "交易成功！"
         )
@@ -398,7 +407,7 @@ def Exchange_sell(event:MessageEvent, info:Tuple[int,ExchangeInfo]):
         SI = company.issuance
         unit = min(company.group_gold,float_gold) / SI
         if quote > max(bet_gold, 10 * unit):
-            tips = "报价异常，发布失败。"
+            return "报价异常，发布失败。"
         else:
             if user_id in exchange:
                 tips = "交易信息已修改。"
@@ -407,27 +416,28 @@ def Exchange_sell(event:MessageEvent, info:Tuple[int,ExchangeInfo]):
             exchange[user_id] = exchange_info
 
         # 自动结算交易市场上的股票
+        group_gold = Manager.group_wealths(company_id,company.level) + company.bank
+        unit = group_gold/100000
         value = 0.0
         settle = 0
         for _ in range(n):
-            unit = float_gold/SI
-            if unit < quote:
+            if float_gold/SI < quote:
                 break
-            value += quote
-            float_gold -= float_gold/SI
             settle += 1
-
-        value = int(value)
+            value += quote
+            float_gold -= unit
         if settle > 0:
             # 结算股票
             company.Buyback(group_account,settle)
             # 结算金币
-            user.gold += value
-            group_account.gold += value
+            level = group_data[group_account.group_id].company.level or 1
+            gold = int(value/level)
+            user.gold += gold
+            group_account.gold += gold
             company.gold -= value
             # 更新公司信息
             company.float_gold = float_gold
-
+        company.group_gold = group_gold
     return (
         f"{company.company_name}\n"
         "——————————\n"
@@ -600,9 +610,9 @@ def company_update(company:Company):
     # 更新全群金币数
     group_gold = Manager.group_wealths(company_id,company.level) + company.bank
     company.group_gold = group_gold
-    # 固定资产回归值 = 全群金币数 + 20%股票融资比例 总计：100%~120%全群金币数
+    # 固定资产回归值 = 全群金币数 + 股票融资(每倍100000股)
     SI = company.issuance
-    line = group_gold * (1.2 - 0.2 * (company.stock / SI))
+    line = group_gold * (1 + (SI - company.stock) / 100000)
     # 公司金币数回归到固定资产回归值
     gold = company.gold
     gold += (line - gold)/96
@@ -618,12 +628,13 @@ def company_update(company:Company):
         float_gold = group_gold if math.isnan(float_gold) else float_gold
         # 自动结算交易市场上的股票
         Exlist = []
+        unit = group_gold/100000
         for user_id,exchange in company.exchange.items():
             n = 0
             quote = exchange.quote
             for _ in range(exchange.n):
                 if quote < float_gold/SI:
-                    float_gold -= float_gold/SI
+                    float_gold -= unit
                     n += 1
                 else:
                     break
@@ -634,12 +645,14 @@ def company_update(company:Company):
                 continue
             if not (group_account := user.group_accounts.get(exchange.group_id)):
                 continue
-            value = int(quote*n)
+            value = quote*n
             # 结算股票
             company.Buyback(group_account,n)
             # 结算金币
-            user.gold += value
-            group_account.gold += value
+            level = group_data[exchange.group_id].company.level or 1
+            gold = int(value/level)
+            user.gold += gold
+            group_account.gold += gold
             company.gold -= value
         # 清理无效交易信息
         company.exchange = {user_id:exchange for user_id,exchange in company.exchange.items() if exchange.n > 0}
@@ -681,5 +694,5 @@ def reset():
         company = group_data[company_id].company
         group_gold = Manager.group_wealths(company_id,company.level) + company.bank
         company.group_gold = group_gold
-        company.float_gold = group_gold * (1.2 - 0.2 * (company.stock / company.issuance))
+        company.float_gold = group_gold * (1 + (company.issuance - company.stock) / 100000)
         company.gold = company.float_gold

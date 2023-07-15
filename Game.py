@@ -370,6 +370,7 @@ class Game(ABC):
         else:
             rand = random.randint(0, 5)
             fee = int(gold * rand / 100)
+            group_data[group_id].company.bank += fee
             fee_tip = f"手续费：{fee}({rand}%)"
 
         maxgold = int(max_bet_gold/5)
@@ -385,8 +386,8 @@ class Game(ABC):
             extra_tip = ""
             extra = 0
 
-        if gold == loser_group_account.gold and loser_group_account.security < 3:
-            loser_group_account.security += 1
+        if gold == loser_group_account.gold and loser_group_account.security:
+            loser_group_account.security -= 1
             security = random.randint(security_gold[0], security_gold[1])
             security_tip = f"◇『金币补贴』(+{security})\n"
         else:

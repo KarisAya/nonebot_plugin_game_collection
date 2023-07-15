@@ -154,7 +154,7 @@ def revolution(group_id:int) -> str:
     if level:
         level += 1
         company.level = level
-        company.issuance = 20000*level
+        company.issuance = 80000 + 20000*level
         company.bank = int(company.bank * (level - 1) / level)
     data.save()
     return f"重置成功！恭喜{first_name}进入挂件榜☆！\n当前系数为：{round(gini,3)}，重置签到已刷新。"
@@ -285,7 +285,7 @@ async def my_info(event:MessageEvent) -> Message:
         is_sign = ["已签到","green"]
     else:
         is_sign = ["未签到","red"]
-    security = 3 - group_account.security
+    security = group_account.security
     if security:
         security = [security,"green"]
     else:
@@ -341,7 +341,7 @@ async def my_exchange(event:MessageEvent) -> Message:
             account_name = None
             company = group_data[company_id].company
             msg += f"[pixel][20]公司 {company.company_name}\n[pixel][20]结算 [nowrap]\n[color][green]{'{:,}'.format(round(company.float_gold/company.issuance,2))}[nowrap]\n[pixel][400]数量 [nowrap]\n[color][green]{stock}\n"
-            if exchange := company.exchange.get(user.user_id):
+            if (exchange := company.exchange.get(user.user_id)) and exchange.n:
                 if exchange.group_id == group_account.group_id:
                     account_name = "本群"
                 else:
@@ -496,8 +496,6 @@ def intergroup_transfer_gold(event:MessageEvent, gold:int, company_name:str):
     tcompany = group_data[company_id].company
 
     ExRate = (company.level or 1.0)/tcompany.level
-    ExRate = min(ExRate,10)
-    ExRate = max(ExRate,0.1)
 
     # 转出税
     tax = company.transfer_tax(gold, group_account.transfer)

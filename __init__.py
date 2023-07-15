@@ -931,6 +931,14 @@ async def _():
     Market.reset()
     await Market_reset.finish("市场已重置。")
 
+# 数据验证
+DataVerif = on_command("数据验证", aliases = {"数据校验"},permission = SUPERUSER, priority = 20, block = True)
+
+@DataVerif.handle()
+async def _():
+    log = data.verification()
+    logger.info(f"\n{log}")
+
 require("nonebot_plugin_apscheduler")
 
 from nonebot_plugin_apscheduler import scheduler

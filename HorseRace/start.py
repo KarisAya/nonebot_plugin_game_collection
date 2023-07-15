@@ -23,9 +23,9 @@ def load_dlcs():
             logger.info(log + "失败：" + e)
             flag = False
         if flag:
-            log + "成功!"
+            log =+ "成功!"
         if not flag:
-            log + "失败!"
+            log =+ "失败!"
         logs.append(log)
     return events_list, logs
 

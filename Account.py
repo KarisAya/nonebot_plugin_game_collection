@@ -112,8 +112,8 @@ def revolution(group_id:int) -> str:
     if time.time() - group.revolution_time < revolt_cd:
         return f"重置正在冷却中，结束时间：{datetime.datetime.fromtimestamp(group.revolution_time + revolt_cd).strftime('%H:%M:%S')}"
 
-    if (gold := Manager.group_wealths(group_id)) < (limit := 15 * max_bet_gold):
-        return f"本群金币（{round(gold,2)}）小于{limit}，未满足重置条件。"
+    if (group_gold := Manager.group_wealths(group_id)) < (limit := 15 * max_bet_gold):
+        return f"本群金币（{round(group_gold,2)}）小于{limit}，未满足重置条件。"
 
     if (gini := Manager.Gini(group_id)) < revolt_gini:
         return f"当前基尼系数为{round(gini,3)}，未满足重置条件。"
@@ -149,6 +149,11 @@ def revolution(group_id:int) -> str:
         j = i**2
     for user_id in group.namelist:
         user_data[user_id].group_accounts[group_id].revolution = False
+    company = group.company
+    if company.level:
+        company.level += 1
+        company.issuance = 20000*company.level
+        company.bank = int(company.bank * Manager.group_wealths(group_id)/group_gold)
     data.save()
     return f"重置成功！恭喜{first_name}进入挂件榜☆！\n当前系数为：{round(gini,3)}，重置签到已刷新。"
 

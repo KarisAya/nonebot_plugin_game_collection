@@ -152,7 +152,7 @@ def revolution(group_id:int) -> str:
         user_data[user_id].group_accounts[group_id].revolution = False
 
 
-    if company.level:
+    if company.level and level < 10:
         level += 1
         company.level = level
         company.issuance = 80000 + 20000*level

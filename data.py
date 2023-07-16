@@ -236,7 +236,7 @@ class DataBase(BaseModel):
                 # 回归
                 company.company_id = group_id
                 # 修正公司等级
-                level = sum(group.Achieve_revolution.values()) + 1
+                level = min(10,sum(group.Achieve_revolution.values()) + 1)
                 log += (
                     f"{company.company_name} 公司等级异常。\n"
                     f"记录值：{company.level}\n"

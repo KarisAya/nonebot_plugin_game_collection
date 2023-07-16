@@ -188,7 +188,7 @@ def buy(event:MessageEvent, buy:int, company_name:str):
     company.stock -= inner_buy
     group_account.stocks[company_id] = group_account.stocks.get(company_id,0) + inner_buy
     # 结算金币
-    gold = int(value/level + 0.5)
+    gold = int(value/level - 0.5) + 1
     user.gold -= gold
     group_account.gold -= gold
     company.gold += value
@@ -208,7 +208,7 @@ def buy(event:MessageEvent, buy:int, company_name:str):
         "——————————\n"
         f"数量：{inner_buy}\n"
         f"单价：{round(value/inner_buy,2)}\n"
-        f"总计：{int(value+0.5)}（{gold}）\n"
+        f"总计：{int(value - 0.5) + 1}（{gold}）\n"
         "——————————\n"
         "交易成功！"
         )
@@ -347,7 +347,7 @@ def Exchange_buy(event:MessageEvent, buy:int, company_name:str):
         value += unsettled
         count += n
         # 卖家金币结算
-        unsettled = int(unsettled/seller_level + 0.5)
+        unsettled = int(unsettled/seller_level - 0.5) + 1
         seller_user.gold += unsettled
         seller_group_account.gold += unsettled
         # 股票结算
@@ -357,7 +357,7 @@ def Exchange_buy(event:MessageEvent, buy:int, company_name:str):
         value_update(seller_group_account)
         exchange.n -= n
     # 买家金币结算
-    gold = int(value/level + 0.5)
+    gold = int(value/level - 0.5) + 1
     user.gold -= gold
     group_account.gold -= gold
     # 更新买家群账户信息
@@ -369,7 +369,7 @@ def Exchange_buy(event:MessageEvent, buy:int, company_name:str):
         "——————————\n"
         f"数量：{count}\n"
         f"单价：{round(value/count,2)}\n"
-        f"总计：{int(value+0.5)}（{gold}）\n"
+        f"总计：{int(value - 0.5) + 1}（{gold}）\n"
         "——————————\n"
         "交易成功！"
         )
@@ -581,8 +581,10 @@ def pricelist(user_id:int):
             f"[pixel][300]结算 [nowrap]\n[color][green]{'{:,}'.format(round(float_gold/20000,2))}[nowrap]\n"
             f"[pixel][600]数量 [nowrap]\n[color][{'green' if stock else 'red'}]{stock}\n"
             )
-
-    return MessageSegment.image(info_splicing([linecard(msg,width = 880,endline = "市场价格表")], Manager.BG_path(user_id)))
+    if msg:
+        return MessageSegment.image(info_splicing([linecard(msg,width = 880,endline = "市场价格表")], Manager.BG_path(user_id)))
+    else:
+        return "市场为空"
 
 def update_intro(company_name:str, intro:str):
     if company_name in company_index:

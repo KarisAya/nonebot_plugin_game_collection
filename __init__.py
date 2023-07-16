@@ -100,33 +100,6 @@ async def _(event:GroupMessageEvent, state:T_State):
     msg = game.join(event,state["arg"])
     await join_game.finish(msg)
 
-# 开始游戏
-AllRunGameCommand = {
-    "HorseRace":{"赛马开始","开始赛马"},
-    "Fortress":{"游戏开始","开始游戏"},
-    }
-AllRunGameCommand = {cmd: name for name, cmds in AllRunGameCommand.items() for cmd in cmds}
-
-async def run_game_rule(bot:Bot, event:GroupMessageEvent, state:T_State) -> bool:
-    """
-    规则：开始游戏
-    """
-    msg = event.message.extract_plain_text()
-    for cmd in AllRunGameCommand:
-        if msg.startswith(cmd):
-            game = current_games.get(event.group_id)
-            name = AllRunGameCommand[cmd]
-            if game:
-                if game.name == name:
-                    state["Game"] = game
-                    return True
-                return False
-            else:
-                await bot.send(event,AllGameTips[name])
-                return False
-    else:
-        return False
-
 async def AROF_check(event:GroupMessageEvent, state:T_State):
     """
     本群有AROF
@@ -163,6 +136,33 @@ async def _(bot:Bot, event:GroupMessageEvent, arg:Message = CommandArg()):
     game = current_games[event.group_id]
     msg = await game.AROF_action(bot,event.user_id,*arg.extract_plain_text().strip().split())
     await AROF_action.finish(msg)
+
+# 开始游戏
+AllRunGameCommand = {
+    "HorseRace":{"赛马开始","开始赛马"},
+    "Fortress":{"游戏开始","开始游戏"},
+    }
+AllRunGameCommand = {cmd: name for name, cmds in AllRunGameCommand.items() for cmd in cmds}
+
+async def run_game_rule(bot:Bot, event:GroupMessageEvent, state:T_State) -> bool:
+    """
+    规则：开始游戏
+    """
+    msg = event.message.extract_plain_text()
+    for cmd in AllRunGameCommand:
+        if msg.startswith(cmd):
+            game = current_games.get(event.group_id)
+            name = AllRunGameCommand[cmd]
+            if game:
+                if game.name == name:
+                    state["Game"] = game
+                    return True
+                return False
+            else:
+                await bot.send(event,AllGameTips[name])
+                return False
+    else:
+        return False
 
 run_game = on_message(rule = run_game_rule, permission = GROUP, priority = 20, block = True)
 
@@ -229,26 +229,37 @@ async def _(event:MessageEvent, arg:Message = CommandArg()):
     await give_props.finish(msg, at_sender = True)
 
 # 银行存取
-bank = on_command("群金库",permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER,priority = 20,block = True)
+
+async def bank_rule(bot:Bot, event:GroupMessageEvent, state:T_State ,permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER) -> bool:
+    """
+    规则：银行存取
+    """
+    msg = event.message.extract_plain_text()
+    if msg.startswith("存金币"):
+        sign = -1
+    elif msg.startswith("取金币"):
+        if await permission(event):
+            sign = 1
+        else:
+            return False
+    elif msg in {"查看群金库","群金库查看"}:
+        await bot.send(event,f"本群金库还有{data.group[event.group_id].company.bank}枚金币。", at_sender = True)
+        return False
+    else:
+        return False
+    gold = msg[3:].strip()
+    if gold.isdigit():
+        gold = int(gold)
+    else:
+        return False
+    state["args"] = (sign,gold)
+    return True
+
+bank = on_message(rule = bank_rule, permission = GROUP, priority = 20, block = True)
 
 @bank.handle()
-async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
-    arg = arg.extract_plain_text().strip()
-    sign = arg[0]
-    if sign == "取":
-        sign = 1
-    elif sign == "存":
-        sign = -1
-    elif arg.startswith("查看"):
-        await bank.finish(f"本群金库还有{data.group[event.group_id].company.bank}枚金币。", at_sender = True)
-    else:
-        return
-    gold = arg[1:].strip()
-    if not gold.isdigit():
-        return
-    else:
-        gold = int(gold)
-    msg = Market.bank(event,sign,gold)
+async def _(event:GroupMessageEvent, state:T_State):
+    msg = Market.bank(event,*state["args"])
     await bank.finish(msg, at_sender = True)
 
 # 金币签到

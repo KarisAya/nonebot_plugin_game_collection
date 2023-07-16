@@ -118,7 +118,7 @@ def value_update(group_account:GroupAccount):
     for company_id in stocks:
         if company_id != group_id:
             company = group_data[company_id].company
-            unit = company.float_gold / company.issuance
+            unit = company.float_gold / 20000
             value += stocks[company_id] * unit
     level = group_data[group_id].company.level or 1
     group_account.value = value/level
@@ -170,14 +170,13 @@ def buy(event:MessageEvent, buy:int, company_name:str):
     if group_gold < 10 * max_bet_gold:
         return f"【{company_name}】金币过少({group_gold})，无法交易。"
     float_gold = company.float_gold
-    SI = company.issuance
     value = 0.0
     inner_buy = 0
     level = group_data[group_account.group_id].company.level or 1
     my_gold = level*group_account.gold
     unit = group_gold/100000
     for _ in range(buy):
-        value += max(group_gold, float_gold)/SI
+        value += max(group_gold, float_gold)/20000
         float_gold += unit
         if my_gold > value:
             inner_buy += 1
@@ -243,11 +242,10 @@ def settle(event:MessageEvent, settle:int, company_name:str):
         return f"【{company_name}】金币过少({group_gold})，无法交易。"
     my_company = group_data[group_account.group_id].company
     float_gold = company.float_gold
-    SI = company.issuance
     value = 0.0
     unit = group_gold/100000
     for _ in range(settle):
-        value += float_gold/SI
+        value += float_gold/20000
         float_gold -= unit
     gold = value/(my_company.level or 1)
     if group_account.props.get("42001",0):
@@ -405,8 +403,7 @@ def Exchange_sell(event:MessageEvent, info:Tuple[int,ExchangeInfo]):
     else:
         quote = exchange_info.quote
         float_gold = company.float_gold
-        SI = company.issuance
-        unit = min(company.group_gold,float_gold) / SI
+        unit = min(company.group_gold,float_gold) / 20000
         if quote > max(bet_gold, 10 * unit):
             return "报价异常，发布失败。"
         else:
@@ -422,7 +419,7 @@ def Exchange_sell(event:MessageEvent, info:Tuple[int,ExchangeInfo]):
         value = 0.0
         settle = 0
         for _ in range(n):
-            if float_gold/SI < quote:
+            if float_gold/20000 < quote:
                 break
             settle += 1
             value += quote
@@ -521,12 +518,11 @@ def stock_profile(company:Company) -> str:
     """
     group_gold = company.group_gold
     float_gold = company.float_gold
-    issuance = company.issuance
     msg = (
         f"固定资产 {'{:,}'.format(round(company.gold,2))}\n"
         f"市场流动 {'{:,}'.format(round(group_gold))}\n"
-        f"发行价格 {'{:,}'.format(round(max(group_gold,float_gold)/issuance,2))}\n"
-        f"结算价格 {'{:,}'.format(round(float_gold/issuance,2))}\n"
+        f"发行价格 {'{:,}'.format(round(max(group_gold,float_gold)/20000,2))}\n"
+        f"结算价格 {'{:,}'.format(round(float_gold/20000,2))}\n"
         f"股票数量 {company.stock}\n"
         )
     return msg
@@ -573,13 +569,12 @@ def pricelist(user_id:int):
         group_gold = company.group_gold
         float_gold = company.float_gold
         gold = max(group_gold,float_gold)
-        issuance = company.issuance
         stock = company.stock
         msg += (
             "----\n"
             f"[pixel][20]{company.company_name}\n"
-            f"[pixel][20]发行 [nowrap]\n[color][{'green' if gold == float_gold else 'red'}]{'{:,}'.format(round(gold/issuance,2))}[nowrap]\n"
-            f"[pixel][300]结算 [nowrap]\n[color][green]{'{:,}'.format(round(float_gold/issuance,2))}[nowrap]\n"
+            f"[pixel][20]发行 [nowrap]\n[color][{'green' if gold == float_gold else 'red'}]{'{:,}'.format(round(gold/20000,2))}[nowrap]\n"
+            f"[pixel][300]结算 [nowrap]\n[color][green]{'{:,}'.format(round(float_gold/20000,2))}[nowrap]\n"
             f"[pixel][600]数量 [nowrap]\n[color][{'green' if stock else 'red'}]{stock}\n"
             )
 
@@ -612,8 +607,7 @@ def company_update(company:Company):
     group_gold = Manager.group_wealths(company_id,company.level) + company.bank*company.level
     company.group_gold = group_gold
     # 固定资产回归值 = 全群金币数 + 股票融资(每倍100000股)
-    SI = company.issuance
-    line = group_gold * (1 + (SI - company.stock) / 100000)
+    line = group_gold * (1 + (company.issuance - company.stock) / 100000)
     # 公司金币数回归到固定资产回归值
     gold = company.gold
     gold += (line - gold)/96
@@ -634,7 +628,7 @@ def company_update(company:Company):
             n = 0
             quote = exchange.quote
             for _ in range(exchange.n):
-                if quote < float_gold/SI:
+                if quote < float_gold/20000:
                     float_gold -= unit
                     n += 1
                 else:
@@ -665,7 +659,7 @@ def company_update(company:Company):
 
     # 记录价格历史
     global market_history
-    market_history.setdefault(company_id,[]).append((time.time(), group_gold / company.issuance, float_gold / company.issuance))
+    market_history.setdefault(company_id,[]).append((time.time(), group_gold / 20000, float_gold / 20000))
     market_history[company_id] = market_history[company_id][-720:]
 
 def update():

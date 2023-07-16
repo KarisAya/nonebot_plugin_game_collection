@@ -341,7 +341,7 @@ async def my_exchange(event:MessageEvent) -> Message:
         if stock:
             account_name = None
             company = group_data[company_id].company
-            msg += f"[pixel][20]公司 {company.company_name}\n[pixel][20]结算 [nowrap]\n[color][green]{'{:,}'.format(round(company.float_gold/company.issuance,2))}[nowrap]\n[pixel][400]数量 [nowrap]\n[color][green]{stock}\n"
+            msg += f"[pixel][20]公司 {company.company_name}\n[pixel][20]结算 [nowrap]\n[color][green]{'{:,}'.format(round(company.float_gold/20000,2))}[nowrap]\n[pixel][400]数量 [nowrap]\n[color][green]{stock}\n"
             if (exchange := company.exchange.get(user.user_id)) and exchange.n:
                 if exchange.group_id == group_account.group_id:
                     account_name = "本群"

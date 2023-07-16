@@ -238,7 +238,7 @@ async def bank_rule(bot:Bot, event:GroupMessageEvent, state:T_State ,permission 
     if msg.startswith("存金币"):
         sign = -1
     elif msg.startswith("取金币"):
-        if await permission(event):
+        if await permission(bot,event):
             sign = 1
         else:
             return False

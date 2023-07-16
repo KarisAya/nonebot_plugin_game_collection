@@ -303,13 +303,14 @@ def Gini(group_id:int, limit:int = bet_gold) -> float:
     本群基尼系数
     """
     if group_id in group_data:
+        level = group_data[group_id].company.level or 1
         namelist = group_data[group_id].namelist
     else:
         return None
     rank = []
     for user_id in namelist:
         group_account = user_data[user_id].group_accounts[group_id]
-        rank.append(group_account.gold + group_account.value)
+        rank.append(group_account.gold*level + group_account.value)
 
     rank = [x for x in rank if x > limit]
     rank.sort()

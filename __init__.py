@@ -929,6 +929,7 @@ Market_reset = on_fullmatch("市场重置", permission = SUPERUSER, priority = 2
 @Market_reset.handle()
 async def _():
     Market.reset()
+    Market.update()
     await Market_reset.finish("市场已重置。")
 
 # 数据验证

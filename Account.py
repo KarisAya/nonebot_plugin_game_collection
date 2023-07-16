@@ -111,8 +111,9 @@ def revolution(group_id:int) -> str:
 
     if time.time() - group.revolution_time < revolt_cd:
         return f"重置正在冷却中，结束时间：{datetime.datetime.fromtimestamp(group.revolution_time + revolt_cd).strftime('%H:%M:%S')}"
-
-    if (group_gold := Manager.group_wealths(group_id)) < (limit := 15 * max_bet_gold):
+    company = group.company
+    level = company.level or 1
+    if (group_gold := Manager.group_wealths(group_id,level)/level) < (limit := 15 * max_bet_gold):
         return f"本群金币（{round(group_gold,2)}）小于{limit}，未满足重置条件。"
 
     if (gini := Manager.Gini(group_id)) < revolt_gini:
@@ -149,9 +150,9 @@ def revolution(group_id:int) -> str:
         j = i**2
     for user_id in group.namelist:
         user_data[user_id].group_accounts[group_id].revolution = False
-    company = group.company
-    level = company.level
-    if level:
+
+
+    if company.level:
         level += 1
         company.level = level
         company.issuance = 80000 + 20000*level

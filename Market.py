@@ -120,7 +120,8 @@ def value_update(group_account:GroupAccount):
             company = group_data[company_id].company
             unit = company.float_gold / company.issuance
             value += stocks[company_id] * unit
-    group_account.value = value
+    level = group_data[group_id].company.level or 1
+    group_account.value = value/level
     return value
 
 def bank(event:GroupMessageEvent,sign:int, gold:int):

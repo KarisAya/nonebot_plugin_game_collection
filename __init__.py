@@ -695,20 +695,27 @@ async def _(event:GroupMessageEvent, arg:Message = CommandArg()):
     msg = Market.rename(event,company_name)
     await Market_rename.finish(msg)
 
-def arg_check(msg:str):
-    if len(msg) == 2:
-        if msg[0].isdigit():
-            count = int(msg[0])
-            company_name = msg[1]
-        elif msg[1].isdigit():
+def arg_check(msg:list):
+    l = len(msg)
+    if l > 1:
+        if msg[1].isdigit():
             count = int(msg[1])
             company_name = msg[0]
+        elif msg[0].isdigit():
+            count = int(msg[0])
+            company_name = msg[1]
         else:
             return None
+        limit = None
+        if l == 3:
+            try:
+                limit = float(msg[2])
+            except:
+                pass
     else:
         return None
     if count > 0:
-        return count,company_name
+        return count,company_name,limit
     else:
         return None
 
@@ -721,9 +728,7 @@ async def _(event:MessageEvent, arg:Message = CommandArg()):
     info = arg_check(msg)
     if not info:
         return
-    else:
-        buy, company_name = info
-    msg = Market.buy(event,buy,company_name)
+    msg = Market.buy(event,*info)
     await Market_buy.finish(msg)
 
 # 官方结算
@@ -735,9 +740,7 @@ async def _(event:MessageEvent, arg:Message = CommandArg()):
     info = arg_check(msg)
     if not info:
         return
-    else:
-        settle, company_name = info
-    msg = Market.settle(event,settle,company_name)
+    msg = Market.settle(event,*info)
     await Market_settle.finish(msg)
 
 # 市场购买

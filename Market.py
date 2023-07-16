@@ -8,8 +8,8 @@ from nonebot.adapters.onebot.v11 import (
     )
 
 import random
-import math
 import time
+import math
 import datetime
 import asyncio
 
@@ -18,10 +18,10 @@ try:
 except ModuleNotFoundError:
     import json
 
-from .utils.chart import linecard, group_info_head, info_splicing, linecard_to_png
+from .utils.chart import linecard, group_info_head, info_splicing
 from .data import GroupAccount, Company, ExchangeInfo
 from .data import OHLC, props_library
-from .config import bot_name, revolt_gini, max_bet_gold, bet_gold, path
+from .config import bot_name, max_bet_gold, bet_gold, path
 
 from . import Manager
 
@@ -143,7 +143,7 @@ def bank(event:GroupMessageEvent,sign:int, gold:int):
     company.bank -= sign*gold
     return f"你{tip}了{gold}金币。"
 
-def buy(event:MessageEvent, buy:int, company_name:str):
+def buy(event:MessageEvent, buy:int, company_name:str ,limit:float):
     """
     以发行价格购买股票
         buy:购买数量
@@ -175,20 +175,24 @@ def buy(event:MessageEvent, buy:int, company_name:str):
     level = group_data[group_account.group_id].company.level or 1
     my_gold = level*group_account.gold
     unit = group_gold/20000
+    limit = limit if limit else float('inf')
     for _ in range(buy):
-        value += max(group_gold, float_gold)/20000
+        inner_unit = max(group_gold, float_gold)/20000
+        if inner_unit > limit:
+            break
+        value += inner_unit
         float_gold += unit
         if my_gold > value:
             inner_buy += 1
         else:
             break
     if inner_buy < 1:
-        return f"购买失败，你的金币不足（{group_account.gold}）！"
+        return f"购买失败，价格超过限制！"
     # 结算股票
     company.stock -= inner_buy
     group_account.stocks[company_id] = group_account.stocks.get(company_id,0) + inner_buy
     # 结算金币
-    gold = int(value/level - 0.5) + 1
+    gold = math.ceil(value/level)
     user.gold -= gold
     group_account.gold -= gold
     company.gold += value
@@ -208,12 +212,12 @@ def buy(event:MessageEvent, buy:int, company_name:str):
         "——————————\n"
         f"数量：{inner_buy}\n"
         f"单价：{round(value/inner_buy,2)}\n"
-        f"总计：{int(value - 0.5) + 1}（{gold}）\n"
+        f"总计：{math.ceil(value)}（{gold}）\n"
         "——————————\n"
         "交易成功！"
         )
 
-def settle(event:MessageEvent, settle:int, company_name:str):
+def settle(event:MessageEvent, settle:int, company_name:str, limit:float):
     """
     以债务价值结算股票
         settle:结算数量
@@ -244,14 +248,16 @@ def settle(event:MessageEvent, settle:int, company_name:str):
         return f"【{company_name}】单价过低({round(float_gold/20000,2)})，无法交易。"
     level = group_data[group_account.group_id].company.level or 1
     value = 0.0
-    n = 0
+    inner_settle = 0
     unit = group_gold/20000
+    limit = limit if limit else 1
     for _ in range(settle):
-        value += float_gold/20000
-        float_gold -= unit
-        n += 1
-        if float_gold < 20000:
+        inner_unit = float_gold/20000
+        if inner_unit < limit:
             break
+        value += inner_unit
+        float_gold -= unit
+        inner_settle += 1
     gold = value/level
     if group_account.props.get("42001",0):
         fee = 0
@@ -262,12 +268,12 @@ def settle(event:MessageEvent, settle:int, company_name:str):
         tips = f"扣除2%手续费：{fee}"
 
     # 结算股票
-    company.stock += n
-    if group_account.stocks[company_id] == n:
+    company.stock += inner_settle
+    if group_account.stocks[company_id] == inner_settle:
         del group_account.stocks[company_id]
         stock = 0
     else:
-        stock = group_account.stocks[company_id] = group_account.stocks.get(company_id) - n
+        stock = group_account.stocks[company_id] = group_account.stocks.get(company_id) - inner_settle
     # 结算金币
     gold = int(gold) - fee
     user.gold += gold
@@ -288,8 +294,8 @@ def settle(event:MessageEvent, settle:int, company_name:str):
     return (
         f"{company_name}\n"
         "——————————\n"
-        f"数量：{n}\n"
-        f"单价：{round(value/n,2)}\n"
+        f"数量：{inner_settle}\n"
+        f"单价：{round(value/inner_settle,2)}\n"
         f"总计：{int(value)}（{gold+fee}）\n"
         "——————————\n"
         "交易成功！\n" + tips
@@ -347,7 +353,7 @@ def Exchange_buy(event:MessageEvent, buy:int, company_name:str):
         value += unsettled
         count += n
         # 卖家金币结算
-        unsettled = int(unsettled/seller_level - 0.5) + 1
+        unsettled = math.ceil(unsettled/seller_level)
         seller_user.gold += unsettled
         seller_group_account.gold += unsettled
         # 股票结算
@@ -357,7 +363,7 @@ def Exchange_buy(event:MessageEvent, buy:int, company_name:str):
         value_update(seller_group_account)
         exchange.n -= n
     # 买家金币结算
-    gold = int(value/level - 0.5) + 1
+    gold = math.ceil(value/level)
     user.gold -= gold
     group_account.gold -= gold
     # 更新买家群账户信息
@@ -369,7 +375,7 @@ def Exchange_buy(event:MessageEvent, buy:int, company_name:str):
         "——————————\n"
         f"数量：{count}\n"
         f"单价：{round(value/count,2)}\n"
-        f"总计：{int(value - 0.5) + 1}（{gold}）\n"
+        f"总计：{math.ceil(value)}（{gold}）\n"
         "——————————\n"
         "交易成功！"
         )

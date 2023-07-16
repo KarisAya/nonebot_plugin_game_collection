@@ -1,5 +1,4 @@
-from typing import Tuple,Dict,List
-from pathlib import Path
+from typing import Tuple,List
 from io import BytesIO
 from PIL import Image,ImageDraw,ImageFont
 from PIL.Image import Image as IMG

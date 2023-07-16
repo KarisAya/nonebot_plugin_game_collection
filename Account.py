@@ -1,6 +1,5 @@
 from typing import Tuple
 from nonebot.adapters.onebot.v11 import (
-    Bot,
     MessageEvent,
     GroupMessageEvent,
     Message,
@@ -9,6 +8,7 @@ from nonebot.adapters.onebot.v11 import (
 
 import random
 import time
+import math
 import datetime
 
 from .utils.chart import (
@@ -19,9 +19,9 @@ from .utils.chart import (
     linecard,
     info_splicing
     )
-from .data import Company, UserDict, GroupAccount
+from .data import UserDict, GroupAccount
 from .data import props_library, props_index
-from .config import bot_name,sign_gold, revolt_gold, revolt_cd, revolt_gini, max_bet_gold
+from .config import sign_gold, revolt_gold, revolt_cd, revolt_gini, max_bet_gold
 
 from . import Manager
 
@@ -111,8 +111,8 @@ def revolution(group_id:int) -> str:
 
     if time.time() - group.revolution_time < revolt_cd:
         return f"重置正在冷却中，结束时间：{datetime.datetime.fromtimestamp(group.revolution_time + revolt_cd).strftime('%H:%M:%S')}"
-    company = group.company
-    level = company.level or 1
+
+    level = group.company.level or 1
     if (group_gold := Manager.group_wealths(group_id,level)/level) < (limit := 15 * max_bet_gold):
         return f"本群金币（{round(group_gold,2)}）小于{limit}，未满足重置条件。"
 
@@ -151,12 +151,12 @@ def revolution(group_id:int) -> str:
     for user_id in group.namelist:
         user_data[user_id].group_accounts[group_id].revolution = False
 
-
-    if company.level and level < 10:
+    if group.company.level and level < 10:
         level += 1
-        company.level = level
-        company.issuance = 80000 + 20000*level
-        company.bank = int(company.bank * (level - 1) / level)
+        group.company.level = level
+        group.company.issuance = 80000 + 20000*level
+        group.company.bank = int(group.company.bank * (level - 1) / level)
+
     data.save()
     return f"重置成功！恭喜{first_name}进入挂件榜☆！\n当前系数为：{round(gini,3)}，重置签到已刷新。"
 
@@ -506,7 +506,7 @@ def intergroup_transfer_gold(event:MessageEvent, gold:int, company_name:str):
     user.gold -= gold
     group_account.gold -= gold
     # 转入税
-    tgold = int(ExRate * (gold - tax) + 0.5)
+    tgold = math.ceil(ExRate * (gold - tax))
     ttax = tcompany.transfer_tax(tgold, target_group_account.transfer)
     tcompany.bank += ttax
     target_group_account.transfer += tgold
@@ -524,28 +524,22 @@ def intergroup_transfer_gold(event:MessageEvent, gold:int, company_name:str):
 
 def freeze(target:UserDict):
     target_id = target.user_id
-    gold = target.gold
+    gold = 0
     value = 0.0
     group_accounts = target.group_accounts
     for group_id,group_account in group_accounts.items():
-        value += group_account.value
         group = group_data[group_id]
+        level = group.company.level or 1
+        gold += group_account.gold*level
+        value += group_account.value*level
         for company_id in group_account.stocks:
-            company = group_data[company_id].company
-            company.Buyback(group_account)
+            group_data[company_id].company.Buyback(group_account)
         group.namelist.remove(target_id)
-
     target.gold = 0
     target.group_accounts = {}
-
     x = gold + value
-    if x > 500 * max_bet_gold:
-        count = 500
-    elif x > 50 * max_bet_gold:
-        count = int (x / max_bet_gold)
-    else:
-        count = int (x / max_bet_gold) + 1
-
+    count = math.ceil(x / max_bet_gold)
+    count = 500 if count > 500 else count
     target.props.setdefault("03101",0)
     target.props["03101"] += count
 

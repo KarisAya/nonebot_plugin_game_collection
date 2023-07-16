@@ -4,10 +4,10 @@ from nonebot.adapters.onebot.v11 import (
     MessageSegment
     )
 import random
-
+import math
 from .utils.utils import get_message_at
 from .utils.chart import linecard_to_png,line_splicing
-from .data import GroupAccount, props_library, props_index
+from .data import props_library, props_index
 from .config import bot_name, sign_gold, revolt_gold, max_bet_gold, gacha_gold
 
 from .Alchemy import Alchemy
@@ -257,8 +257,8 @@ class Prop(str):
         props["03101"] -= count
         if props["03101"] < 1:
             del props["03101"]
-
-        gold = count * max_bet_gold
+        level = group_data[group_account.group_id].company.level or 1
+        gold = math.ceil(count * max_bet_gold / level)
         user.gold += gold
         group_account.gold += gold
         return f"你获得了{gold}金币。"

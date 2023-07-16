@@ -113,7 +113,7 @@ class Company(BaseModel):
         """
         level = self.level
         if not level:
-            return int(amount*0.1 + 0.5)
+            return math.ceil(amount*0.1)
         step = self.float_gold/(25*level)
         levels = [[0.01, step],[0.1, step * 2],[0.2, step * 2],[0.4, float('inf')]]
         fee = 0

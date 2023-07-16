@@ -3,7 +3,6 @@ from pydantic import BaseModel
 from abc import ABC, abstractmethod
 from nonebot.adapters.onebot.v11 import (
     Bot,
-    MessageEvent,
     GroupMessageEvent,
     Message,
     MessageSegment
@@ -1187,7 +1186,7 @@ class Cantrell(Game):
         看牌
         """
         session = self.session
-        expose = int(round((session.round  + 0.5)/ 2)) + 3
+        expose = round((session.round  + 0.5)// 2) + 3
         expose = min(expose,5)
         session.time = time.time() + 120
         if user_id == session.player1_id:

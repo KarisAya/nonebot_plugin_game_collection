@@ -753,7 +753,8 @@ async def _(event:MessageEvent, arg:Message = CommandArg()):
     if not info:
         return
     else:
-        buy, company_name = info
+        buy = info[0]
+        company_name = info[1]
     msg = Market.Exchange_buy(event,buy,company_name)
     await Exchange_buy.finish(msg)
 
@@ -885,7 +886,8 @@ async def _(event:MessageEvent, arg:Message = CommandArg()):
     if not info:
         return
     else:
-        gold, company_name = info
+        gold = info[0]
+        company_name = info[1]
     msg = Account.intergroup_transfer_gold(event,gold,company_name)
     await transfer_gold.finish(msg, at_sender = True)
 

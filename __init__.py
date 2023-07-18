@@ -831,17 +831,12 @@ async def _(bot:Bot, event:MessageEvent, arg:Message = CommandArg()):
             msg = await Market.group_info(bot,event,company_id)
         else:
             msg = f"没有 {company_name} 的注册信息"
-        await Market_info.send(msg)
+        await Market_info.finish(msg)
     else:
         if msg := Market.Market_info_All(event):
-            if len(msg) == 1:
-                await Market_info.send(msg[0]["data"]["content"])
-            elif isinstance(event, GroupMessageEvent):
-                await bot.send_group_forward_msg(group_id = event.group_id, messages = msg)
-            else:
-                await bot.send_private_forward_msg(user_id = event.user_id, messages = msg)
+            await Market_info.finish(msg)
         else:
-            await Market_info.send("市场为空")
+            await Market_info.finish("市场为空")
 
 # 市场价格表
 Market_pricelist = on_command("市场价格表",aliases={"股票价格表"}, priority = 20, block = True)

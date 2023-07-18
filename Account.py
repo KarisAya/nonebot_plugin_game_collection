@@ -154,7 +154,7 @@ def revolution(group_id:int) -> str:
     if group.company.level and level < 10:
         level += 1
         group.company.level = level
-        group.company.issuance = 80000 + 20000*level
+        group.company.issuance = 20000*level
         group.company.bank = int(group.company.bank * (level - 1) / level)
 
     data.save()

@@ -245,7 +245,7 @@ class DataBase(BaseModel):
                     ) if company.level != level else ""
                 company.level = level
                 # 修正股票发行量
-                company.issuance = 80000 + 20000*level
+                company.issuance = 20000*level
                 # 修正股票库存
                 stock = company.issuance - stock_check[group_id]
                 log += (

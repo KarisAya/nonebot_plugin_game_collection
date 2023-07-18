@@ -257,7 +257,7 @@ class Prop(str):
         props["03101"] -= count
         if props["03101"] < 1:
             del props["03101"]
-        level = group_data[group_account.group_id].company.level or 1
+        level = Manager.company_level(group_account.group_id)
         gold = math.ceil(count * max_bet_gold / level)
         user.gold += gold
         group_account.gold += gold
@@ -630,8 +630,38 @@ class Prop(str):
             )
         return "你在本群的账户已重置，祝你好运~"
 
+    @staticmethod
+    def refine(event:MessageEvent, prop_code:str, count:int) -> str:
+        """
+        道具精炼
+        """
+        rare = {"3":1,"4":3,"5":5,"6":10}.get(prop_code[0])
+        if not rare:
+            return "此道具不可精炼"
+        user,group_account = Manager.locate_user(event)
+        if not group_account:
+            return "私聊未关联账户，请发送【关联账户】关联群内账户。"
+        props = user.props if prop_code[1] == "3" else group_account.props
+        count = min(count,props.get(prop_code,0))
+        if not count:
+            return "数量不足"
+
+        props[prop_code] -= count
+        if props[prop_code] < 1:
+            del props[prop_code]
+        count = count * rare
+        user.props["33101"] = user.props.get("33101",0) + count
+
+        return f"精炼成功！你获得了{count}个{props_library['33101']['name']}"
+
 def use_prop(event:MessageEvent, prop_name:str, count:int):
     if prop_code := props_index.get(prop_name):
         return Prop(prop_code).use(event,count)
+    else:
+        return f"没有【{prop_name}】这种道具。"
+
+def props_refine(event:MessageEvent, prop_name:str, count:int):
+    if prop_code := props_index.get(prop_name):
+        return Prop.refine(event,prop_code,count)
     else:
         return f"没有【{prop_name}】这种道具。"

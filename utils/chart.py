@@ -452,26 +452,18 @@ def my_info_statistics(dist):
     我的资料卡跨群资产统计图
     """
     dist.sort(key=lambda x:x[0],reverse=True)
-    N = len(dist)
     labels = []
     x = []
-    for i in range(N):
-        seg = dist[i]
-        if i == 5:
-            y = 0
-            for j in range(i,N):
-                seg = dist[j]
-                y += seg[0]
+    for N,(gold, group_name) in enumerate(dist):
+        if N < 5:
+            x.append(gold)
+            labels.append(group_name)
+        else:
             labels.append("其他")
-            x.append(y)
+            x.append(sum(seg[0] for seg in dist[N:]))
             break
-        labels.append(seg[1])
-        x.append(seg[0])
-
-    N = 6 if N > 6 else N
-
+    N += 1
     colors = ["#6699CC","#66CCFF","#669999","#66CCCC","#669966","#66CC99"]
-
     output = BytesIO()
 
     plt.figure(figsize = (6.6,3.4))

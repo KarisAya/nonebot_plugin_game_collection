@@ -23,7 +23,6 @@ class GroupAccount(BaseModel):
     security:int = 0
     gold:int = 0
     value:float = 0.0
-    transfer:int = 0
     stocks:Dict[int,int] = {}
     props:Dict[str,int] = {}
 
@@ -66,6 +65,18 @@ class UserData(Dict[int, UserDict]):
     """
     用户数据
     """
+    def get_nickname(self, user_id, group_id):
+        """
+        获取用户名
+        """
+        if user_id in self:
+            user = self[user_id]
+            if group_id in user.group_accounts:
+                return user.group_accounts[group_id].nickname
+            else:
+                return user.nickname
+        else:
+            return "已注销"
 
 class ExchangeInfo(BaseModel):
     """
@@ -80,17 +91,35 @@ class Company(BaseModel):
     公司账户
     """
     company_id:int = None
+    """群号"""
     company_name:str = None
+    """公司名称"""
     level:int = 0
+    """公司等级"""
     time:float = 0.0
+    """注册时间"""
     stock:int = 0
+    """正在发行的股票数"""
     issuance:int = 0
+    """股票发行量"""
     gold:float = 0.0
+    """固定资产"""
     float_gold:float = 0.0
+    """浮动资产"""
     group_gold:float = 0.0
+    """全群资产"""
     bank:int = 0
+    """群金库"""
+    transfer_limit:int = 0
+    """每日转账限制"""
+    transfer:int = 0
+    """今日转账额"""
     intro:str = None
+    """群介绍"""
     exchange:Dict[int,ExchangeInfo] = {}
+    """本群交易市场"""
+    orders:dict = {}
+    """当前订单"""
 
     def Buyback(self, group_account:GroupAccount, n:int = None):
         """
@@ -105,33 +134,6 @@ class Company(BaseModel):
             group_account.stocks[self.company_id] = group_account.stocks.get(self.company_id) - count
             if user_id in self.exchange and (exchange := self.exchange[user_id]).group_id == group_account.group_id:
                 exchange.n -= count
-
-    def transfer_tax(self, amount: int, transfer_today: int) -> int:
-        """
-        计算本群转账税
-            transfer_today:今日已使用额度
-        """
-        level = self.level
-        if not level:
-            return math.ceil(amount*0.1)
-        step = self.float_gold/(25*level)
-        levels = [[0.01, step],[0.1, step * 2],[0.2, step * 2],[0.4, float('inf')]]
-        fee = 0
-        for n,(level_tax, level_step) in enumerate(levels):
-            if transfer_today >= level_step:
-                transfer_today -= level_step
-                continue
-            levels[n][1] -= transfer_today
-            break
-
-        for level_tax, level_step in levels[n:]:
-            if amount <= level_step:
-                fee += amount * level_tax
-                break
-            fee += level_step * level_tax
-            amount -= level_step
-
-        return int(fee)
 
 class GroupDict(BaseModel):
     """
@@ -282,13 +284,15 @@ class DataBase(BaseModel):
                 group_account.is_sign = False
                 # 刷新每日补贴
                 group_account.security = 3
-                # 刷新转账限额
-                group_account.transfer = 0
                 # 概率刷新重置签到
                 group_account.revolution = revolution_today
                 # 群内道具有效期 - 1天
                 props = group_account.props
                 props = {k:min(v-1,30) if k[2] == '0' else v for k,v in props.items()}
+        for group in self.group.values():
+            # 刷新今日转账限制
+            group.company.transfer = 0
+            group.company.transfer_limit = int(group.company.group_gold/10) if group.company.group_gold else float("inf")
         self.save()
 
 """+++++++++++++++++

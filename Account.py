@@ -304,14 +304,7 @@ async def my_info(event:MessageEvent) -> Message:
         f"[color][{security[1]}]{security[0]}[nowrap]\n 次"
         )
     # 加载资产分析
-    dist = []
-    for x in user.group_accounts:
-        account = user.group_accounts[x]
-        if not (group_name := group_data[x].company.company_name):
-            group_name = f"（{str(x)[-4:]}）"
-        dist.append([account.gold + account.value, group_name])
-    dist = [x for x in dist if x[0] > 0]
-
+    dist = [(gold, group_name if (group_name := group_data[group_id].company.company_name) else f"（{str(group_id)[-4:]}）") for group_id, account in user.group_accounts.items() if (gold := account.gold + account.value) > 0]
     info.append(my_info_account(msg,dist))
 
     # 加载股票信息
@@ -477,11 +470,11 @@ def intergroup_transfer_gold(event:MessageEvent, gold:int, company_name:str):
     """
     跨群转移金币到自己的账户
     """
-    user,group_account = Manager.locate_user(event)
-    if not group_account:
+    user,group_account_out = Manager.locate_user(event)
+    if not group_account_out:
         return "私聊未关联账户，请发送【关联账户】关联群内账户。"
-    if gold > group_account.gold:
-        return f"你没有足够的金币，无法完成结算。\n——你还有{group_account.gold}枚金币。"
+    if gold > group_account_out.gold:
+        return f"你没有足够的金币，无法完成结算。\n——你还有{group_account_out.gold}枚金币。"
 
     if company_name in company_index:
         company_id = company_index[company_name]
@@ -489,38 +482,36 @@ def intergroup_transfer_gold(event:MessageEvent, gold:int, company_name:str):
         return f"没有 {company_name} 的注册信息"
 
     if company_id in user.group_accounts:
-        target_group_account = user.group_accounts[company_id]
+        group_account_in = user.group_accounts[company_id]
     else:
         return f"你在 {company_name} 没有创建账户"
 
-    company = group_data[group_account.group_id].company
-    tcompany = group_data[company_id].company
-
-    ExRate = (company.level or 1.0)/tcompany.level
-
-    # 转出税
-    tax = company.transfer_tax(gold, group_account.transfer)
-    company.bank += tax
-    group_account.transfer += gold
-    # 转出
-    user.gold -= gold
-    group_account.gold -= gold
-    # 转入税
-    tgold = math.ceil(ExRate * (gold - tax))
-    ttax = tcompany.transfer_tax(tgold, target_group_account.transfer)
-    tcompany.bank += ttax
-    target_group_account.transfer += tgold
+    company_out = group_data[group_account_out.group_id].company
+    company_in = group_data[company_id].company
+    ExRate = (company_out.level or 1.0)/company_in.level
+    # 计算转出
+    transfer = company_out.transfer_limit + company_out.transfer
+    if transfer < 1:
+        return f"本群今日转出已达到限制({company_out.transfer_limit})"
+    # 计算转入
+    gold = int(ExRate * min(gold,transfer))
+    transfer = company_out.transfer_limit - company_out.transfer
+    if transfer < 1:
+        return f"{company_in.company_name}今日转入已达到限制({company_in.transfer_limit})"
     # 转入
-    tgold -= ttax
-    user.gold += tgold
-    target_group_account.gold += tgold
+    gold_in = min(gold,transfer)
+    company_in.transfer += gold_in
+    user.gold += gold_in
+    group_account_in.gold += gold_in
+    # 转出
+    gold_out = math.ceil(gold/ExRate)
+    company_out.transfer -= gold_out
+    user.gold -= gold_out
+    group_account_out.gold -= gold_out
 
-    return (
-        f"向 {company_name} 转移{gold}金币。\n"
-        f"汇率 {round(ExRate,2)} \n"
-        f"手续费 {tax}({round(100*tax/gold,2)}%){ttax} ({round(100*ttax/(tgold+ttax),2)}%)\n"
-        f"实际到账金额 {tgold}"
-        )
+    return (f"向 {company_in.company_name} 转移{gold_out}金币。\n"
+            f"汇率 {round(ExRate,2)}\n"
+            f"实际到账金额 {gold_in}")
 
 def freeze(target:UserDict):
     target_id = target.user_id

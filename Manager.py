@@ -271,7 +271,7 @@ def All_ranklist(title:str) -> list:
         for user_id in namelist:
             user = user_data[user_id]
             gold = user.gold
-            value = sum([group.value for group in user.group_accounts.values()])
+            value = sum(group_account.value for group_account in user.group_accounts.values())
             rank.append([user_id, gold + value])
     elif title == "胜率":
         for user_id in namelist:
@@ -298,12 +298,18 @@ def All_ranklist(title:str) -> list:
     rank.sort(key=lambda x:x[1],reverse=True)
     return rank
 
+def company_level(group_id:int) -> int:
+    """
+    获取公司等级
+    """
+    return group_data[group_id].company.level or 1
+
 def Gini(group_id:int, limit:int = bet_gold) -> float:
     """
     本群基尼系数
     """
     if group_id in group_data:
-        level = group_data[group_id].company.level or 1
+        level = company_level(group_id)
         namelist = group_data[group_id].namelist
     else:
         return None

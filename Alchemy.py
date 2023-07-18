@@ -63,6 +63,16 @@ class Alchemy:
         return result
 
     @classmethod
+    def random_products(cls,N:int):
+        """
+        随机N几个元素
+        """
+        result = Counter()
+        for _ in range(N):
+            result[cls.ProductsLibrary["".join(random.sample(cls.elements,k = 2))]] += 1
+        return result
+
+    @classmethod
     def status(cls,status:dict):
         """
         元素状态

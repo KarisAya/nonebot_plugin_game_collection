@@ -604,6 +604,23 @@ async def _(event:MessageEvent, arg:Message = CommandArg()):
     msg = Alchemy.alchemy_refine(event,Products)
     await alchemy_refine.finish(msg)
 
+# 道具精炼
+props_refine = on_command("道具精炼", priority = 20, block = True)
+
+@props_refine.handle()
+async def _(event:MessageEvent, arg:Message = CommandArg()):
+    msg = arg.extract_plain_text().strip().split()
+    if len(msg) == 1:
+        prop_name = msg[0]
+        count = 1
+    elif len(msg) == 2 and msg[1].isdigit():
+        prop_name = msg[0]
+        count = int(msg[1])
+    else:
+        return
+    msg = Prop.props_refine(event, prop_name, count)
+    await props_refine.finish(msg, at_sender = True)
+
 # 炼金资料卡
 alchemy_info = on_command("炼金账户", aliases = {"炼金资料"}, priority = 20, block = True)
 
@@ -611,6 +628,22 @@ alchemy_info = on_command("炼金账户", aliases = {"炼金资料"}, priority =
 async def _(event:MessageEvent):
     msg = await Alchemy.my_info(event)
     await alchemy_info.finish(msg)
+
+# 查看元素订单
+alchemy_order = on_command("查看元素订单", priority = 20, block = True)
+
+@alchemy_order.handle()
+async def _(event:MessageEvent):
+    msg = Market.alchemy_order(event)
+    await alchemy_order.finish(msg)
+
+# 完成元素订单
+complete_order = on_command("完成元素订单", priority = 20, block = True)
+
+@complete_order.handle()
+async def _(event:MessageEvent, arg:Message = CommandArg()):
+    msg = Market.complete_order(event,arg.extract_plain_text().strip())
+    await complete_order.finish(msg)
 
 # 我的道具
 my_props = on_command("我的道具", aliases = {"我的仓库"}, priority = 20, block = True)
@@ -759,7 +792,7 @@ async def _(event:MessageEvent, arg:Message = CommandArg()):
     await Exchange_buy.finish(msg)
 
 # 市场出售
-Exchange_sell = on_command("出售", aliases = {"市场出售", "发布交易信息"}, priority = 20, block = True)
+Exchange_sell = on_command("出售", aliases = {"市场出售", "卖出", "上架", "发布交易信息"}, priority = 20, block = True)
 
 @Exchange_sell.handle()
 async def _(matcher:Matcher, event:MessageEvent, arg:Message = CommandArg()):
@@ -986,6 +1019,7 @@ async def _():
     Manager.update_company_index()
     log = data.verification()
     logger.info(f"\n{log}")
+    Market.new_order()
     data.Newday()
     with open(path / "Newday.log","a",encoding = "utf8") as f:
         f.write(f"\n{datetime.datetime.fromtimestamp(time.time()).strftime('%Y 年 %m 月 %d 日 %H:%M:%S')}\n"

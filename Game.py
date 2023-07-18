@@ -911,7 +911,7 @@ class Poker(Game):
             "----\n"
             f'当前回合：{next_name}\n'
             "手牌：\n[center]" + 
-            "".join([f'【{self.pokerACT.suit[suit]}{self.pokerACT.point[point]}】' for suit, point in Passive["hand"]])
+            "".join(f'【{self.pokerACT.suit[suit]}{self.pokerACT.point[point]}】' for suit, point in Passive["hand"])
             )
         await asyncio.sleep(0.5)
         await bot.send_group_msg(group_id = group_id, message = MessageSegment.image(linecard_to_png(msg, width = 880)))
@@ -942,7 +942,7 @@ class Poker(Game):
             f'HP {self.P2["HP"]} SP {self.P2["SP"]} DEF {self.P2["DEF"]}\n'
             "----\n"
             "P1初始手牌\n[center]" + 
-            "".join([f'【{self.pokerACT.suit[suit]}{self.pokerACT.point[point]}】' for suit, point in self.P1["hand"]])
+            "".join(f'【{self.pokerACT.suit[suit]}{self.pokerACT.point[point]}】' for suit, point in self.P1["hand"])
             ), width = 880))
         return self.acceptmessage(tip1, tip2);
 
@@ -1195,7 +1195,7 @@ class Cantrell(Game):
             hand = self.hand2
         msg = (
             "你的手牌：\n"
-            + ("|" + "".join([f'{self.cantrell_suit[suit]}{self.cantrell_point[point]}|' for suit, point in hand[0:expose]]) + (5 - expose)*"   |")
+            + ("|" + "".join(f'{self.cantrell_suit[suit]}{self.cantrell_point[point]}|' for suit, point in hand[0:expose]) + (5 - expose)*"   |")
             )
         if not await Manager.try_send_private_msg(user_id = user_id, message = MessageSegment.image(linecard_to_png(msg))):
             await bot.send_group_msg(group_id = session.group_id, message = f"私聊发送失败，请检查是否添加{bot_name}为好友。\n游戏继续！")
@@ -1225,11 +1225,11 @@ class Cantrell(Game):
             msg = (
                 f'玩家：{user_data[session.player1_id].group_accounts[group_id].nickname}\n'
                 "手牌：\n"
-                f'|{"".join([f"{cantrell_suit[suit]}{cantrell_point[point]}|" for suit, point in hand1])}{(5 - expose)*"   |"}'
+                f'|{"".join(f"{cantrell_suit[suit]}{cantrell_point[point]}|" for suit, point in hand1)}{(5 - expose)*"   |"}'
                 "\n----\n"
                 f'玩家：{user_data[session.player2_id].group_accounts[group_id].nickname}\n'
                 "手牌：\n"
-                f'|{"".join([f"{cantrell_suit[suit]}{cantrell_point[point]}|" for suit, point in hand2])}{(5 - expose)*"   |"}'
+                f'|{"".join(f"{cantrell_suit[suit]}{cantrell_point[point]}|" for suit, point in hand2)}{(5 - expose)*"   |"}'
                 )
 
             if expose == 5:
@@ -1257,10 +1257,10 @@ class Cantrell(Game):
         cantrell_point = self.cantrell_point
         tip2 += MessageSegment.image(linecard_to_png((
             "P1初始手牌：\n"
-            "|" + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand1[0:3]]) + "   |   |"
+            "|" + "".join(f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand1[0:3]) + "   |   |"
             "\n----\n"
             'P2初始手牌\n'
-            "|" + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand2[0:3]]) + "   |   |"
+            "|" + "".join(f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand2[0:3]) + "   |   |"
             ), width = 880))
         return self.acceptmessage(tip1, tip2);
 
@@ -1269,11 +1269,11 @@ class Cantrell(Game):
         cantrell_point = self.cantrell_point
         return MessageSegment.image(linecard_to_png((
             "P1手牌：\n"
-            "|" + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand1]) +
+            "|" + "".join(f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand1) +
             f"\n牌型：\n{self.pt1[1]}"
             "\n----\n"
             "P2手牌：\n"
-            "|" + "".join([f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand2]) +
+            "|" + "".join(f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand2) +
             f"\n牌型：\n{self.pt2[1]}"), width = 880))
 
 class Blackjack(Game):
@@ -1345,7 +1345,7 @@ class Blackjack(Game):
         else:
             msg = (
                 "你的手牌：\n"
-                f'|{"".join([f"{self.Blackjack_suit[suit]}{self.Blackjack_point[point]}|" for suit, point in hand])}\n'
+                f'|{"".join(f"{self.Blackjack_suit[suit]}{self.Blackjack_point[point]}|" for suit, point in hand)}\n'
                 + f'合计:{pt}点')
             if not await Manager.try_send_private_msg(user_id = user_id, message = MessageSegment.image(linecard_to_png(msg))):
                 await bot.send_group_msg(group_id = session.group_id, message = f"私聊发送失败，请检查是否添加{bot_name}为好友。\n游戏继续！")
@@ -1405,11 +1405,11 @@ class Blackjack(Game):
         Blackjack_pt = self.Blackjack_pt
         return MessageSegment.image(linecard_to_png((
             "P1手牌：\n"
-            f'|{"".join([f"{Blackjack_suit[suit]}{Blackjack_point[point]}|" for suit, point in hand1])}\n'
+            f'|{"".join(f"{Blackjack_suit[suit]}{Blackjack_point[point]}|" for suit, point in hand1)}\n'
             + f'合计:{Blackjack_pt(hand1)}点'
             "\n----\n"
             "P2手牌：\n"
-            f'|{"".join([f"{Blackjack_suit[suit]}{Blackjack_point[point]}|" for suit, point in hand2])}\n'
+            f'|{"".join(f"{Blackjack_suit[suit]}{Blackjack_point[point]}|" for suit, point in hand2)}\n'
             f'合计:{Blackjack_pt(hand2)}点')))
 
 class ABCard(Game):

@@ -229,7 +229,6 @@ def settle(event:MessageEvent, settle:int, company_name:str, limit:float):
         company_id = company_index[company_name]
     else:
         return f"没有 {company_name} 的注册信息"
-    company_name = company.company_name
     user,group_account = Manager.locate_user(event)
     if not group_account:
         return "私聊未关联账户，请发送【关联账户】关联群内账户。"
@@ -238,6 +237,7 @@ def settle(event:MessageEvent, settle:int, company_name:str, limit:float):
     if settle < 1:
         return f"您未持有 {company_name}"
     company = group_data[company_id].company
+    company_name = company.company_name
     group_gold = Manager.group_wealths(company_id,company.level) + company.bank*company.level
     if group_gold < 10 * company.level * max_bet_gold:
         return f"【{company_name}】金币过少({group_gold})，无法交易。"
@@ -547,7 +547,7 @@ def Market_info_All(event:MessageEvent):
         company = group_data[company_id].company
         companys.append(company)
     companys.sort(key = lambda x:x.group_gold, reverse = True)
-    return MessageSegment.image(linecard_to_png("----\n".join([f"{company.company_name}\n----\n{stock_profile(company)[:-1]}" for company in companys])))
+    return MessageSegment.image(linecard_to_png("----\n".join([f"{company.company_name}\n----\n{stock_profile(company)}" for company in companys])[:-1]))
 
 def pricelist(user_id:int):
     """

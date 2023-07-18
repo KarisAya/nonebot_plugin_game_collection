@@ -432,7 +432,7 @@ def Exchange_sell(event:MessageEvent, info:Tuple[int,ExchangeInfo]):
             float_gold -= quote
             inner_settle += 1
 
-        if settle > 0:
+        if inner_settle > 0:
             # 结算股票
             company.Buyback(group_account,inner_settle)
             # 结算金币

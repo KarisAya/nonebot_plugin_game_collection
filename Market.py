@@ -644,7 +644,7 @@ def company_update(company:Company):
             if not inner_settle:
                 continue
             # 结算股票
-            company.Buyback(group_account,n)
+            company.Buyback(group_account,inner_settle)
             # 结算金币
             gold = int(value / (group_data[exchange.group_id].company.level or 1))
             user.gold += gold

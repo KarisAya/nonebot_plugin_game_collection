@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict,Union
 from pydantic import BaseModel
 from pathlib import Path
 import random
@@ -30,11 +30,11 @@ class GroupAccount(BaseModel):
         """
         初始化群账户
         """
-        super().__init__(**obj)
         if event:
-            self.user_id = event.user_id
-            self.group_id = event.group_id
-            self.nickname = event.sender.card or event.sender.nickname
+            obj["user_id"] = event.user_id
+            obj["group_id"] = event.group_id
+            obj["nickname"] = event.sender.card or event.sender.nickname
+        super().__init__(**obj)
 
 class UserDict(BaseModel):
     """
@@ -56,10 +56,10 @@ class UserDict(BaseModel):
         """
         初始化用户字典
         """
-        super().__init__(**obj)
         if event:
-            self.user_id = event.user_id
-            self.nickname = event.sender.nickname
+            obj["user_id"] = event.user_id
+            obj["nickname"] = event.sender.nickname
+        super().__init__(**obj)
 
 class UserData(Dict[int, UserDict]):
     """
@@ -110,7 +110,7 @@ class Company(BaseModel):
     """全群资产"""
     bank:int = 0
     """群金库"""
-    transfer_limit:int = 0
+    transfer_limit:Union[int,float] = 0
     """每日转账限制"""
     transfer:int = 0
     """今日转账额"""
@@ -144,7 +144,6 @@ class GroupDict(BaseModel):
     revolution_time:float = 0.0
     Achieve_revolution:Dict[int,int] = {}
     company:Company = Company()
-
 
 class GroupData(Dict[int, GroupDict]):
     """
@@ -351,26 +350,3 @@ def OHLC(path, company_id):
     OHLC子程序
     """
     return subprocess.Popen([python,f"{resourcefile}/subprocess/ohlc.py", path, str(company_id)], shell = True)
-
-"""
-from . import Data
-from .Data import (
-    DataBase,
-    UserData,
-    UserDict,
-    GroupAccount,
-    GroupData,
-    GroupDict,
-    Company,
-    ExchangeInfo
-    )
-from .Data import (
-    resourcefile,
-    menu_data,
-    props_library,
-    props_index,
-    update_props_index,
-    element_library,
-    OHLC,
-    )
-"""

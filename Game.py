@@ -10,6 +10,7 @@ from nonebot.adapters.onebot.v11 import (
     
 import random
 import time
+import math
 import asyncio
 
 from .utils.utils import get_message_at
@@ -1186,9 +1187,9 @@ class Cantrell(Game):
         看牌
         """
         session = self.session
-        expose = round((session.round  + 0.5)// 2) + 3
+        expose = math.ceil(session.round/2) + 3
         expose = min(expose,5)
-        session.time = time.time() + 120
+        session.time = time.time() + 60
         if user_id == session.player1_id:
             hand = self.hand1
         else:

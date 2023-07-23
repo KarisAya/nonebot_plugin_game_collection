@@ -698,15 +698,17 @@ def alchemy_order(event:MessageEvent):
     orders = group_data[group_account.group_id].company.orders
     if not orders:
         return "今日本群元素订单已完成。"
-    info = []
-    for i,order in orders.items():
-        info.append(linecard(
-            f"[pixel][20]{Alchemy.ProductsName['5']} {order.get('5',0)}个[nowrap]\n"
-            f"[pixel][300]{Alchemy.ProductsName['6']} {order.get('6',0)}个[nowrap]\n"
-            f"[pixel][600]{Alchemy.ProductsName['7']} {order.get('7',0)}个\n"
-            f"[pixel][20]{Alchemy.ProductsName['8']} {order.get('8',0)}个[nowrap]\n"
-            f"[pixel][300]{Alchemy.ProductsName['9']} {order.get('9',0)}个[nowrap]\n"
-            f"[pixel][600]{Alchemy.ProductsName['0']} {order.get('0',0)}个\n",width = 880,endline = f"编号{i}"))
+    def result(order:dict) -> str:
+        lst = [(min(user.alchemy.get(code,0),999), order.get(code,0)) for code in ['5','6','7','8','9','0']]
+        return(
+            f"[color][{'red' if lst[0][0] < lst[0][1] else 'green'}][pixel][20]{Alchemy.ProductsName['5']} {lst[0][1]}/{lst[0][0]}[nowrap]\n"
+            f"[color][{'red' if lst[1][0] < lst[1][1] else 'green'}][pixel][300]{Alchemy.ProductsName['6']} {lst[1][1]}/{lst[1][0]}[nowrap]\n"
+            f"[color][{'red' if lst[2][0] < lst[2][1] else 'green'}][pixel][600]{Alchemy.ProductsName['7']} {lst[2][1]}/{lst[2][0]}\n"
+            f"[color][{'red' if lst[3][0] < lst[3][1] else 'green'}][pixel][20]{Alchemy.ProductsName['8']} {lst[3][1]}/{lst[3][0]}[nowrap]\n"
+            f"[color][{'red' if lst[4][0] < lst[4][1] else 'green'}][pixel][300]{Alchemy.ProductsName['9']} {lst[4][1]}/{lst[4][0]}[nowrap]\n"
+            f"[color][{'red' if lst[5][0] < lst[5][1] else 'green'}][pixel][600]{Alchemy.ProductsName['0']} {lst[5][1]}/{lst[5][0]}\n"
+            )
+    info = [linecard(result(order),width = 880,endline = f"编号{i}") for i,order in orders.items()]
     return MessageSegment.image(info_splicing(info, Manager.BG_path(group_account.user_id),5))
 
 def complete_order(event:MessageEvent,key:str):

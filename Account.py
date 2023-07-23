@@ -349,7 +349,7 @@ async def my_exchange(event:MessageEvent) -> Message:
     else:
         return "你的股票信息为空。"
 
-def my_props(event:MessageEvent) -> Message:
+def my_props(event:MessageEvent, arg:str) -> Message:
     """
     我的道具
     """
@@ -361,35 +361,33 @@ def my_props(event:MessageEvent) -> Message:
     props.update(user.props)
     props.update(group_account.props)
     props = sorted(props.items(), key = lambda x:int(x[0]), reverse = True)
-    info = []
-    for seg in props:
-        if (n := seg[1]) < 1:
-            continue
-        prop_code = seg[0]
-        quant = "天" if prop_code[2] == "0" else "个"
-        prop = props_library.get(prop_code,{"name": prop_code, "color": "black","rare": 1,"intro": "未知","des": "未知"})
-
-        color = prop['color']
-        name = prop['name']
-        rare = prop['rare']
-        msg = (
-            f"[font_big][color][{color}]【{name}】[nowrap][passport]\n[right]{n}{quant}\n"
-            "----\n"
-            + prop['intro'] + f"\n[right]{prop['des']}\n"
-            )
-
-        info.append(
-            linecard(msg,
-                     width = 880,
-                     padding=(0,20),
-                     endline = "特殊道具" if rare == 0 else rare*'☆',
-                     bg_color = (255,255,255,153),
-                     autowrap = True
-                     ))
-    if info:
-        return MessageSegment.image(info_splicing(info,Manager.BG_path(event.user_id),spacing = 5))
+    if arg in {"信息","介绍","详情"}:
+        def result(prop_code,n):
+            quant = "天" if prop_code[2] == "0" else "个"
+            prop = props_library.get(prop_code,{"name": prop_code, "color": "black","rare": 1,"intro": "未知","des": "未知"})
+            rare = prop['rare']
+            return linecard((
+                f"[font_big][color][{prop['color']}]【{prop['name']}】[nowrap][passport]\n[right]{n}{quant}\n"
+                "----\n"
+                f"{prop['intro']}\n[right]{prop['des']}\n"),
+                width = 880,
+                padding=(0,20),
+                endline = "特殊道具" if rare == 0 else rare*'☆',
+                bg_color = (255,255,255,153),
+                autowrap = True
+                )
     else:
-        return "您的仓库空空如也。"
+        def result(prop_code,n):
+            quant = "天" if prop_code[2] == "0" else "个"
+            prop = props_library.get(prop_code,{"name": prop_code, "color": "black","rare": 1,"intro": "未知","des": "未知"})
+            return linecard(
+                f"[font_big][color][{prop['color']}]【{prop['name']}】[nowrap][passport]\n[right]{n}{quant}",
+                width = 880,
+                padding=(0,0),
+                bg_color = (255,255,255,153))
+
+    info = [result(prop_code,n) for prop_code,n in props if n > 0]
+    return MessageSegment.image(info_splicing(info,Manager.BG_path(event.user_id),spacing = 5)) if info else "您的仓库空空如也。"
 
 async def info_profile(user_id:int) -> list:
     """

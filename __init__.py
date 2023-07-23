@@ -649,9 +649,10 @@ async def _(event:MessageEvent, arg:Message = CommandArg()):
 my_props = on_command("我的道具", aliases = {"我的仓库"}, priority = 20, block = True)
 
 @my_props.handle()
-async def _(event:MessageEvent):
-    msg = Account.my_props(event)
+async def _(event:MessageEvent, arg:Message = CommandArg()):
+    msg = Account.my_props(event, arg.extract_plain_text().strip())
     await my_props.finish(msg)
+
 
 # 设置背景图片
 add_BG_image = on_command("设置背景图片", aliases = {"add_BG"}, priority = 20, block = True)

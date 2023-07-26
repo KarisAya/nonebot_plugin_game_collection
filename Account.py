@@ -374,8 +374,7 @@ def my_props(event:MessageEvent, arg:str) -> Message:
                 padding=(0,20),
                 endline = "特殊道具" if rare == 0 else rare*'☆',
                 bg_color = (255,255,255,153),
-                autowrap = True
-                )
+                autowrap = True)
     else:
         def result(prop_code,n):
             quant = "天" if prop_code[2] == "0" else "个"
@@ -383,7 +382,8 @@ def my_props(event:MessageEvent, arg:str) -> Message:
             return linecard(
                 f"[font_big][color][{prop['color']}]【{prop['name']}】[nowrap][passport]\n[right]{n}{quant}",
                 width = 880,
-                padding=(0,0),
+                padding = (0,0),
+                spacing = 1.0,
                 bg_color = (255,255,255,153))
 
     info = [result(prop_code,n) for prop_code,n in props if n > 0]

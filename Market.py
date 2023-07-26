@@ -474,7 +474,7 @@ async def group_info(bot:Bot, event:MessageEvent, group_id:int):
     ranklist = list(group.Achieve_revolution.items())
     if ranklist:
         ranklist.sort(key=lambda x:x[1],reverse=True)
-        msg = "\n".join(f"{user_data.get_nickname(user_id,group_id)}[nowrap]\n[right]{n}次" for user_id,n in ranklist[:10])
+        msg = "".join(f"{user_data.get_nickname(user_id,group_id)}[nowrap]\n[right]{n}次\n" for user_id,n in ranklist[:10])
         info.append(linecard(msg, width = 880, endline = "路灯挂件"))
 
     # 加载公司信息

@@ -500,7 +500,7 @@ async def group_info(bot:Bot, event:MessageEvent, group_id:int):
         ranklist = [(user_id,exchange) for user_id,exchange in company.exchange.items() if exchange.n > 0]
         if ranklist:
             ranklist.sort(key=lambda x:x[1].quote)
-            msg = "\n".join(f"{user_data[user_id].nickname}\n[pixel][20]单价 {exchange.quote}[nowrap]\n[pixel][400]数量 {exchange.n}" for user_id,exchange in ranklist[:10])
+            msg = "".join(f"{user_data[user_id].nickname}\n[pixel][20]单价 {exchange.quote}[nowrap]\n[pixel][400]数量 {exchange.n}\n" for user_id,exchange in ranklist[:10])
             info.append(linecard(msg, width = 880, font_size = 40,endline = "市场详情"))
 
         msg = company.intro

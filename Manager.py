@@ -135,8 +135,7 @@ def PropsCard_list(locate:Tuple[UserDict,GroupAccount]):
         if count <= 4:
             rank.append(f"{count*'☆'} 路灯挂件 {count*'☆'}")
         else:
-            rank.append(f"☆☆☆☆☆路灯挂件☆☆☆☆☆")
-
+            rank.append("☆☆☆☆☆路灯挂件☆☆☆☆☆")
     count = group_account.props.get("32001",0)   # 四叶草标记
     if count > 0:
         rank.append(lucky_clover)

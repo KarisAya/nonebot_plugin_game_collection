@@ -935,8 +935,8 @@ async def _(bot:Bot, event:MessageEvent, matcher:Matcher, arg:Message = CommandA
     else:
         await freeze.finish("没有选择冻结对象。")
 
-    confirm = random.randint(1000,9999)
-    matcher.set_arg("freeze", (int(at),str(confirm)))
+    confirm = f"{random.randint(0,9)}{random.randint(0,9)}{random.randint(0,9)}{random.randint(0,9)}"
+    matcher.set_arg("freeze", (int(at),confirm))
     nickname = (await bot.get_group_member_info(group_id = event.group_id, user_id = at))["nickname"]
     await freeze.send(f"您即将冻结 {nickname}（{at}），请输入{confirm}来确认。")
 
@@ -944,7 +944,7 @@ async def _(bot:Bot, event:MessageEvent, matcher:Matcher, arg:Message = CommandA
 
 async def _(event:MessageEvent, matcher:Matcher, code :Message = Arg()):
     at,confirm = matcher.get_arg("freeze")
-    if confirm == str(code):
+    if confirm == code.extract_plain_text().split():
         target = Manager.locate_user_at(event, at)
         msg = Account.freeze(target[0])
         await freeze.finish(msg)
@@ -966,6 +966,8 @@ async def _():
             + log + "\n"
             "——————————————\n"
             )
+    log = data.verification()
+    logger.info(f"\n{log}")
     await delist.finish("清理完成！")
 
 # 市场重置

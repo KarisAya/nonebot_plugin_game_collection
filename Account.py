@@ -332,9 +332,9 @@ async def my_exchange(event:MessageEvent) -> Message:
     for company_id,stock in group_account.stocks.items():
         msg = ""
         if stock:
-            account_name = None
+            account_name = "无报价"
             company = group_data[company_id].company
-            msg += f"[pixel][20]公司 {company.company_name}\n[pixel][20]结算 [nowrap]\n[color][green]{'{:,}'.format(round(company.float_gold/20000,2))}[nowrap]\n[pixel][400]数量 [nowrap]\n[color][green]{stock}\n"
+            msg += f"[pixel][20]公司 {company.company_name}\n[pixel][20]结算 [nowrap]\n[color][green]{'{:,}'.format(round(company.float_gold/company.issuance,2))}[nowrap]\n[pixel][400]数量 [nowrap]\n[color][green]{stock}\n"
             if (exchange := company.exchange.get(user.user_id)) and exchange.n:
                 if exchange.group_id == group_account.group_id:
                     account_name = "本群"
@@ -342,7 +342,7 @@ async def my_exchange(event:MessageEvent) -> Message:
                     account_name = group_data[exchange.group_id].company.company_name
                     account_name = account_name if account_name else f"({str(exchange.group_id)[4]}...)"
                 msg += f"[pixel][20]报价 [nowrap]\n[color][green]{exchange.quote}[nowrap]\n[pixel][400]发布 [nowrap]\n[color][green]{exchange.n}\n"
-            info.append(linecard(msg, width = 880,endline = f"报价账户：{account_name}" if account_name else "无报价"))
+            info.append(linecard(msg, width = 880,endline = f"报价账户：{account_name}"))
     if info:
         info.insert(0,await my_exchange_head(group_account))
         return MessageSegment.image(info_splicing(info,Manager.BG_path(event.user_id)))

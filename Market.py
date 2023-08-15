@@ -464,7 +464,7 @@ async def group_info(bot:Bot, event:MessageEvent, group_id:int):
     try:
         group_info = await bot.get_group_info(group_id = group_id)
     except:
-        group_info = {"group_name":"群聊已注销","member_count":0}
+        group_info = {"group_name":"群聊已注销","member_count":3000}
     group_name = group_info["group_name"]
     member_count = group_info["member_count"]
     member_count = member_count if member_count else 3000
@@ -564,12 +564,12 @@ def pricelist(user_id:int):
             f"[pixel][20]{company.company_name}\n"
             f"[pixel][20]发行 [nowrap]\n[color][{'green' if gold == float_gold else 'red'}]{'{:,}'.format(round(gold/SI,2))}[nowrap]\n"
             f"[pixel][300]结算 [nowrap]\n[color][green]{'{:,}'.format(round(float_gold/SI,2))}[nowrap]\n"
-            f"[pixel][600]数量 [nowrap]\n[color][{'green' if stock else 'red'}]{stock}"
+            f"[pixel][600]数量 [nowrap]\n[color][{'green' if stock else 'red'}]{stock}\n"
             )
 
     return MessageSegment.image(
         info_splicing([linecard(
-            "\n".join(result(company) for company in companys),
+            "".join(result(company) for company in companys),
             width = 880,
             endline = "市场价格表")], Manager.BG_path(user_id)))
 

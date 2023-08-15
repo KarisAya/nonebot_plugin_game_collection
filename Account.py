@@ -305,7 +305,7 @@ async def my_info(event:MessageEvent) -> Message:
         )
     # 加载资产分析
     dist = [(gold, group_name if (group_name := group_data[group_id].company.company_name) else f"（{str(group_id)[-4:]}）") for group_id, account in user.group_accounts.items() if (gold := account.gold + account.value) > 0]
-    info.append(my_info_account(msg,dist))
+    info.append(my_info_account(msg,dist or [(1.0,"None")]))
 
     # 加载股票信息
     msg = ""

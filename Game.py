@@ -203,6 +203,12 @@ class Game(ABC):
         """
         游戏进行
         """
+        
+    def create_check(self):
+        overtime = time.time() - self.session.time
+        if overtime > 60:
+            return None
+        return f"一场游戏正在进行中，遇到问题可以{f'在{t}秒后' if (t := int(180 - overtime)) > 0 else ''}输入【游戏重置】重置游戏"
 
     async def play(self, bot:Bot, user_id:int, *args):
         try:
@@ -1647,14 +1653,13 @@ class AROF():
         return True, MessageSegment.at(user_id)
 
     def create_check(self):
-        session = self.session
-        world = self.world
-        overtime = time.time() - session.time + 180
-        if overtime < 180:
-            if world.start == 0:
-                return "一场游戏正在报名中"
-            else:
-                return f"一场游戏正在进行中，遇到问题可以{f'在{t}秒后' if (t := int(180 - overtime)) > 0 else ''}输入【游戏重置】重置游戏"
+        overtime = time.time() - self.session.time + 180
+        if overtime > 180:
+            return None
+        if self.world.start == 0:
+            return "一场游戏正在报名中"
+        else:
+            return f"一场游戏正在进行中，遇到问题可以{f'在{t}秒后' if (t := int(180 - overtime)) > 0 else ''}输入【游戏重置】重置游戏"
 
     @abstractmethod
     def join(self, event:GroupMessageEvent, *args):
@@ -1699,7 +1704,7 @@ class AROF():
         return "游戏已重置。"
 
 from .HorseRace.start import load_dlcs
-from .HorseRace.race_group import race_group
+from .HorseRace.race_group import race_group as RaceWorld
 
 class HorseRace(AROF):
     """
@@ -1716,7 +1721,7 @@ class HorseRace(AROF):
         self.session.player1_id = kwargs["user_id"]
         self.session.at = -1
         self.session.gold = kwargs["gold"]
-        self.world = race_group()
+        self.world = RaceWorld()
 
     def join(self, event:GroupMessageEvent, *args):
         """
@@ -1850,7 +1855,7 @@ class HorseRace(AROF):
             "> 输入 【赛马加入 名字】 即可加入赛马。"
             )
 
-from .Fortress.core import World
+from .Fortress.core import World as FortressWorld
 
 class Fortress(AROF):
     """
@@ -1865,7 +1870,7 @@ class Fortress(AROF):
         self.session.player1_id = kwargs["user_id"]
         self.session.at = -1
         self.session.gold = kwargs["gold"]
-        self.world = World()
+        self.world = FortressWorld()
 
     def join(self, event:GroupMessageEvent, *args):
         """
@@ -1878,7 +1883,7 @@ class Fortress(AROF):
         user_id = user.user_id
         if (gold := group_account.gold) < session.gold:
             return f"报名要塞战需要{self.session.gold}金币，你的金币：{gold}。"
-        world:World = self.world
+        world:FortressWorld = self.world
         if world.start != 0:
             return
         if user_id in world.ids:
@@ -1924,7 +1929,7 @@ class Fortress(AROF):
         """
         要塞战开始
         """
-        world:World = self.world
+        world:FortressWorld = self.world
         N = len(world.players)
         if N == 0:
             return
@@ -1943,7 +1948,7 @@ class Fortress(AROF):
         """
         开始行动
         """
-        world:World = self.world
+        world:FortressWorld = self.world
         start = world.start
         if start == 0:
             return
@@ -1967,7 +1972,7 @@ class Fortress(AROF):
         """
         结束行动
         """
-        world:World = self.world
+        world:FortressWorld = self.world
         start = world.start
         if start == 0:
             return
@@ -1988,7 +1993,7 @@ class Fortress(AROF):
         """
         行动
         """
-        world:World = self.world
+        world:FortressWorld = self.world
         start = world.start
         if start == 0:
             return

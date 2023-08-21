@@ -31,7 +31,7 @@ group_data = data.group
 
 company_index = Manager.company_index
 
-def gold_create(event:MessageEvent,gold:int) -> str:
+def gain_gold(event:MessageEvent,gold:int) -> str:
     """
     获取金币
     """
@@ -43,7 +43,7 @@ def gold_create(event:MessageEvent,gold:int) -> str:
     group_account.gold += gold
     return f"你获得了 {gold} 金币"
 
-def props_create(event:MessageEvent, prop_name:str, count:int) -> str:
+def gain_prop(event:MessageEvent, prop_name:str, count:int) -> str:
     """
     获取道具
     """
@@ -151,7 +151,7 @@ def revolution(group_id:int) -> str:
     for user_id in group.namelist:
         user_data[user_id].group_accounts[group_id].revolution = False
 
-    if group.company.level and level < 10:
+    if group.company.level and level < 20:
         level += 1
         group.company.level = level
         group.company.issuance = 20000*level

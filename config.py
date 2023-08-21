@@ -22,6 +22,7 @@ class Config(BaseModel, extra = Extra.ignore):
     lucky_clover = "• ＬＵＣＫＹ  ＣＬＯＶＥＲ •"
     # 默认显示字体
     game_fontname = "simsun"
+    # 默认备用字体
     game_fallback_fonts = [
         "Arial",
         "Tahoma",

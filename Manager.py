@@ -12,10 +12,10 @@ from nonebot import get_driver
 from nonebot.log import logger
 
 from .utils.utils import image_url
-from .utils.chart import linecard_to_png, gini_coef, default_BG
+from .utils.chart import gini_coef, default_BG
 from .utils.avatar import download_url
 from .data import DataBase, UserDict, GroupAccount, GroupDict, Company, props_library
-from .config import revolt_gold, max_bet_gold, lucky_clover, path, BG_image,bet_gold
+from .config import max_bet_gold, lucky_clover, path, BG_image,bet_gold
 
 driver = get_driver()
 

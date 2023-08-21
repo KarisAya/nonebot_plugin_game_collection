@@ -7,11 +7,16 @@ import random
 import math
 from .utils.utils import get_message_at
 from .utils.chart import linecard_to_png,line_splicing
-from .data import props_library, props_index
-from .config import bot_name, sign_gold, revolt_gold, max_bet_gold, gacha_gold
+from .data import props_library, props_index, update_props_index
+from .config import path,bot_name, sign_gold, revolt_gold, max_bet_gold, gacha_gold
 
 from .Alchemy import Alchemy
 from . import Manager
+
+try:
+    import ujson as json
+except ModuleNotFoundError:
+    import json
 
 data = Manager.data
 user_data = data.user
@@ -616,9 +621,6 @@ class Prop(str):
         props["63102"] -= 1
         if props["63102"] < 1:
             del props["63102"]
-
-        group_id = group_account.group_id
-        user_id = user.user_id
         for company_id in group_account.stocks:
             company = group_data[company_id].company
             company.Buyback(group_account)
@@ -626,7 +628,8 @@ class Prop(str):
         group_account.__init__(
             user_id = group_account.user_id,
             group_id = group_account.group_id,
-            nickname = group_account.nickname
+            nickname = group_account.nickname,
+            gold = 0 if group_account.gold > 0 else group_account.gold 
             )
         return "你在本群的账户已重置，祝你好运~"
 
@@ -665,3 +668,59 @@ def props_refine(event:MessageEvent, prop_name:str, count:int):
         return Prop.refine(event,prop_code,count)
     else:
         return f"没有【{prop_name}】这种道具。"
+
+# 加载用户道具
+
+datafile = path / "props_library.json"
+
+if datafile.exists():
+    with open(datafile, "r") as f:
+        customer_props_library = json.load(f)
+else:
+    customer_props_library = {}
+
+props_library.update(customer_props_library)
+update_props_index(props_index)
+
+def prop_create(*args):
+    code,name,color,rare,intro,des = args
+    prop = {
+        "name":name,
+        "color":color,
+        "rare":rare,
+        "intro":intro,
+        "des":des
+        }
+    if name in props_index:
+        return f"道具【{name}】已存在"
+    def register():
+        for i in range(91,100):
+            prop_code = f"{code}{i}"
+            if prop_code not in customer_props_library:
+                return prop_code
+    if not(prop_code := register()):
+        return "新建道具已达上限"
+    props_library[prop_code] = prop
+    customer_props_library[prop_code] = prop
+    props_index[prop_code] = prop_code
+    props_index[name] = prop_code
+    with open(datafile,"w") as f:
+        json.dump(customer_props_library,f,ensure_ascii = False, indent = 4)
+    return f"道具【{name}】创建成功"
+
+def prop_delete(prop_name):
+    if not (prop_code := props_index.get(prop_name)):
+        return f"道具名【{prop_name}】不存在"
+    if prop_code not in customer_props_library:
+        return f"道具名【{prop_name}】无法删除"
+    del props_library[prop_code]
+    del customer_props_library[prop_code]
+    update_props_index(props_index)
+    for user in user_data.values():
+        if prop_code in user.props:
+            user.props ={k:v for k,v in user.props.items() if k in props_index} 
+        for group_account in user.group_accounts.values():
+            user.props ={k:v for k,v in group_account.props.items() if k in props_index} 
+    with open(datafile,"w") as f:
+        json.dump(customer_props_library,f,ensure_ascii = False, indent = 4)
+    return f"【{prop_name}】删除成功"

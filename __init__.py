@@ -200,18 +200,18 @@ async def _(event:GroupMessageEvent):
     del current_games[event.group_id]
 
 # 获取金币
-gold_create = on_command("获取金币", permission = SUPERUSER, priority = 20, block = True)
+gain_gold = on_command("获取金币", permission = SUPERUSER, priority = 20, block = True)
 
-@gold_create.handle()
+@gain_gold.handle()
 async def _(event:MessageEvent, arg:Message = CommandArg()):
     gold = to_int(arg,bet_gold)
-    msg =  Account.gold_create(event,gold)
-    await gold_create.finish(msg, at_sender=True)
+    msg =  Account.gain_gold(event,gold)
+    await gain_gold.finish(msg, at_sender=True)
 
 # 获取道具
-props_create = on_command("获取道具", permission = SUPERUSER, priority = 20, block = True)
+gain_prop = on_command("获取道具", permission = SUPERUSER, priority = 20, block = True)
 
-@props_create.handle()
+@gain_prop.handle()
 async def _(event:MessageEvent, arg:Message = CommandArg()):
     arg = arg.extract_plain_text().strip().split()
     test = len(arg)
@@ -225,8 +225,92 @@ async def _(event:MessageEvent, arg:Message = CommandArg()):
             count = 1
     else:
         return
-    msg = Account.props_create(event, prop_name, count)
-    await give_props.finish(msg, at_sender = True)
+    msg = Account.gain_prop(event, prop_name, count)
+    await gain_prop.finish(msg, at_sender = True)
+
+# 新建道具
+prop_create = on_command("新建道具",rule = to_me(), permission = SUPERUSER, priority = 20, block = True)
+
+@prop_create.handle()
+async def _(matcher:Matcher, name:Message = CommandArg()):
+    await prop_create.send("开始制作新道具！输入【取消】中止对话。", at_sender = True)
+
+@prop_create.got("name", prompt = "请输入道具名")
+async def _(matcher:Matcher, name:Message = Arg()):
+    name = name.extract_plain_text().strip()
+    if name == "取消":
+        await prop_create.finish("新建道具已取消")
+    matcher.set_arg("name",name)
+
+from matplotlib.colors import is_color_like
+
+@prop_create.got("color", prompt = "请输入主题色")
+async def _(matcher:Matcher, color:Message = Arg()):
+    color = color.extract_plain_text().strip()
+    if color == "取消":
+        await prop_create.finish("新建道具已取消")
+    if is_color_like(color):
+        matcher.set_arg("color",color)
+    else:
+        await prop_create.reject("请输入合法的颜色，例如\"red\",\"#123456\"")
+
+@prop_create.got("rare", prompt = "请输入稀有度，范围0-5")
+async def _(matcher:Matcher, rare:Message = Arg()):
+    rare = rare.extract_plain_text().strip()
+    if rare == "取消":
+        await prop_create.finish("新建道具已取消")
+    if rare.isdigit() and 0 <= int(rare) <= 5:
+        matcher.set_arg("rare",int(rare))
+    else:
+        await prop_create.reject("请输入0-5")
+
+@prop_create.got("code1", prompt = "请输入道具性质，可选【群内道具】或【全局道具】。")
+async def _(matcher:Matcher, code1:Message = Arg()):
+    code1 = code1.extract_plain_text().strip()
+    if code1 == "取消":
+        await prop_create.finish("新建道具已取消")
+    if code1 := {"群内道具":"2","全局道具":"3"}.get(code1):
+        matcher.set_arg("code1",code1)
+    else:
+        await prop_create.reject("请输入\"群内道具\"或\"全局道具\"")
+
+@prop_create.got("code2", prompt = "请输入道具时效，可选【时效道具】或【永久道具】。")
+async def _(matcher:Matcher, code2:Message = Arg()):
+    code2 = code2.extract_plain_text().strip()
+    if code2 == "取消":
+        await prop_create.finish("新建道具已取消")
+    if code2 := {"时效道具":"0","永久道具":"1"}.get(code2):
+        matcher.set_arg("code2",code2)
+    else:
+        await prop_create.reject("请输入\"时效道具\"或\"永久道具\"")
+
+@prop_create.got("info", prompt = "请输入两段介绍，用空格隔开")
+async def _(matcher:Matcher, info:Message = Arg()):
+    info = info.extract_plain_text().strip().split(maxsplit = 2)
+    if info[0] == "取消":
+        await prop_create.finish("新建道具已取消")
+    intro = info[0]
+    if len(info) < 2:
+        des = ""
+    else:
+        des = info[1]
+    rare = matcher.get_arg('rare')
+    msg = Prop.prop_create(
+        f"{rare}{matcher.get_arg('code1')}{matcher.get_arg('code2')}",
+        matcher.get_arg('name'),
+        matcher.get_arg('color'),
+        matcher.get_arg('rare'),
+        intro,
+        des
+        )
+    await prop_create.finish(msg)
+# 删除道具
+prop_delete = on_command("删除道具", permission = SUPERUSER, priority = 20, block = True)
+
+@prop_delete.handle()
+async def _(arg:Message = CommandArg()):
+    msg = Prop.prop_delete(arg.extract_plain_text().strip())
+    await prop_delete.finish(msg, at_sender = True)
 
 # 银行存取
 

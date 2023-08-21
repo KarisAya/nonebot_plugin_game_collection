@@ -197,7 +197,7 @@ class DataBase(BaseModel):
             # 回归
             user.user_id = user_id
             # 清理未持有的道具
-            user.props = {k:v for k,v in user.props.items() if v > 0}
+            user.props = {k:v for k,v in user.props.items() if v > 0 and k in props_index}
             # 删除无效群账户
             group_accounts = user.group_accounts = {k:v for k,v in user.group_accounts.items() if k in namelist_check}
             gold = 0
@@ -207,7 +207,7 @@ class DataBase(BaseModel):
                 group_account.user_id = user_id
                 group_account.group_id = group_id
                 # 清理未持有的道具
-                group_account.props = {k:v for k,v in group_account.props.items() if v > 0}
+                group_account.props = {k:v for k,v in group_account.props.items() if v > 0 and k in props_index}
                 # 删除无效及未持有的股票
                 stocks = group_account.stocks = {k:v for k,v in group_account.stocks.items() if k in stock_check and v > 0}
                 # 群名单检查
@@ -237,7 +237,7 @@ class DataBase(BaseModel):
                 # 回归
                 company.company_id = group_id
                 # 修正公司等级
-                level = min(10,sum(group.Achieve_revolution.values()) + 1)
+                level = min(20,sum(group.Achieve_revolution.values()) + 1)
                 log += (
                     f"{company.company_name} 公司等级异常。\n"
                     f"记录值：{company.level}\n"
@@ -313,23 +313,13 @@ resourcefile = Path(os.path.join(os.path.dirname(__file__),"./resource"))
 with open(resourcefile / "props_library.json", "r", encoding="utf8") as f:
     props_library = json.load(f)
 
-def update_props_index(props_index):
+def update_props_index(props_index:dict):
     """
     从道具库生成道具名查找道具代号字典
     """
-    for prop_code in props_library:
-        props_index[props_library[prop_code]["name"]] = prop_code
-        props_index[prop_code] = prop_code
-
-props_index:Dict[str,str] = {}
-update_props_index(props_index)
-
-def update_props_index(props_index):
-    """
-    从道具库生成道具名查找道具代号字典
-    """
-    for prop_code in props_library:
-        props_index[props_library[prop_code]["name"]] = prop_code
+    props_index.clear()
+    for prop_code,prop in props_library.items():
+        props_index[prop["name"]] = prop_code
         props_index[prop_code] = prop_code
 
 props_index:Dict[str,str] = {}

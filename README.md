@@ -125,6 +125,25 @@ lucky_clover = "• ＬＵＣＫＹ  ＣＬＯＶＥＲ •"
 # 默认显示字体
 game_fontname = "simsun"
 
+# 默认备用字体
+game_fallback_fonts = [
+    "Arial",
+    "Tahoma",
+    "Microsoft YaHei",
+    "Segoe UI",
+    "Segoe UI Emoji",
+    "Segoe UI Symbol",
+    "Helvetica Neue",
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Source Han Sans SC",
+    "Noto Sans SC",
+    "Noto Sans CJK JP",
+    "WenQuanYi Micro Hei",
+    "Apple Color Emoji",
+    "Noto Color Emoji",
+    ]
+
 # 跑道长度
 setting_track_length = 20
 

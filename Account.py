@@ -151,10 +151,7 @@ def revolution(group_id:int) -> str:
     for user_id in group.namelist:
         user_data[user_id].group_accounts[group_id].revolution = False
 
-    if group.company.level and level < 20:
-        level += 1
-        group.company.level = level
-        group.company.issuance = 20000*level
+    if level < 20:
         group.company.bank = int(group.company.bank * (level - 1) / level)
 
     data.save()
@@ -502,7 +499,7 @@ def intergroup_transfer_gold(event:MessageEvent, gold:int, company_name:str):
     user.gold += gold_in
     group_account_in.gold += gold_in
     # 转出
-    gold_out = math.ceil(gold/ExRate)
+    gold_out = math.ceil(gold_in/ExRate)
     company_out.transfer -= gold_out
     user.gold -= gold_out
     group_account_out.gold -= gold_out

@@ -532,9 +532,9 @@ async def group_info(bot:Bot, event:MessageEvent, group_id:int):
         for user_id in group.namelist:
             invist += Counter(user_data[user_id].group_accounts[group_id].stocks)
         dist = []
-        for company_id,n in invist.items():
-            inner_company = group_data[company_id].company
-            inner_company_name = inner_company.company_name or f"（{str(company_id)[-4:]}）"
+        for inner_company_id,n in invist.items():
+            inner_company = group_data[inner_company_id].company
+            inner_company_name = inner_company.company_name or f"（{str(inner_company_id)[-4:]}）"
             unit = max(inner_company.float_gold / inner_company.issuance,0)
             dist.append([unit*n, inner_company_name])
 

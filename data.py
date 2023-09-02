@@ -112,7 +112,7 @@ class Company(BaseModel):
     """全群资产"""
     bank:int = 0
     """群金库"""
-    invest:dict = {}
+    invest:dict[int,int] = {}
     """群投资"""
     value:float = 0.0
     """群投资价值"""

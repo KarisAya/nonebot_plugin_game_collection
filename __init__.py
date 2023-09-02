@@ -326,17 +326,16 @@ async def bank_rule(bot:Bot, event:GroupMessageEvent, state:T_State ,permission 
             sign = 1
         else:
             return False
-    elif msg in {"查看群金库","群金库查看"}:
-        await bot.send(event,f"本群金库还有{data.group[event.group_id].company.bank}枚金币。", at_sender = True)
-        return False
+    elif msg in {"查看群金库","群金库查看","查看群资产","群资产查看"}:
+        sign = 0
     else:
         return False
     gold = msg[3:].strip()
     if gold.isdigit():
         gold = int(gold)
-    else:
+    elif sign:
         return False
-    state["args"] = (sign,gold)
+    state["args"] = sign,gold
     return True
 
 bank = on_message(rule = bank_rule, permission = GROUP, priority = 20, block = True)
@@ -345,6 +344,36 @@ bank = on_message(rule = bank_rule, permission = GROUP, priority = 20, block = T
 async def _(event:GroupMessageEvent, state:T_State):
     msg = Market.bank(event,*state["args"])
     await bank.finish(msg, at_sender = True)
+
+# 资产存取
+
+async def invest_rule(bot:Bot, event:GroupMessageEvent, state:T_State ,permission = SUPERUSER | GROUP_ADMIN | GROUP_OWNER) -> bool:
+    """
+    规则：资产存取
+    """
+    msg = event.message.extract_plain_text()
+    if msg.startswith("存股票"):
+        sign = -1
+    elif msg.startswith("取股票"):
+        if await permission(bot,event):
+            sign = 1
+        else:
+            return False
+    else:
+        return False
+    info = arg_check(msg[3:].strip().split())
+    if not info:
+        return False
+    count,company_name,_ = info
+    state["args"] = sign,count,company_name
+    return True
+
+invest = on_message(rule = invest_rule, permission = GROUP, priority = 20, block = True)
+
+@invest.handle()
+async def _(event:GroupMessageEvent, state:T_State):
+    msg = Market.invest(event,*state["args"])
+    await invest.finish(msg, at_sender = True)
 
 # 金币签到
 sign = on_command("金币签到", aliases = {"轮盘签到"}, priority = 20, block = True)
@@ -951,7 +980,7 @@ async def _(bot:Bot, event:MessageEvent, arg:Message = CommandArg()):
             msg = f"没有 {company_name} 的注册信息"
         await Market_info.finish(msg)
     else:
-        if msg := Market.Market_info_All(event):
+        if msg := Market.Market_info_All():
             await Market_info.finish(msg)
         else:
             await Market_info.finish("市场为空")

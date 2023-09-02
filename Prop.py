@@ -694,7 +694,7 @@ def prop_create(*args):
     if name in props_index:
         return f"道具【{name}】已存在"
     def register():
-        for i in range(91,100):
+        for i in range(51,100):
             prop_code = f"{code}{i}"
             if prop_code not in customer_props_library:
                 return prop_code

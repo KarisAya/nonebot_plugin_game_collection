@@ -14,7 +14,7 @@ import re
 
 from .avatar import download_avatar,download_groupavatar
 
-from ..data import UserDict, GroupAccount
+from ..data import UserDict, GroupAccount,Company
 from ..data import resourcefile
 
 from ..config import BG_image,fontname,fallback_fonts
@@ -447,10 +447,12 @@ async def my_info_head(user:UserDict, nickname:str):
     draw.text((300,240),f"胜率 {(round(win * 100 / (win + lose), 2) if win > 0 else 0)}%\n", fill=(0,0,0),font = font_normal)
     return canvas
 
-def my_info_statistics(dist):
+def my_info_account(msg:str, dist):
     """
-    我的资料卡跨群资产统计图
+    我的资料卡账户分析
     """
+    canvas = Image.new("RGBA", (880, 400))
+
     dist.sort(key=lambda x:x[0],reverse=True)
     labels = []
     x = []
@@ -470,7 +472,7 @@ def my_info_statistics(dist):
     plt.pie(
         np.array(x),
         labels = labels,
-        autopct='%1.1f%%',
+        autopct = lambda pct:'' if pct < 1 else f'{pct:.1f}%',
         colors = colors[0:N],
         wedgeprops = {
             'width':0.38,
@@ -484,14 +486,8 @@ def my_info_statistics(dist):
     plt.subplots_adjust(top = 0.95, bottom = 0.05, left = 0.32, hspace = 0, wspace = 0)
     plt.savefig(output,format='png', dpi = 100, transparent = True)
     plt.close()
-    return Image.open(output)
 
-def my_info_account(msg:str, dist):
-    """
-    我的资料卡账户分析
-    """
-    canvas = Image.new("RGBA", (880, 400))
-    statistics = my_info_statistics(dist)
+    statistics = Image.open(output)
     canvas.paste(statistics, (880 - statistics.size[0], 0))
     linecard(msg, width = 880, height = 400,padding = (20,30),endline = "账户信息",canvas = canvas)
     return canvas
@@ -507,7 +503,6 @@ async def group_info_head(group_name:str, company_name:str, group_id:int, member
     ImageDraw.Draw(circle_mask).ellipse(((0,0),avatar.size), fill="black")
     canvas.paste(avatar, (20, 20), circle_mask)
     draw = ImageDraw.Draw(canvas)
-    font = ImageFont.truetype(font = fontname, size = 40, encoding = "utf-8")
     draw.text((300,40),f"{group_name}", fill = (0,0,0),font = font_big)
     draw.line(((300, 120), (860, 120)), fill = "gray", width = 6)
     draw.text((300,140),f"公司：{company_name if company_name else '未注册'}", fill = (0,0,0),font = font_normal)
@@ -517,6 +512,62 @@ async def group_info_head(group_name:str, company_name:str, group_id:int, member
     draw.text((310,240),f"{member_count[0]}/{member_count[1]}", fill = (0,0,0),font = font_normal )
     draw.text((750,240),f"{round(100 * member_count[0]/member_count[1],1)}%", fill = (0,0,0),font = font_normal)
     return canvas
+
+def group_info_account(company:Company, dist):
+    """
+    群资料卡账户分析
+    """
+    canvas = Image.new("RGBA", (880, 320))
+    plt.figure(figsize = (8.8,3.2))
+    explode = [0,0.1,0.19,0.27,0.34,0.40,0.45,0.49,0.52]
+    # 投资占比
+    plt.subplot(1,2,1)
+    plt.title('投资占比')
+    value = int(sum(x[0] for x in dist))
+    plt.pie(
+        [company.group_gold - value,value],
+        labels = ["",""],
+        autopct='%1.1f%%',
+        colors = ["#FFCC33","#0066CC"],
+        wedgeprops = {'edgecolor':"none",}, 
+        textprops = {'fontsize':15},
+        pctdistance = 1.2,
+        explode = explode[0:2]
+        )
+    plt.legend(["金币","股票"],loc = (-0.2,0), frameon = False)
+    # 资产分布
+    plt.subplot(1,2,2)
+    plt.title('资产分布')
+    dist.sort(key=lambda x:x[0],reverse=True)
+    labels = []
+    x = []
+    for N,(gold, group_name) in enumerate(dist):
+        if N < 8:
+            x.append(gold)
+            labels.append(group_name)
+        else:
+            labels.append("其他")
+            x.append(sum(seg[0] for seg in dist[N:]))
+            break
+    N += 1
+    colors = ["#351c75","#0b5394","#1155cc","#134f5c","#38761d","#bf9000","#b45f06","#990000","#741b47"]
+    output = BytesIO()
+    plt.pie(
+        x,
+        labels = [""] * N,
+        autopct = lambda pct:'' if pct < 1 else f'{pct:.1f}%',
+        colors = colors[0:N],
+        wedgeprops = {'edgecolor':"none",}, 
+        textprops = {'fontsize':15},
+        pctdistance = 1.2,
+        explode = explode[0:N]
+        )
+    plt.legend(labels,loc = (- 0.6,0), frameon = False)
+    plt.subplots_adjust(top = 0.9, bottom = 0.1, left = 0.05, right = 0.95, hspace = 0, wspace = 0.6)
+    plt.savefig(output,format='png', dpi = 100, transparent = True)
+    plt.close()
+
+    return Image.open(output)
 
 async def my_exchange_head(group_account:GroupAccount):
     """

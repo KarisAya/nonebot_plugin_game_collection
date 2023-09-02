@@ -1,8 +1,10 @@
 from typing import Dict,Union
 from pydantic import BaseModel
 from pathlib import Path
+from collections import Counter
 import random
 import math
+import datetime
 
 try:
     import ujson as json
@@ -94,7 +96,7 @@ class Company(BaseModel):
     """群号"""
     company_name:str = None
     """公司名称"""
-    level:int = 0
+    level:int = 1
     """公司等级"""
     time:float = 0.0
     """注册时间"""
@@ -110,7 +112,11 @@ class Company(BaseModel):
     """全群资产"""
     bank:int = 0
     """群金库"""
-    transfer_limit:Union[int,float] = 0
+    invest:dict = {}
+    """群投资"""
+    value:float = 0.0
+    """群投资价值"""
+    transfer_limit:float = 0.0
     """每日转账限制"""
     transfer:int = 0
     """今日转账额"""
@@ -180,7 +186,6 @@ class DataBase(BaseModel):
                 group["company"]["exchange"][user_id] = ExchangeInfo.parse_obj(exchange_info)
             group["company"] = Company.parse_obj(group["company"])
             Truedata.group[int(group_id)] = GroupDict.parse_obj(group)
-
         return Truedata
 
     def verification(self):
@@ -191,7 +196,8 @@ class DataBase(BaseModel):
         user_data = self.user
         group_data = self.group
         namelist_check = {k:set() for k in group_data}
-        stock_check = {company.company_id:0 for company in map(lambda group:group.company ,group_data.values()) if company.company_name}
+        companys = {company.company_id for company in map(lambda group:group.company ,group_data.values()) if company.company_name}
+        stock_check = Counter()
         # 检查user_data
         for user_id,user in user_data.items():
             # 回归
@@ -209,12 +215,11 @@ class DataBase(BaseModel):
                 # 清理未持有的道具
                 group_account.props = {k:v for k,v in group_account.props.items() if v > 0 and k in props_index}
                 # 删除无效及未持有的股票
-                stocks = group_account.stocks = {k:v for k,v in group_account.stocks.items() if k in stock_check and v > 0}
+                stocks = group_account.stocks = {k:v for k,v in group_account.stocks.items() if k in companys and v > 0}
                 # 群名单检查
                 namelist_check[group_id].add(user_id)
                 # 股票数检查
-                for company_id,count in stocks.items():
-                    stock_check[company_id] += count
+                stock_check += Counter(stocks)
                 # Nan检查
                 group_account.value = 0.0 if math.isnan(group_account.value) else group_account.value
             # 金币总数
@@ -223,6 +228,7 @@ class DataBase(BaseModel):
             # 修复炼金账户
             user.alchemy = {k:v for k,v in user.alchemy.items() if k in {"1","2","3","4","5","6","7","8","9","0"}}
         # 检查group_data
+        stock_check = sum((Counter(group.company.invest) for group in group_data.values()),stock_check)
         for group_id,group in group_data.items():
             # 修正群名单记录
             log += (
@@ -232,19 +238,19 @@ class DataBase(BaseModel):
                 "数据已修正。\n"
                 ) if group.namelist != namelist_check[group_id] else ""
             group.namelist = namelist_check[group_id]
+            company = group.company
+            # 修正公司等级
+            level = min(20,sum(group.Achieve_revolution.values()) + 1)
+            log += (
+                f"{company.company_name} 公司等级异常。\n"
+                f"记录值：{company.level}\n"
+                f"实测值：{level}\n"
+                "数据已修正。\n"
+                ) if company.level != level else ""
+            company.level = level
             if group_id in stock_check:
-                company = group.company
                 # 回归
                 company.company_id = group_id
-                # 修正公司等级
-                level = min(20,sum(group.Achieve_revolution.values()) + 1)
-                log += (
-                    f"{company.company_name} 公司等级异常。\n"
-                    f"记录值：{company.level}\n"
-                    f"实测值：{level}\n"
-                    "数据已修正。\n"
-                    ) if company.level != level else ""
-                company.level = level
                 # 修正股票发行量
                 company.issuance = 20000*level
                 # 修正股票库存
@@ -273,7 +279,7 @@ class DataBase(BaseModel):
         """
         刷新每日
         """
-        revolution_today = random.randint(1,5) != 1
+        revolution_today = datetime.date.today().weekday() in {5,6}
         for user in self.user.values():
             # 全局道具有效期 - 1天
             props = user.props
@@ -283,7 +289,7 @@ class DataBase(BaseModel):
                 group_account.is_sign = False
                 # 刷新每日补贴
                 group_account.security = 3
-                # 概率刷新重置签到
+                # 周末刷新重置签到
                 group_account.revolution = revolution_today
                 # 群内道具有效期 - 1天
                 props = group_account.props

@@ -1,5 +1,4 @@
-from re import M
-from typing import Tuple
+from typing import Tuple,Dict
 from PIL import Image
 from nonebot.adapters.onebot.v11 import (
     Bot,
@@ -14,12 +13,14 @@ import math
 import datetime
 import asyncio
 
+from collections import Counter
+
 try:
     import ujson as json
 except ModuleNotFoundError:
     import json
 
-from .utils.chart import linecard,linecard_to_png, group_info_head, info_splicing
+from .utils.chart import linecard,linecard_to_png, group_info_head,group_info_account,info_splicing
 from .data import GroupAccount, Company, ExchangeInfo
 from .data import OHLC, props_library
 from .config import bot_name, gacha_gold, max_bet_gold, bet_gold, path
@@ -79,7 +80,7 @@ def public(event:GroupMessageEvent,company_name:str):
     company.company_id = group_id
     company.company_name = company_name
     company.time = time.time()
-    company.level = min(10,sum(group_data[group_id].Achieve_revolution.values()) + 1)
+    company.level = min(20,sum(group_data[group_id].Achieve_revolution.values()) + 1)
     company.issuance = 20000*company.level
     company.stock = company.issuance
     gold = gold * company.level
@@ -110,6 +111,20 @@ def rename(event:GroupMessageEvent,company_name:str):
     Manager.update_company_index()
     return f'【{old_company_name}】已重命名为【{company_name}】'
 
+def invest_value(invest:Dict[int,int],self_id:int) -> float:
+    """
+    计算投资价值
+    invest:投资信息（{company_id:n}）
+    self_id:排除company_id
+    """
+    value = 0.0
+    for company_id in invest:
+        if company_id != self_id:
+            company = group_data[company_id].company
+            unit = company.float_gold / company.issuance
+            value += invest[company_id] * unit
+    return value
+
 def value_update(group_account:GroupAccount):
     """
     刷新持股价值
@@ -117,14 +132,7 @@ def value_update(group_account:GroupAccount):
     """
     stocks = group_account.stocks
     group_id = group_account.group_id
-    value = 0.0
-    for company_id in stocks:
-        if company_id != group_id:
-            company = group_data[company_id].company
-            unit = company.float_gold / company.issuance
-            value += stocks[company_id] * unit
-    group_account.value = value/company_level(group_id)
-    return value
+    group_account.value = invest_value(stocks,group_id)/group_data[group_id].company.level
 
 def bank(event:GroupMessageEvent,sign:int, gold:int):
     """
@@ -132,7 +140,11 @@ def bank(event:GroupMessageEvent,sign:int, gold:int):
     """
     user,group_account = Manager.locate_user(event)
     company = group_data[group_account.group_id].company
-    if sign == 1:
+    if sign == 0:
+        msg = f"本群金库还有{data.group[event.group_id].company.bank}枚金币。\n"
+        msg += "".join(f"{group_data[company_id].company.company_name}:{n}\n" for company_id,n in company.invest.items())
+        return msg[:-1]
+    elif sign == 1:
         if company.bank < gold:
             return f"金币不足。本群金库还有{company.bank}枚金币。"
         tip = "取出"
@@ -144,6 +156,29 @@ def bank(event:GroupMessageEvent,sign:int, gold:int):
     group_account.gold += sign*gold
     company.bank -= sign*gold
     return f"你{tip}了{gold}金币。"
+
+def invest(event:GroupMessageEvent,sign:int, count:int, company_name:str):
+    """
+    群资产存取
+    """
+    if company_name in company_index:
+        company_id = company_index[company_name]
+    else:
+        return f"没有 {company_name} 的注册信息"
+    user,group_account = Manager.locate_user(event)
+    company = group_data[group_account.group_id].company
+    if sign == 1:
+        invest = company.invest
+        tip = "取出"
+    else:
+        invest = group_account.stocks
+        tip = "存入"
+    count = min(invest.get(company_id,0),count)
+    if count == 0:
+        return f"数量不足，无法{tip}股票名：{company_name}"
+    group_account.stocks[company_id] = group_account.stocks.get(company_id,0) + sign * count
+    company.invest[company_id] = company.invest.get(company_id,0) - sign * count
+    return f"你{tip}了{count}个{company_name}"
 
 def buy(event:MessageEvent, buy:int, company_name:str ,limit:float):
     """
@@ -464,30 +499,24 @@ async def group_info(bot:Bot, event:MessageEvent, group_id:int):
     try:
         group_info = await bot.get_group_info(group_id = group_id)
     except:
-        group_info = {"group_name":"群聊已注销","member_count":3000}
+        group_info = {"group_name":"未知群聊","member_count":3000}
     group_name = group_info["group_name"]
     member_count = group_info["member_count"]
     member_count = member_count if member_count else 3000
 
     info.append(await group_info_head(group_name, company_name, group_id, (len(group.namelist),member_count)))
 
-    ranklist = list(group.Achieve_revolution.items())
-    if ranklist:
-        ranklist.sort(key=lambda x:x[1],reverse=True)
-        msg = "".join(f"{user_data.get_nickname(user_id,group_id)}[nowrap]\n[right]{n}次\n" for user_id,n in ranklist[:10])
-        info.append(linecard(msg, width = 880, endline = "路灯挂件"))
-
     # 加载公司信息
     if company_name:
+        # 注册信息
         msg = (
             f"公司等级 {company.level}\n"
             f"成立时间 {datetime.datetime.fromtimestamp(company.time).strftime('%Y 年 %m 月 %d 日')}\n"
-            f"账户金额 {'{:,}'.format(company.bank)}\n"
             )
         info.append(linecard(msg + stock_profile(company), width = 880, endline = "注册信息"))
 
+        # 蜡烛图
         p = OHLC(path, group_id)
-
         overtime = time.time() + 30
         while (returncode := p.poll()) == None:
             if time.time() > overtime:
@@ -497,17 +526,39 @@ async def group_info(bot:Bot, event:MessageEvent, group_id:int):
 
         if returncode == 0:
             info.append(Image.open(path / "candlestick" / f"{group_id}.png"))
+
+        # 资产分布
+        invist = Counter(company.invest)
+        for user_id in group.namelist:
+            invist += Counter(user_data[user_id].group_accounts[group_id].stocks)
+        dist = []
+        for company_id,n in invist.items():
+            inner_company = group_data[company_id].company
+            inner_company_name = inner_company.company_name or f"（{str(company_id)[-4:]}）"
+            unit = inner_company.float_gold / inner_company.issuance
+            dist.append([unit*n, inner_company_name])
+
+        if dist:
+            info.append(group_info_account(company,dist))
+
         ranklist = [(user_id,exchange) for user_id,exchange in company.exchange.items() if exchange.n > 0]
         if ranklist:
             ranklist.sort(key=lambda x:x[1].quote)
-            msg = "".join(f"{user_data[user_id].nickname}\n[pixel][20]单价 {exchange.quote}[nowrap]\n[pixel][400]数量 {exchange.n}\n" for user_id,exchange in ranklist[:10])
+            msg = "".join(f"[pixel][20]{nickname if len(nickname := user_data[user_id].nickname) < 7 else (nickname[:6]+'..')}[nowrap]\n[pixel][300]单价 {exchange.quote}[nowrap]\n[pixel][600]数量 {exchange.n}\n" for user_id,exchange in ranklist[:10])
             info.append(linecard(msg, width = 880, font_size = 40,endline = "市场详情"))
 
         msg = company.intro
         if msg:
             info.append(linecard(msg + '\n', width = 880, font_size = 40,endline = "公司介绍"))
 
-    return MessageSegment.image(info_splicing(info, Manager.BG_path(event.user_id)))
+    # 路灯挂件
+    ranklist = list(group.Achieve_revolution.items())
+    if ranklist:
+        ranklist.sort(key=lambda x:x[1],reverse=True)
+        msg = "".join(f"{user_data.get_nickname(user_id,group_id)}[nowrap]\n[right]{n}次\n" for user_id,n in ranklist[:10])
+        info.insert(min(len(info),2),linecard(msg, width = 880, endline = "路灯挂件"))
+
+    return MessageSegment.image(info_splicing(info, Manager.BG_path(event.user_id),10))
 
 def stock_profile(company:Company) -> str:
     """
@@ -516,16 +567,20 @@ def stock_profile(company:Company) -> str:
     group_gold = company.group_gold
     float_gold = company.float_gold
     SI = company.issuance
+    rate = company.group_gold * (2  - company.stock / SI)/company.float_gold
+    rate = 1 -  rate
+    rate = f'{round(rate*100,2)}% {"↑[color][green]" if rate > 0 else "↓[color][red]"}'
     msg = (
-        f"固定资产 {'{:,}'.format(round(company.gold,2))}\n"
-        f"市场流动 {'{:,}'.format(round(group_gold))}\n"
-        f"发行价格 {'{:,}'.format(round(max(group_gold,float_gold)/SI,2))}\n"
-        f"结算价格 {'{:,}'.format(round(float_gold/SI,2))}\n"
-        f"股票数量 {company.stock}\n"
+        f"账户金额 {'{:,}'.format(company.bank)}[nowrap]\n"
+        f"[pixel][450]资产总量 {'{:,}'.format(round(group_gold))}\n"
+        f"发行价格 {'{:,}'.format(round(max(group_gold,float_gold)/SI,2))}[nowrap]\n"
+        f"[pixel][450]结算价格 {'{:,}'.format(round(float_gold/SI,2))}\n"
+        f"股票数量 {company.stock}[nowrap]\n"
+        f"[pixel][450]回归趋势 [nowrap]\n{rate}\n"
         )
     return msg
 
-def Market_info_All(event:MessageEvent):
+def Market_info_All():
     """
     市场信息总览
     """
@@ -536,14 +591,18 @@ def Market_info_All(event:MessageEvent):
         company = group_data[company_id].company
         companys.append(company)
     companys.sort(key = lambda x:x.group_gold, reverse = True)
-    return MessageSegment.image(linecard_to_png("----\n".join(f"{company.company_name}\n----\n{stock_profile(company)}" for company in companys)[:-1]))
+    return MessageSegment.image(
+        linecard_to_png(
+            "----\n".join(f"{company.company_name}\n----\n{stock_profile(company)}" for company in companys)[:-1],
+            font_size = 40,
+            width = 880))
 
 def pricelist(user_id:int):
     """
     市场价格表
     """
     global company_index
-    company_ids = set([company_index[company_id] for company_id in company_index])
+    company_ids = set(company_index[company_id] for company_id in company_index)
     companys = []
     for company_id in company_ids:
         company = group_data[company_id].company
@@ -597,7 +656,8 @@ def company_update(company:Company):
     """
     company_id = company.company_id
     # 更新全群金币数
-    group_gold = company.group_gold = Manager.group_wealths(company_id,company.level) + company.bank * company.level
+    company.value = invest_value(company.invest,company_id)
+    group_gold = company.group_gold = Manager.group_wealths(company_id,company.level) + company.bank * company.level + company.value
     # 固定资产回归值 = 全群金币数 + 股票融资
     SI = company.issuance
     line = group_gold * (2  - company.stock / SI)
@@ -615,7 +675,6 @@ def company_update(company:Company):
         # Nan检查
         float_gold = group_gold if math.isnan(float_gold) else float_gold
         # 自动结算交易市场上的股票
-        Exlist = []
         for user_id,exchange in company.exchange.items():
             if not (user := user_data.get(user_id)):
                 exchange.n = 0
@@ -750,5 +809,6 @@ def reset():
     company_ids = set([company_index[company_id] for company_id in company_index])
     for company_id in company_ids:
         company = group_data[company_id].company
-        group_gold = company.group_gold = Manager.group_wealths(company_id,company.level) + company.bank*company.level
+        company.value = invest_value(company.invest,company.company_id)
+        group_gold = company.group_gold = Manager.group_wealths(company_id,company.level) + company.bank * company.level + company.value 
         company.gold = company.float_gold = group_gold * (2  - company.stock / company.issuance)

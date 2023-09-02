@@ -112,7 +112,7 @@ def revolution(group_id:int) -> str:
     if time.time() - group.revolution_time < revolt_cd:
         return f"重置正在冷却中，结束时间：{datetime.datetime.fromtimestamp(group.revolution_time + revolt_cd).strftime('%H:%M:%S')}"
 
-    level = group.company.level or 1
+    level = group.company.level
     if (group_gold := Manager.group_wealths(group_id,level)/level) < (limit := 15 * max_bet_gold):
         return f"本群金币（{round(group_gold,2)}）小于{limit}，未满足重置条件。"
 
@@ -483,7 +483,7 @@ def intergroup_transfer_gold(event:MessageEvent, gold:int, company_name:str):
 
     company_out = group_data[group_account_out.group_id].company
     company_in = group_data[company_id].company
-    ExRate = (company_out.level or 1.0)/company_in.level
+    ExRate = company_out.level/company_in.level
     # 计算转出
     transfer = company_out.transfer_limit + company_out.transfer
     if transfer < 1:
@@ -515,7 +515,7 @@ def freeze(target:UserDict):
     group_accounts = target.group_accounts
     for group_id,group_account in group_accounts.items():
         group = group_data[group_id]
-        level = group.company.level or 1
+        level = group.company.level
         gold += group_account.gold*level
         value += group_account.value*level
         for company_id in group_account.stocks:

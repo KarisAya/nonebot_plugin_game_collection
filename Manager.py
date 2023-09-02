@@ -179,8 +179,8 @@ def group_wealths(group_id:int, level:int = 1) -> float:
     total = 0.0
     for user_id in namelist:
         group_account = user_data[user_id].group_accounts[group_id]
-        total += group_account.gold*level + group_account.value
-    return total
+        total += group_account.gold + group_account.value
+    return total * level 
 
 def group_ranklist(group_id:int , title:str) -> list:
     """
@@ -301,7 +301,7 @@ def company_level(group_id:int) -> int:
     """
     获取公司等级
     """
-    return group_data[group_id].company.level or 1
+    return group_data[group_id].company.level
 
 def Gini(group_id:int, limit:int = bet_gold) -> float:
     """

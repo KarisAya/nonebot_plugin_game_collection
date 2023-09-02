@@ -37,8 +37,8 @@ def market_candlestick(figsize:Tuple[int,int], length:int, history:list, savefig
     style = mpf.make_mpf_style(
         base_mpf_style = "charles",
         marketcolors = mpf.make_marketcolors(
-            up = "#a02128",
-            down = "#006340",
+            up = "#006340",
+            down = "#a02128",
             edge = "none"
             ),
         y_on_right = False,

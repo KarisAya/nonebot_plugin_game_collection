@@ -535,7 +535,7 @@ async def group_info(bot:Bot, event:MessageEvent, group_id:int):
         for company_id,n in invist.items():
             inner_company = group_data[company_id].company
             inner_company_name = inner_company.company_name or f"（{str(company_id)[-4:]}）"
-            unit = inner_company.float_gold / inner_company.issuance
+            unit = max(inner_company.float_gold / inner_company.issuance,0)
             dist.append([unit*n, inner_company_name])
 
         if dist:
@@ -568,7 +568,7 @@ def stock_profile(company:Company) -> str:
     float_gold = company.float_gold
     SI = company.issuance
     rate = company.group_gold * (2  - company.stock / SI)/company.float_gold
-    rate = 1 -  rate
+    rate = rate - 1
     rate = f'{round(rate*100,2)}% {"↑[color][green]" if rate > 0 else "↓[color][red]"}'
     msg = (
         f"账户金额 {'{:,}'.format(company.bank)}[nowrap]\n"

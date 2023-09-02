@@ -525,7 +525,7 @@ def group_info_account(company:Company, dist):
     plt.title('投资占比')
     value = int(sum(x[0] for x in dist))
     plt.pie(
-        [company.group_gold - value,value],
+        [max(company.group_gold - value,0),value],
         labels = ["",""],
         autopct='%1.1f%%',
         colors = ["#FFCC33","#0066CC"],

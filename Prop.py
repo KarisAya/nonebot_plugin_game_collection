@@ -138,8 +138,8 @@ def gacha(event:MessageEvent, N:int):
             f"[right]{n}{quant}\n"
             )
 
-    user.props = {k: v if k == "33101" else min(v, 30) for k, v in user.props.items()}
-    group_account.props = {k:min(30,v) for k,v in group_account.props.items()}
+    user.props = {k: v if k in {"33101"} else min(v, 30) for k, v in user.props.items()}
+    group_account.props = {k: v if k in {"62102"} else min(v, 30) for k,v in group_account.props.items()}
     for prop_code, n in airdata:
         prop_info = props_library.get(prop_code,{"name":prop_code, "color":"black","rare":1,"intro":"未知","des":"未知"})
         color = prop_info['color']

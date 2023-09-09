@@ -254,15 +254,15 @@ async def _(matcher:Matcher, color:Message = Arg()):
     else:
         await prop_create.reject("请输入合法的颜色，例如\"red\",\"#123456\"")
 
-@prop_create.got("rare", prompt = "请输入稀有度，范围0-5")
+@prop_create.got("rare", prompt = "请输入稀有度，范围0-6")
 async def _(matcher:Matcher, rare:Message = Arg()):
     rare = rare.extract_plain_text().strip()
     if rare == "取消":
         await prop_create.finish("新建道具已取消")
-    if rare.isdigit() and 0 <= int(rare) <= 5:
+    if rare.isdigit() and 0 <= int(rare) <= 6:
         matcher.set_arg("rare",int(rare))
     else:
-        await prop_create.reject("请输入0-5")
+        await prop_create.reject("请输入0-6")
 
 @prop_create.got("code1", prompt = "请输入道具性质，可选【群内道具】或【全局道具】。")
 async def _(matcher:Matcher, code1:Message = Arg()):
@@ -651,14 +651,12 @@ use_prop = on_command("使用道具", priority = 20, block = True)
 @use_prop.handle()
 async def _(event:MessageEvent, arg:Message = CommandArg()):
     msg = arg.extract_plain_text().strip().split()
-    if len(msg) == 1:
-        prop_name = msg[0]
-        count = 1
-    elif len(msg) == 2 and msg[1].isdigit():
-        prop_name = msg[0]
+    prop_name = msg[0]
+    count = 1
+    if len(msg) > 1 and msg[1].isdigit():
         count = int(msg[1])
     else:
-        return
+        count = 1
     msg = Prop.use_prop(event, prop_name, count)
     await use_prop.finish(msg, at_sender=True)
 

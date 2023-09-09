@@ -238,16 +238,18 @@ class DataBase(BaseModel):
                 "数据已修正。\n"
                 ) if group.namelist != namelist_check[group_id] else ""
             group.namelist = namelist_check[group_id]
+            group.Achieve_revolution = {k:v for k,v in group.Achieve_revolution.items() if k in group.namelist}
             company = group.company
             # 修正公司等级
             level = min(20,sum(group.Achieve_revolution.values()) + 1)
-            log += (
-                f"{company.company_name} 公司等级异常。\n"
-                f"记录值：{company.level}\n"
-                f"实测值：{level}\n"
-                "数据已修正。\n"
-                ) if company.level != level else ""
-            company.level = level
+            if company.level != level:
+                log += (
+                    f"{company.company_name} 公司等级异常。\n"
+                    f"记录值：{company.level}\n"
+                    f"实测值：{level}\n"
+                    "数据已修正。\n"
+                    )
+                company.level = level
             if group_id in stock_check:
                 # 回归
                 company.company_id = group_id

@@ -1,3 +1,4 @@
+from webbrowser import get
 from nonebot.adapters.onebot.v11 import (
     MessageEvent,
     GroupMessageEvent,
@@ -215,13 +216,24 @@ class Prop(str):
         elif self == "33101":
             return self.use_33101(event,count)
         elif self == "42101":
-            return self.use_42101(event)
+            msg = self.use_42101(event,count)
+            if count > 10:
+                return MessageSegment.image(linecard_to_png(msg))
+            else:
+                return msg
         elif self == "52101":
-            return self.use_52101(event)
+            msg = self.use_52101(event,count)
+            if count > 3:
+                return MessageSegment.image(linecard_to_png(msg))
+            else:
+                return msg
+
         elif self == "52102":
             return self.use_52102(event,count)
         elif self == "53101":
             return self.use_53101(event,count)
+        elif self == "62102":
+            return self.use_62102(event,count)
         elif self == "63101":
             return self.use_63101(event)
         elif self == "63102":
@@ -386,7 +398,7 @@ class Prop(str):
             return MessageSegment.image(line_splicing(info))
 
     @classmethod
-    def use_42101(cls, event:MessageEvent) -> str:
+    def use_42101(cls, event:MessageEvent, count:int) -> str:
         """
         使用道具：调查凭证
         """
@@ -396,7 +408,16 @@ class Prop(str):
             return f"此道具只能在群内使用"
 
         if not (at := get_message_at(event.message)):
-            return "没有指定用户。"
+            at = event.message.extract_plain_text().strip().split()[-1]
+            try:
+                at = int(at)
+            except:
+                return "没有指定用户。"
+            group = group_data.get(group_id)
+            if not group or at not in group.namelist:
+                return "没有指定用户。"
+            if at == count:
+                count = 1
         else:
             at = int(at[0])
 
@@ -404,47 +425,37 @@ class Prop(str):
         target_user,target_group_account = Manager.locate_user_at(event,at)
 
         props = group_account.props
-        if props.get("42101",0) < 1:
+        if props.get("42101",0) < count:
             return "数量不足"
 
-        props["42101"] -= 1
+        props["42101"] -= count
         if props["42101"] < 1:
             del props["42101"]
 
-
-        N = random.randint(0,50)
-        if N < 30:
-            gold = int(group_account.gold * N / 1000)
-            gold = 0 if gold < 0 else gold
-            user.gold -= gold
-            group_account.gold -= gold
-            target_user.gold += gold
-            target_group_account.gold += gold
-            info = f"调查没有发现问题。你赔偿了对方{gold}枚金币"
-        else:
-            gold = int(target_group_account.gold * N / 1000)
-            gold = min(group_account.gold, gold)
-            gold = 0 if gold < 0 else gold
-            user.gold += gold
-            group_account.gold += gold
-            target_user.gold -= gold
-            target_group_account.gold -= gold
-            info = f"你获得了{gold}枚金币"
-            #stocks = group_account.stocks
-            #target_stocks = target_group_account.stocks
-            #for company_id, count in target_stocks.items():
-            #    if stock := int(count * N / 100):
-            #        stocks.setdefault(company_id,0)
-            #        stocks[company_id] += stock
-            #        target_stocks[company_id] -= stock
-            #        if at in (company := group_data[company_id].company):
-            #            del company.exchange[at]
-            #        info += f"{company.company_name}：{stock}\n"
-            info += f"（{N/10}%）" 
-        return info
+        info = []
+        for _ in range(count):
+            N = random.randint(0,50)
+            if N < 30:
+                gold = int(group_account.gold * N / 1000)
+                gold = 0 if gold < 0 else gold
+                user.gold -= gold
+                group_account.gold -= gold
+                target_user.gold += gold
+                target_group_account.gold += gold
+                info.append(f"调查没有发现问题。你赔偿了对方{gold}枚金币（{N/10}%）")
+            else:
+                gold = int(target_group_account.gold * N / 1000)
+                gold = min(group_account.gold, gold)
+                gold = 0 if gold < 0 else gold
+                user.gold += gold
+                group_account.gold += gold
+                target_user.gold -= gold
+                target_group_account.gold -= gold
+                info.append(f"你获得了对方{gold}枚金币（{N/10}%）")
+        return "\n".join(info)
 
     @classmethod
-    def use_52101(cls, event:MessageEvent,) -> str:
+    def use_52101(cls, event:MessageEvent, count:int) -> str:
         """
         使用道具：神秘天平
         """
@@ -452,62 +463,64 @@ class Prop(str):
         if not group_account:
             return "私聊未关联账户，请发送【关联账户】关联群内账户。"
         props = group_account.props
-        if props.get("52101",0) < 1:
+        if props.get("52101",0) < count:
             return "数量不足"
 
-        props["52101"] -= 1
+        props["52101"] -= count
         if props["52101"] < 1:
             del props["52101"]
 
         group_id = group_account.group_id
         ranklist = Manager.group_ranklist(group_id,"金币")
-        target_id = random.choice([x[0] for x in ranklist if x[1] > revolt_gold[0]])
-        if target_id == event.user_id:
-            return f"道具使用失败，你损失了一个『{props_library['52101']['name']}』"
+        info = []
+        for _ in range(count):
+            target_id = random.choice([x[0] for x in ranklist if x[1] > revolt_gold[0]])
+            if target_id == event.user_id:
+                info.append(f"道具使用失败，你损失了一个『{props_library['52101']['name']}』")
+            target_user,target_group_account = Manager.locate_user_at(event, target_id)
+            change = int((group_account.gold - target_group_account.gold) / 2)
+            limit = min((group_account.gold, target_group_account.gold))
+            limit = 0 if limit < 0 else limit
+            if change > limit:
+                change = limit
+            if change < -limit:
+                change = -limit
 
-        target_user,target_group_account = Manager.locate_user_at(event, target_id)
+            abschange = abs(change)
+            fee = int(abschange / 20)
 
-        change = int((group_account.gold - target_group_account.gold) / 2)
-        limit = min((group_account.gold, target_group_account.gold))
-        limit = 0 if limit < 0 else limit
-        if change > limit:
-            change = limit
-        if change < -limit:
-            change = -limit
+            flag = group_account.props.get("42001",0)
+            tag = "失去" if change > 0 else "获得"
+            if flag > 0:
+                user.gold -= change
+                group_account.gold -= change
+                msg1 = f"\n你{tag}了{abschange}金币『{props_library['42001']['name']}』。"
+            else:
+                user.gold -= change
+                user.gold -= fee
+                group_account.gold -= change
+                group_account.gold -= fee
+                group_data[group_id].company.bank += fee
+                msg1 = f"\n你{tag}了{abs(change + fee)}金币(扣除5%手续费：{fee})。"
 
-        abschange = abs(change)
-        fee = int(abschange / 20)
+            flag = target_group_account.props.get("42001",0)
+            tag = "失去" if change < 0 else "获得"
 
-        flag = group_account.props.get("42001",0)
-        tag = "失去" if change > 0 else "获得"
-        if flag > 0:
-            user.gold -= change
-            group_account.gold -= change
-            msg1 = f"\n你{tag}了{abschange}金币『{props_library['42001']['name']}』。"
-        else:
-            user.gold -= change
-            user.gold -= fee
-            group_account.gold -= change
-            group_account.gold -= fee
-            group_data[group_id].company.bank += fee
-            msg1 = f"\n你{tag}了{abs(change + fee)}金币(扣除5%手续费：{fee})。"
+            if flag > 0:
+                target_user.gold += change
+                target_group_account.gold += change
+                msg2 = f"\n对方{tag}了{abschange}金币『{props_library['42001']['name']}』。"
+            else:
+                target_user.gold += change
+                target_user.gold -= fee
+                target_group_account.gold += change
+                target_group_account.gold -= fee
+                group_data[group_id].company.bank += fee
+                msg2 = f"\n对方{tag}了{abs(change - fee)}金币(扣除5%手续费：{fee})。"
 
-        flag = target_group_account.props.get("42001",0)
-        tag = "失去" if change < 0 else "获得"
+            info.append(f"你与{target_group_account.nickname}平分了金币。" + msg1 + msg2)
 
-        if flag > 0:
-            target_user.gold += change
-            target_group_account.gold += change
-            msg2 = f"\n对方{tag}了{abschange}金币『{props_library['42001']['name']}』。"
-        else:
-            target_user.gold += change
-            target_user.gold -= fee
-            target_group_account.gold += change
-            target_group_account.gold -= fee
-            group_data[group_id].company.bank += fee
-            msg2 = f"\n对方{tag}了{abs(change - fee)}金币(扣除5%手续费：{fee})。"
-
-        return f"你与{target_group_account.nickname}平分了金币。" + msg1 + msg2
+        return "\n".join(info)
 
     @classmethod
     def use_52102(cls, event:MessageEvent, count:int,) -> str:
@@ -571,11 +584,50 @@ class Prop(str):
         if props["53101"] < 1:
             del props["53101"]
 
-        gold = random.randint(sign_gold[0] * count, revolt_gold[1] * count)
-
+        gold = random.randint(sign_gold[0], revolt_gold[1]) * count
         user.gold += gold
         group_account.gold += gold
         return f"你获得了{gold}金币。祝你好运~"
+
+    @classmethod
+    def use_62102(cls, event:MessageEvent, count:int) -> str:
+        """
+        使用道具：道具兑换券
+        """
+        user,group_account = Manager.locate_user(event)
+        if not group_account:
+            return "私聊未关联账户，请发送【关联账户】关联群内账户。"
+        props = group_account.props
+        prop_name = event.message.extract_plain_text().rstrip()[4:].split()[-1]
+        if prop_name == str(count):
+            prop_code = "62102"
+            prop_name = props_library['62102']['name']
+        else:
+            prop_code = props_index.get(prop_name)
+            if not prop_code:
+                return f"没有【{prop_name}】这种道具。"
+            if prop_code[0] == "0":
+                return "不能兑换特殊道具。"
+
+        # 购买道具兑换券，价格 50抽
+        props.setdefault("62102",0)
+        buy = max(count - props["62102"],0)
+        gold = buy * gacha_gold * 50
+        if group_account.gold < gold:
+            return f"金币不足。你还有{group_account.gold}枚金币。（需要：{gold}）"
+        # 购买结算
+        group_account.gold -= buy * gacha_gold * 50
+        props["62102"] += buy
+        # 道具结算
+        if prop_code[1] == "3":
+            account = user
+        else:
+            account = group_account
+        account.props[prop_code] = account.props.get(prop_code,0) + count
+        props["62102"] -= count
+        if props["62102"] < 1:
+            del props["62102"]
+        return f"你获得了{count}个【{prop_name}】！（使用金币：{gold}）" 
 
     @classmethod
     def use_63101(cls, event:MessageEvent) -> str:

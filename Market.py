@@ -215,11 +215,11 @@ def buy(event:MessageEvent, buy:int, company_name:str ,limit:float):
     for _ in range(buy):
         unit = max(group_gold, float_gold)/SI
         if unit > limit:
-            tip = f"你的金币不足（{group_account.gold}）。"
+            tip = f"价格超过限制（{limit}）。"
             break
         value += unit
         if value > my_gold:
-            tip = f"价格超过限制（{limit}）。"
+            tip = f"你的金币不足（{group_account.gold}）。"
             break
         float_gold += unit
         inner_buy += 1
@@ -567,7 +567,7 @@ def stock_profile(company:Company) -> str:
     group_gold = company.group_gold
     float_gold = company.float_gold
     SI = company.issuance
-    rate = company.group_gold * (2  - company.stock / SI)/company.float_gold
+    rate = company.group_gold * (2  - max(company.stock / SI,0))/company.float_gold
     rate = rate - 1
     rate = f'{round(rate*100,2)}% {"↑[color][green]" if rate > 0 else "↓[color][red]"}'
     msg = (
@@ -660,7 +660,7 @@ def company_update(company:Company):
     group_gold = company.group_gold = Manager.group_wealths(company_id,company.level) + company.bank * company.level + company.value
     # 固定资产回归值 = 全群金币数 + 股票融资
     SI = company.issuance
-    line = group_gold * (2  - company.stock / SI)
+    line = group_gold * (2  - max(company.stock / SI,0))
     # 公司金币数回归到固定资产回归值
     gold = company.gold
     gold += (line - gold)/96
@@ -811,4 +811,4 @@ def reset():
         company = group_data[company_id].company
         company.value = invest_value(company.invest,company.company_id)
         group_gold = company.group_gold = Manager.group_wealths(company_id,company.level) + company.bank * company.level + company.value 
-        company.gold = company.float_gold = group_gold * (2  - company.stock / company.issuance)
+        company.gold = company.float_gold = group_gold * (2  - max(company.stock / company.issuance,0))

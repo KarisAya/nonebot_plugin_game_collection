@@ -206,10 +206,10 @@ def invest_value(invest:Dict[int,int]) -> float:
     self_id:排除 company_id
     """
     value = 0.0
-    for company_id in invest:
+    for company_id,n in invest.items():
         company = group_data[company_id].company
         unit = company.float_gold / company.issuance
-        value += invest[company_id] * unit
+        value += n * unit
     return value
 
 def group_ranklist(group_id:int , title:str) -> list:
@@ -242,7 +242,7 @@ def group_ranklist(group_id:int , title:str) -> list:
             group_account = user_data[user_id].group_accounts[group_id]
             rank.append([user_id,group_account.gold])
     elif title == "资产" or title == "财富":
-        rank = [user_id, invest_value(user_data[user_id].group_accounts[group_id]) for user_id in namelist]
+        rank = [[user_id, invest_value(user_data[user_id].group_accounts[group_id].invest)] for user_id in namelist]
     elif title == "胜率":
         for user_id in namelist:
             user = user_data[user_id]

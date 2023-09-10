@@ -112,8 +112,7 @@ def revolution(group_id:int) -> str:
     if time.time() - group.revolution_time < revolt_cd:
         return f"重置正在冷却中，结束时间：{datetime.datetime.fromtimestamp(group.revolution_time + revolt_cd).strftime('%H:%M:%S')}"
 
-    level = group.company.level
-    if (group_gold := Manager.group_wealths(group_id,level)/level) < (limit := 15 * max_bet_gold):
+    if (group_gold := Manager.group_wealths(group_id)) < (limit := 15 * max_bet_gold):
         return f"本群金币（{round(group_gold,2)}）小于{limit}，未满足重置条件。"
 
     if (gini := Manager.Gini(group_id)) < revolt_gini:
@@ -136,21 +135,22 @@ def revolution(group_id:int) -> str:
     for x in rank[:10]:
         user = user_data[x[0]]
         group_account = user.group_accounts[group_id]
-        gold = int(group_account.value*j - group_account.gold*(1-j))
+        gold = int((group_account.gold + Manager.invest_value(group_account.invest))*(1 - j))
         user.gold += gold
         group_account.gold += gold
-        company_ids = [company_id for company_id in group_account.stocks]
+        company_ids = {company_id for company_id in group_account.invest}
         for company_id in company_ids:
             company = group_data[company_id].company
             if user_id in company.exchange:
                 del company.exchange[user_id]
-            company.stock += group_account.stocks[company_id]
-            del group_account.stocks[company_id]
+            company.stock += group_account.invest[company_id]
+            del group_account.invest[company_id]
         i += 0.1
         j = i**2
     for user_id in group.namelist:
         user_data[user_id].group_accounts[group_id].revolution = False
 
+    level = group.company.level
     if level < 20:
         group.company.bank = int(group.company.bank * (level - 1) / level)
 
@@ -277,7 +277,7 @@ async def my_info(event:MessageEvent) -> Message:
     Achieve = Manager.Achieve_list((user,group_account))[:2]
     # 加载本群账户
     gold = group_account.gold
-    value = group_account.value
+    value = Manager.invest_value(group_account.invest)
     is_sign = group_account.is_sign
     if is_sign:
         is_sign = ["已签到","green"]
@@ -301,14 +301,19 @@ async def my_info(event:MessageEvent) -> Message:
         f"[color][{security[1]}]{security[0]}[nowrap]\n 次"
         )
     # 加载资产分析
-    dist = [(gold, group_name if (group_name := group_data[group_id].company.company_name) else f"（{str(group_id)[-4:]}）") for group_id, account in user.group_accounts.items() if (gold := account.gold + account.value) > 0]
+    dist = []
+    for group_id,group_account in user.group_accounts.items():
+        group_name = group_data[group_id].company.company_name
+        group_name = group_name if group_name else f"（{str(x)[-4:]}）"
+        dist.append([group_account.gold + Manager.invest_value(group_account.invest), group_name])
+    dist = [x for x in dist if x[0] > 0]
     info.append(my_info_account(msg,dist or [(1.0,"None")]))
 
     # 加载股票信息
     msg = ""
-    for stock in group_account.stocks:
+    for stock in group_account.invest:
         company_name = group_data[stock].company.company_name
-        if i := group_account.stocks[stock]:
+        if i := group_account.invest[stock]:
             msg += f"{company_name}[nowrap]\n[right][color][green]{i}\n"
     if msg:
         info.append(linecard(msg, width = 880,endline = "股票信息"))
@@ -326,7 +331,7 @@ async def my_exchange(event:MessageEvent) -> Message:
     info = []
 
     # 加载股票信息
-    for company_id,stock in group_account.stocks.items():
+    for company_id,stock in group_account.invest.items():
         msg = ""
         if stock:
             account_name = "无报价"
@@ -385,28 +390,6 @@ def my_props(event:MessageEvent, arg:str) -> Message:
 
     info = [result(prop_code,n) for prop_code,n in props if n > 0]
     return MessageSegment.image(info_splicing(info,Manager.BG_path(event.user_id),spacing = 5)) if info else "您的仓库空空如也。"
-
-async def info_profile(user_id:int) -> list:
-    """
-    总览资料卡
-    """
-    user = user_data[user_id]
-    info = []
-    # 加载全局信息
-    nickname = user.nickname
-    info.append(await my_info_head(user,nickname))
-    msg = ""
-    # 加载资产分析
-    dist = []
-    for x in user.group_accounts:
-        account = user.group_accounts[x]
-        if not (group_name := group_data[x].company.company_name):
-            group_name = f"（{str(x)[-4:]}）"
-        dist.append([account.gold + account.value, group_name])
-    dist = [x for x in dist if x[0] > 0]
-    if dist:
-        info.append(my_info_account(msg,dist))
-    return info
 
 def format_ranktitle(x,title:str = "金币"):
     """
@@ -517,8 +500,10 @@ def freeze(target:UserDict):
         group = group_data[group_id]
         level = group.company.level
         gold += group_account.gold*level
-        value += group_account.value*level
-        for company_id in group_account.stocks:
+        for company_id,n in group_account.invest.items():
+            inner_company = group_data[company_id].company
+            unit = inner_company.float_gold / inner_company.issuance
+            value += unit * n
             group_data[company_id].company.Buyback(group_account)
         group.namelist.remove(target_id)
     target.gold = 0
@@ -568,7 +553,7 @@ async def delist():
                     del group_account
                 else:
                     # 删除不存在的股票
-                    group_account.stocks = {stock:count for stock, count in group_account.stocks.items() if stock not in delist_group_accounts}
+                    group_account.invest = {stock:count for stock, count in group_account.invest.items() if stock not in delist_group_accounts}
         # 删除不存在的群
         for group_id in delist_group:
             log += f'删除群：{group_id}\n'

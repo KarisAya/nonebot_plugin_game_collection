@@ -173,14 +173,44 @@ def group_wealths(group_id:int, level:int = 1) -> float:
     群内总资产
     """
     if group_id in group_data:
-        namelist = group_data[group_id].namelist
+        group = group_data[group_id]
     else:
         return 0
-    total = 0.0
-    for user_id in namelist:
-        group_account = user_data[user_id].group_accounts[group_id]
-        total += group_account.gold + group_account.value
+
+    total = group.company.bank
+    total += sum(user_data[user_id].group_accounts[group_id].gold for user_id in group.namelist)
+
     return total * level 
+
+def group_wealths_detailed(group_id:int) -> Tuple[int,dict]:
+    """
+    详细的群内总资产
+    """
+    if group_id in group_data:
+        group = group_data[group_id]
+    else:
+        return 0
+    company = group.company
+    gold = company.bank
+    invist = Counter(company.invest)
+    for user_id in group.namelist:
+        group_account = user_data[user_id].group_accounts[group_id]
+        gold += group_account.gold
+        invist += Counter(group_account.invest)
+    return gold,dict(invist)
+
+def invest_value(invest:Dict[int,int]) -> float:
+    """
+    计算投资价值
+    invest:投资信息（{company_id:n}）
+    self_id:排除 company_id
+    """
+    value = 0.0
+    for company_id in invest:
+        company = group_data[company_id].company
+        unit = company.float_gold / company.issuance
+        value += invest[company_id] * unit
+    return value
 
 def group_ranklist(group_id:int , title:str) -> list:
     """
@@ -193,10 +223,11 @@ def group_ranklist(group_id:int , title:str) -> list:
         data[1]:title
     """
     if group_id in group_data:
-        namelist = group_data[group_id].namelist
+        group = group_data[group_id]
     else:
         return None
 
+    namelist = group.namelist
     rank = []
     if title == "总金币":
         for user_id in namelist:
@@ -205,18 +236,13 @@ def group_ranklist(group_id:int , title:str) -> list:
     elif title == "总资产":
         for user_id in namelist:
             user = user_data[user_id]
-            value = 0
-            for x in user.group_accounts:
-                value += user.group_accounts[x].value
-            rank.append([user_id, user.gold + value])
+            rank.append([user_id, sum(invest_value(group_account.invest) for group_account in user.group_accounts.values())])
     elif title == "金币":
         for user_id in namelist:
             group_account = user_data[user_id].group_accounts[group_id]
             rank.append([user_id,group_account.gold])
     elif title == "资产" or title == "财富":
-        for user_id in namelist:
-            group_account = user_data[user_id].group_accounts[group_id]
-            rank.append([user_id, group_account.gold + group_account.value])
+        rank = [user_id, invest_value(user_data[user_id].group_accounts[group_id]) for user_id in namelist]
     elif title == "胜率":
         for user_id in namelist:
             user = user_data[user_id]
@@ -269,9 +295,7 @@ def All_ranklist(title:str) -> list:
     elif title == "资产" or title == "财富":
         for user_id in namelist:
             user = user_data[user_id]
-            gold = user.gold
-            value = sum(group_account.value for group_account in user.group_accounts.values())
-            rank.append([user_id, gold + value])
+            rank.append([user_id, sum(invest_value(group_account.invest) for group_account in user.group_accounts.values())])
     elif title == "胜率":
         for user_id in namelist:
             user = user_data[user_id]
@@ -315,7 +339,7 @@ def Gini(group_id:int, limit:int = bet_gold) -> float:
     rank = []
     for user_id in namelist:
         group_account = user_data[user_id].group_accounts[group_id]
-        rank.append(group_account.gold*level + group_account.value)
+        rank.append(group_account.gold * level + invest_value(group_account.invest))
 
     rank = [x for x in rank if x > limit]
     rank.sort()

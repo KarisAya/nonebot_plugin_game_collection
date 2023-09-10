@@ -24,8 +24,7 @@ class GroupAccount(BaseModel):
     revolution:bool = False
     security:int = 0
     gold:int = 0
-    value:float = 0.0
-    stocks:Dict[int,int] = {}
+    invest:Dict[int,int] = {}
     props:Dict[str,int] = {}
 
     def __init__(self, event:GroupMessageEvent = None, **obj):
@@ -114,8 +113,6 @@ class Company(BaseModel):
     """群金库"""
     invest:dict[int,int] = {}
     """群投资"""
-    value:float = 0.0
-    """群投资价值"""
     transfer_limit:float = 0.0
     """每日转账限制"""
     transfer:int = 0
@@ -131,13 +128,13 @@ class Company(BaseModel):
         """
         让公司回收本账户的股票
         """
-        stock = group_account.stocks.get(self.company_id,0)
+        stock = group_account.invest.get(self.company_id,0)
         count = min(n,stock) if n else stock
         stock = stock - count
         if count:
             self.stock += count
             user_id = group_account.user_id
-            group_account.stocks[self.company_id] = group_account.stocks.get(self.company_id) - count
+            group_account.invest[self.company_id] = group_account.invest.get(self.company_id) - count
             if user_id in self.exchange and (exchange := self.exchange[user_id]).group_id == group_account.group_id:
                 exchange.n -= count
 
@@ -215,13 +212,11 @@ class DataBase(BaseModel):
                 # 清理未持有的道具
                 group_account.props = {k:v for k,v in group_account.props.items() if v > 0 and k in props_index}
                 # 删除无效及未持有的股票
-                stocks = group_account.stocks = {k:v for k,v in group_account.stocks.items() if k in companys and v > 0}
+                invest = group_account.invest = {k:v for k,v in group_account.invest.items() if k in companys and v > 0}
                 # 群名单检查
                 namelist_check[group_id].add(user_id)
                 # 股票数检查
-                stock_check += Counter(stocks)
-                # Nan检查
-                group_account.value = 0.0 if math.isnan(group_account.value) else group_account.value
+                stock_check += Counter(invest)
             # 金币总数
             log += f"{user.nickname} 金币总数异常。记录值：{user.gold} 实测值：{gold} 数据已修正。\n" if user.gold != gold else ""
             user.gold = gold
@@ -269,7 +264,7 @@ class DataBase(BaseModel):
                                     if exchange.n > 0 
                                     and user_id in user_data 
                                     and (group_account := user_data[user_id].group_accounts.get(exchange.group_id))
-                                    and group_account.stocks.get(company.company_id,0) > exchange.n}
+                                    and group_account.invest.get(company.company_id,0) > exchange.n}
                 # Nan检查
                 company.gold = 0.0 if math.isnan(company.gold) else company.gold
                 company.float_gold = 0.0 if math.isnan(company.float_gold) else company.float_gold

@@ -1,4 +1,3 @@
-from webbrowser import get
 from nonebot.adapters.onebot.v11 import (
     MessageEvent,
     GroupMessageEvent,
@@ -673,7 +672,7 @@ class Prop(str):
         props["63102"] -= 1
         if props["63102"] < 1:
             del props["63102"]
-        for company_id in group_account.stocks:
+        for company_id in group_account.invest:
             company = group_data[company_id].company
             company.Buyback(group_account)
         user.gold -= group_account.gold

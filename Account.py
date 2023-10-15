@@ -118,7 +118,18 @@ def revolution(group_id:int) -> str:
     if (gini := Manager.Gini(group_id)) < revolt_gini:
         return f"当前基尼系数为{round(gini,3)}，未满足重置条件。"
 
-    rank = Manager.group_ranklist(group_id,"资产")
+    namelist = group.namelist
+    level = group.company.level
+    rank = []
+    for user_id in namelist:
+        group_account = user_data[user_id].group_accounts[group_id]
+        rank.append([user_id, group_account.gold + Manager.invest_value(group_account.invest)/level])
+    rank = [x for x in rank if x[1]]
+    if rank:
+        rank.sort(key = lambda x:x[1], reverse=True)
+    else:
+        return "群内没有排名"
+
     user_id = rank[0][0]
     group_account = user_data[user_id].group_accounts[group_id]
     group_account.props.setdefault("02101",0)
@@ -131,28 +142,28 @@ def revolution(group_id:int) -> str:
     first_name = group_account.nickname
 
     i = 0.0
-    j = i**2
-    for x in rank[:10]:
-        user = user_data[x[0]]
+    for user_id, value in rank[:10]:
+        user = user_data[user_id]
         group_account = user.group_accounts[group_id]
-        gold = int((group_account.gold + Manager.invest_value(group_account.invest))*(1 - j))
-        user.gold += gold
-        group_account.gold += gold
-        company_ids = {company_id for company_id in group_account.invest}
-        for company_id in company_ids:
+
+        gold = int(value * i)
+        user.gold = user.gold - group_account.gold + gold
+        group_account.gold = gold
+        for company_id,stock in group_account.invest.items():
             company = group_data[company_id].company
             if user_id in company.exchange:
                 del company.exchange[user_id]
-            company.stock += group_account.invest[company_id]
-            del group_account.invest[company_id]
+            company.stock += stock
+        group_account.invest.clear()
         i += 0.1
-        j = i**2
+
     for user_id in group.namelist:
         user_data[user_id].group_accounts[group_id].revolution = False
 
     level = group.company.level
     if level < 20:
-        group.company.bank = int(group.company.bank * (level - 1) / level)
+        group.company.bank = int(group.company.bank * level / (level + 1))
+        group.company.level += 1
 
     data.save()
     return f"重置成功！恭喜{first_name}进入挂件榜☆！\n当前系数为：{round(gini,3)}，重置签到已刷新。"
@@ -304,7 +315,7 @@ async def my_info(event:MessageEvent) -> Message:
     dist = []
     for group_id,group_account in user.group_accounts.items():
         group_name = group_data[group_id].company.company_name
-        group_name = group_name if group_name else f"（{str(x)[-4:]}）"
+        group_name = group_name if group_name else f"（{str(group_id)[:4]}）"
         dist.append([group_account.gold + Manager.invest_value(group_account.invest), group_name])
     dist = [x for x in dist if x[0] > 0]
     info.append(my_info_account(msg,dist or [(1.0,"None")]))

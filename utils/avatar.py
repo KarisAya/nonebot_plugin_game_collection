@@ -26,14 +26,3 @@ async def download_groupavatar(group_id:int) -> bytes:
     output = BytesIO()
     Image.new("RGBA", (300, 300),color = "gray").save(output, format = "png")
     return output
-
-async def download_url(url:str) -> bytes:
-    async with httpx.AsyncClient() as client:
-        for i in range(3):
-            try:
-                resp = await client.get(url, timeout=20)
-                resp.raise_for_status()
-                return resp.content
-            except Exception:
-                await asyncio.sleep(3)
-    return None

@@ -1,104 +1,83 @@
-﻿from typing import Tuple,Dict
-from pydantic import BaseModel
+﻿from io import BytesIO
+from typing import Tuple,Dict,Type
 from abc import ABC, abstractmethod
-from nonebot.adapters.onebot.v11 import (
-    Bot,
-    GroupMessageEvent,
-    Message,
-    MessageSegment
-    )
-    
+
 import random
 import time
 import math
 import asyncio
 
-from .utils.utils import get_message_at
 from .utils.chart import linecard_to_png
-from .data import props_library
-from .config import bot_name, security_gold, bet_gold, max_bet_gold, max_player, min_player
+from .config import (
+    bot_name,
+    security_gold,
+    bet_gold,
+    max_bet_gold,
+    max_player,
+    min_player
+    )
 
+from .Exceptions import GameOverException
+from .Processor import Event,Result,reg_command,reg_auto_event
 from . import Manager
+from . import Prop
 
-data = Manager.data
-user_data = data.user
-group_data = data.group
-
-class GameOverException(Exception):
-    """
-    GameOverException
-    """
-
-class Session(BaseModel):
+class Session:
     """
     游戏场次信息
     """
     time:float = 0.0
-    group_id = 0
-    player1_id:int = None
-    player2_id:int = None
-    at:int = None
+    group_id:str = None
+    at:str = None    
+    p1_uid:str = None
+    p1_nickname:str = None
+    p2_uid:str = None
+    p2_nickname:str = None
     round = 0
-    next:int = None
-    win:int = None
-    gold:int = 0
+    next:str = None
+    win:str = None
+    gold:str = 0
     bet_limit:int = 0
 
-    def create(self, event:GroupMessageEvent):
+    def __init__(self,kwargs):
+        self.time = time.time()
+        self.group_id = kwargs["group_id"]
+        self.at = kwargs["at"]        
+        self.p1_uid = kwargs["p1_uid"]
+        self.p1_nickname = kwargs["p1_nickname"]
+        if self.at:
+            self.p2_uid = self.at
+            self.p2_nickname = Manager.locate_user_at(self.p2_uid,self.group_id)[1].nickname
+        self.gold = kwargs["gold"]
+        
+    def create_check(self, event:Event):
         """
-        创建游戏
-        """
-        at = get_message_at(event.message)
-        at = int(at[0]) if at else None
-        self.__init__(
-            time = time.time(),
-            group_id = event.group_id,
-            player1_id = event.user_id,
-            at = at,
-            gold = self.gold
-            )
-
-    def create_check(self, event:GroupMessageEvent):
-        """
-        检查是否可以根据event创建游戏
+        检查是否可以根据event创建对战场次
             如果不能创建则返回提示
             如果可以创建则返回None
         """
         overtime = time.time() - self.time
         if overtime > 60:
-            return None
+            return
         user_id = event.user_id
-        if player1_id := self.player1_id:
-            if player1_id == user_id:
-                if not self.player2_id:
-                    return None
-                else:
-                    return "你已发起了一场对决"
-            if player2_id := self.player2_id:
-                if player2_id == user_id:
-                    return "你正在进行一场对决"
-                else:
-                    player1_name = user_data[player1_id].group_accounts[event.group_id].nickname
-                    player2_name = user_data[player2_id].group_accounts[event.group_id].nickname
-                    return f"{player1_name} 与 {player2_name} 的对决还未结束！"
-            else:
-                if overtime > 30:
-                    return None
-                else:
-                    return f'现在是 {user_data[player1_id].group_accounts[event.group_id].nickname} 发起的对决，请等待比赛结束后再开始下一轮...'
-
-    def try_create_game(self, event:GroupMessageEvent):
-        """
-        根据event创建游戏
-        如果创建失败则返回提示
-        如果创建成功则返回None
-        """
-        if msg := self.create_check(event):
-            return msg
+        p1_uid = self.p1_uid
+        p2_uid = self.p2_uid
+        if not p1_uid:
+            return
+        if p1_uid == user_id:
+            if not p2_uid:
+                return
+            return "你已发起了一场对决"
+        if not p2_uid:
+            if overtime > 30:
+                return
+            return f'现在是 {self.p1_nickname} 发起的对决，请等待比赛结束后再开始下一轮...'
+        if p2_uid == user_id:
+            return "你正在进行一场对决"
         else:
-            self.create(event)
+            return f"{self.p1_nickname} 与 {self.p2_nickname} 的对决还未结束！"
 
-    def try_join_game(self, event:GroupMessageEvent):
+    def try_join_game(self, event:Event):
         """
         根据event加入游戏
             如果加入失败则返回提示
@@ -107,13 +86,14 @@ class Session(BaseModel):
         if time.time() - self.time > 60:
             return "这场对决邀请已经过时了，请重新发起决斗..."
         user_id = event.user_id
-        if self.player1_id and self.player1_id != user_id and not self.next:
+        if self.p1_uid and self.p1_uid != user_id and not self.next:
             if not self.at or self.at == user_id: 
                 self.time = time.time()
-                self.player2_id = user_id
+                self.p2_uid = user_id
+                self.p2_nickname = event.nickname
                 return None
             else:
-                return f'现在是 {user_data[self.player1_id].group_accounts[event.group_id].nickname} 发起的对决，请等待比赛结束后再开始下一轮...'
+                return f'现在是 {self.p1_nickname} 发起的对决，请等待比赛结束后再开始下一轮...'
         else:
             return " "
 
@@ -122,7 +102,7 @@ class Session(BaseModel):
         玩家2离开游戏
         """
         self.time = time.time()
-        self.player2_id = None
+        self.p2_uid = None
         return None
 
     def nextround(self):
@@ -131,9 +111,9 @@ class Session(BaseModel):
         """
         self.time = time.time()
         self.round += 1
-        self.next = self.player1_id if self.next == self.player2_id else self.player2_id
+        self.next = self.p1_uid if self.next == self.p2_uid else self.p2_uid
 
-    def shot_check(self, user_id:int):
+    def shot_check(self, user_id:str):
         """
         开枪前检查游戏是否合法
         如果不合法则返回提示
@@ -141,165 +121,162 @@ class Session(BaseModel):
         """
         if time.time() - self.time > 60:
             return "这场对决邀请已经过时了，请重新发起决斗..."
-        if not self.player1_id:
+        if not self.p1_uid:
             return " "
-        if not self.player2_id:
-            if self.player1_id == user_id:
+        if not self.p2_uid:
+            if self.p1_uid == user_id:
                 return "目前无人接受挑战哦"
             else:
                 return "请这位勇士先接受挑战"
-        if user_id == self.player1_id or user_id == self.player2_id:
+        if user_id == self.p1_uid or user_id == self.p2_uid:
             if user_id == self.next:
                 return None
             else:
-                return f"现在是{user_data[self.next].group_accounts[self.group_id].nickname}的回合"
+                return f"现在是{self.p1_nickname if self.next == self.p1_uid else self.p2_nickname}的回合"
         else:
-            player1_name = user_data[self.player1_id].group_accounts[self.group_id].nickname
-            player2_name = user_data[self.player2_id].group_accounts[self.group_id].nickname
-            return f"{player1_name} v.s. {player2_name}\n正在进行中..."
+            return f"{self.p1_nickname} v.s. {self.p2_nickname}\n正在进行中..."
 
-class Game(ABC):
+class AROF(ABC):
+    @abstractmethod
+    def start(cls, event:Event) -> Result:
+        """开始"""        
+    @abstractmethod
+    def start_tips(self,msg):
+        """游戏开始的提示"""
+    def accept(self,*args):
+        """接受挑战"""
+    def refuse(self,*args):
+        """拒绝挑战"""
+    def overtime(self,*args):
+        """超时结算"""
+    def fold(self,*args):
+        """认输"""
+    def session_start(self,*args):
+        """回合开始"""
+    def session_end(self,*args):
+        """回合结束"""
+    def session_action(self,*args):
+        """行动"""
+
+class Game(AROF):
     """
     对战游戏类：
     需要定义的方法：
         action：游戏进行
-        game_tips：游戏开始的提示
+        start_tips：游戏开始提示信息
         session_tips：场次提示信息
-        end_tips：结束附件
+        end_tips：结束提示信息
     """
     name:str = "undefined"
     max_bet_gold:int = max_bet_gold
 
-    def __init__(self):
+    def __init__(self,kwargs):
         self.gold:int = 0
-        self.session:Session = Session()
+        self.session:Session = Session(kwargs)
 
     @staticmethod
-    def parse_arg(arg:str):
-        if arg.isdigit():
-            gold = int(arg)
-        else:
-            gold = bet_gold
-        return {"gold":gold}
-
+    def parse_arg(event:Event) -> dict:
+        return {
+            "at":at[0] if (at := event.at()) else None,
+            "gold":event.args_to_int(bet_gold),
+            "group_id":event.group_id,
+            "p1_uid":event.user_id 
+            }
+    
     @classmethod
-    def creat(cls, event:GroupMessageEvent, **kwargs):
+    def start(cls, event:Event) -> Result:
         """
-        发起游戏
+        开始游戏，包含创建检查
         """
-        flag, msg = cls.start(event, **kwargs)
-        if flag == False:
+        kwargs = cls.parse_arg(event)
+        gold = kwargs["gold"]
+        limit = cls.max_bet_gold
+        if gold > limit:
+            return f"对战金币不能超过{limit}"
+        user,group_account = Manager.locate_user(event)
+        if gold > group_account.gold:
+            return f"你没有足够的金币支撑这场对决。\n——你还有{group_account.gold}枚金币。"
+        kwargs["p1_nickname"] = group_account.nickname
+        group_id = event.group_id
+        game = current_games.get(group_id)
+        if game and (msg := game.session.create_check(event)):
             return msg
-        return current_games[event.group_id].game_tips(msg)
+        game = current_games[group_id] = cls(kwargs)
+        session = game.session
+        if session.at:
+            p2_nickname = session.p2_nickname or f"玩家{session.p2_uid[:4]}..."
+            msg = (
+                f"{session.p1_nickname} 向 {p2_nickname} 发起挑战！\n"
+                f"请 {p2_nickname} 回复 接受挑战 or 拒绝挑战\n"
+                "【30秒内有效】"
+                )
+        else:
+            msg = (
+                f"{session.p1_nickname} 发起挑战！\n"
+                "回复 接受挑战 即可开始对局。\n"
+                "【30秒内有效】"
+                )
+        user.connect = group_id
+        session.round = 1
+        return game.start_tips(msg)
 
-    @abstractmethod
-    def game_tips(self, msg):
-        """
-        游戏开始的提示
-        """
-
-    @abstractmethod
-    async def action(self, bot:Bot, user_id:int):
-        """
-        游戏进行
-        """
-        
-    def create_check(self):
-        overtime = time.time() - self.session.time
-        if overtime > 60:
-            return None
-        return f"一场游戏正在进行中，遇到问题可以{f'在{t}秒后' if (t := int(180 - overtime)) > 0 else ''}输入【游戏重置】重置游戏"
-
-    async def play(self, bot:Bot, user_id:int, *args):
-        try:
-            return await self.action(bot, user_id, *args)
-        except GameOverException:
-            pass
-
-    def accept(self, event:GroupMessageEvent):
-        """
-        接受挑战
-        """
+    def accept(self, event:Event) -> Result:
+        """接受挑战"""
         session = self.session
         group_id = session.group_id
         if msg := session.try_join_game(event):
             return None if msg == " " else msg
         user,group_account = Manager.locate_user(event)
-        if group_account.gold <  session.gold:
+        if group_account.gold < session.gold:
             session.leave()
-            return Message(MessageSegment.at(event.user_id) + f"你的金币不足以接受这场对决！\n——你还有{group_account.gold}枚金币。")
+            return f"你的金币不足以接受这场对决！\n——你还有{group_account.gold}枚金币。"
         user.connect = group_id
-        bet_limit = min(
-            user_data[session.player1_id].group_accounts[group_id].gold,
-            user_data[session.player2_id].group_accounts[group_id].gold)
-        bet_limit = bet_limit if bet_limit > 0 else 0
+        bet_limit = min(Manager.locate_user_at(session.p1_uid,group_id)[1].gold,group_account.gold)
+        bet_limit = 0 if bet_limit < 0 else bet_limit
         if session.gold == -1:
             session.gold = random.randint(0, bet_limit)
             self.gold = session.gold
         session.bet_limit = bet_limit
-        session.next = session.player1_id
+        session.next = session.p1_uid
         return self.session_tips()
 
-    @abstractmethod
-    def session_tips(self):
-        """
-        场次提示信息
-        """
-
-    def acceptmessage(self, tip1, tip2):
-        """
-        合成接受挑战的提示信息
-        """
-        session = self.session
-        return Message(
-            f"{MessageSegment.at(session.player2_id)}接受了对决！\n" +
-            tip1 +
-            f"赌注为 {session.gold} 金币\n" +
-            f"请{MessageSegment.at(session.player1_id)}{tip2}"
-            )
-
     def refuse(self, user_id:int):
-        """
-        拒绝挑战
-        """
+        """拒绝挑战"""
         session = self.session
         group_id = session.group_id
         if time.time() - session.time > 60:
             del current_games[group_id]
-        if session.at == user_id:
-            if session.player2_id:
-                return "对决已开始，拒绝失败。"
+        if session.at != user_id:
+            return
+        if session.p2_uid:
+            return "对决已开始，拒绝失败。"
+        else:
+            del current_games[group_id]
+            return "拒绝成功，对决已结束。"
+
+    def overtime(self):
+        """超时结算"""
+        session = self.session
+        if (time.time() - session.time > 30 and session.p1_uid and session.p2_uid):
+            try:
+                self.end()
+            except GameOverException as e:
+                return e.result
+
+    def fold(self, user_id:str):
+        """认输"""
+        session = self.session
+        if session.p1_uid and session.p2_uid:
+            if user_id == session.p1_uid:
+                session.win = session.p2_uid
+            elif user_id == session.p2_uid:
+                session.win = session.p1_uid
             else:
-                del current_games[group_id]
-                return "拒绝成功，对决已结束。"
-
-    async def overtime(self, bot:Bot):
-        """
-        超时结算
-        """
-        session = self.session
-        if (time.time() - session.time > 30 and
-            session.player1_id and
-            session.player2_id):
+                return
             try:
-                await self.end(bot)
-            except GameOverException:
-                pass
-
-    async def fold(self, bot:Bot, user_id:int):
-        """
-        认输
-        """
-        session = self.session
-        if (time.time() - session.time < 60 and
-            session.player1_id and
-            session.player2_id and
-            user_id == session.player1_id or user_id == session.player2_id):
-            session.win = session.player1_id if user_id == session.player2_id else session.player2_id
-            try:
-                await self.end(bot)
-            except GameOverException:
-                pass
+                self.end()
+            except GameOverException as e:
+                return e.result
 
     def restart(self):
         """
@@ -313,45 +290,27 @@ class Game(ABC):
         del current_games[group_id]
         return "游戏已重置。"
 
-    @classmethod
-    def start(cls, event:GroupMessageEvent, **kwargs) -> Tuple[bool,Message]:
-        """
-        发起游戏
-        """
-        gold = kwargs["gold"]
-        limit = cls.max_bet_gold
-        if gold > limit:
-            return  False, Message(MessageSegment.at(event.user_id) + f"对战金额不能超过{limit}")
-        user,group_account = Manager.locate_user(event)
-        if gold > group_account.gold:
-            return  False, Message(MessageSegment.at(event.user_id) + f"你没有足够的金币支撑这场对决。\n——你还有{group_account.gold}枚金币。")
-        group_id = event.group_id
-        if group_id in current_games:
-            game = current_games[group_id]
-            if msg := game.session.create_check(event):
-                return False, msg
+    @abstractmethod
+    def start_tips(self, msg):
+        """游戏开始的提示"""
+        
+    @abstractmethod
+    def action(self, event:Event):
+        """游戏进行"""
 
-        game = current_games[group_id] = cls(**kwargs)
-        session = game.session
-        session.create(event)
-        assert session is current_games[group_id].session
-        if at := session.at:
-            if at not in group_data[group_id].namelist:
-                del current_games[group_id]
-                return False, "没有对方的注册信息。"
-            player1_name = user_data[session.player1_id].group_accounts[event.group_id].nickname
-            player2_name = user_data[at].group_accounts[event.group_id].nickname
-            msg = (f"{player1_name} 向 {player2_name} 发起挑战！\n"
-                   f"请 {player2_name} 回复 接受挑战 or 拒绝挑战\n"
-                   "【30秒内有效】")
-        else:
-            player1_name = user_data[session.player1_id].group_accounts[event.group_id].nickname
-            msg = (f"{player1_name} 发起挑战！\n"
-                   "回复 接受挑战 即可开始对局。\n"
-                   "【30秒内有效】")
-        user.connect = group_id
-        session.round = 1
-        return True, msg
+    @abstractmethod
+    def session_tips(self):
+        """场次提示信息"""
+
+    def accept_tips(self, tip1, tip2):
+        """
+        合成接受挑战的提示信息
+        """
+        return (
+            f"{self.session.p2_nickname}接受了对决！\n{tip1}" + 
+            (f"对战金额为 {self.session.gold} 金币\n" if self.session.gold else "") + 
+            f"请{self.session.p1_nickname}{tip2}"
+            )
 
     def settle(self):
         """
@@ -360,39 +319,32 @@ class Game(ABC):
         """
         session = self.session
         group_id = session.group_id
-        win = session.win if session.win else session.player1_id if session.next == session.player2_id else session.player2_id
-        winner = user_data[win]
-        winner_group_account = winner.group_accounts[group_id]
-
-        lose = session.player1_id if session.player2_id == win else session.player2_id
-        loser = user_data[lose]
-        loser_group_account = loser.group_accounts[group_id]
-
+        win = session.win if session.win else session.p1_uid if session.next == session.p2_uid else session.p2_uid
+        winner,winner_group_account = Manager.locate_user_at(win,group_id)
+        lose = session.p1_uid if session.p2_uid == win else session.p2_uid
+        loser,loser_group_account = Manager.locate_user_at(lose,group_id)
         gold = session.gold
-
         if winner_group_account.props.get("42001",0) > 0:
             fee = 0
-            fee_tip = f"『{props_library['42001']['name']}』免手续费"
+            fee_tip = f'『{Prop.get_prop_name("42001")}』免手续费'
         else:
             rand = random.randint(0, 5)
             fee = int(gold * rand / 100)
-            group_data[group_id].company.bank += fee
+            Manager.locate_group(group_id).company.bank += fee
             fee_tip = f"手续费：{fee}({rand}%)"
-
         maxgold = int(max_bet_gold/5)
-
         if winner_group_account.props.get("52002",0) > 0:
             extra = int(gold *0.1)
             if extra < maxgold:
-                extra_tip = f"◆『{props_library['52002']['name']}』\n"
+                extra_tip = f'◆『{Prop.get_prop_name("52002")}』\n'
             else:
                 extra = maxgold
-                extra_tip = f"◆『{props_library['52002']['name']}』最大奖励\n"
+                extra_tip = f'◆『{Prop.get_prop_name("52002")}』最大奖励\n'
         else:
             extra_tip = ""
             extra = 0
 
-        if gold == loser_group_account.gold and loser_group_account.security:
+        if gold >= loser_group_account.gold and loser_group_account.security:
             loser_group_account.security -= 1
             security = random.randint(security_gold[0], security_gold[1])
             security_tip = f"◇『金币补贴』(+{security})\n"
@@ -403,10 +355,10 @@ class Game(ABC):
         if loser_group_account.props.get("52001",0) > 0:
             off = int(gold * 0.1)
             if off < maxgold:
-                off_tip = f"◇『{props_library['52001']['name']}』\n"
+                off_tip = f'◇『{Prop.get_prop_name("52001")}』\n'
             else:
                 off = maxgold
-                off_tip = f"◇『{props_library['52001']['name']}』最大补贴\n"
+                off_tip = f'◇『{Prop.get_prop_name("52001")}』最大补贴\n'
         else:
             off = 0
             off_tip = ""
@@ -447,28 +399,29 @@ class Game(ABC):
         loser_group_account.gold -= lose_gold - security
 
         del current_games[group_id]
-        return f"这场对决是 {winner_group_account.nickname} 胜利了", msg, self.end_tips()
+        return f"这场对决是 {winner_group_account.nickname} 胜利了", linecard_to_png(msg, width = 880), self.end_tips()
 
     @abstractmethod
     def end_tips(self):
-        """
-        结束附件
-        """
+        """结束附件"""
 
-    async def end(self, bot:Bot):
-        """
-        输出结算界面
-        """
-        group_id = self.session.group_id
-        result = self.settle()
-        await bot.send_group_msg(group_id = group_id, message = result[0])
-        await bot.send_group_msg(group_id = group_id, message = MessageSegment.image(linecard_to_png(result[1], width = 880)))
-        if result[2]:
-            await asyncio.sleep(0.5)
-            await bot.send_group_msg(group_id = group_id, message = result[2])
-        raise GameOverException
-
-current_games:Dict[int,Game] = {}
+    def end(self,result:Result = None):
+        """输出结算界面"""
+        settle = self.settle()
+        async def output():
+            if result:
+                if isinstance(result,(str,BytesIO,list)):
+                    yield result                    
+                else:                    
+                    async for i in result():
+                        if i:
+                            yield i
+                await asyncio.sleep(1)
+            for i in settle:
+                if i :
+                    yield i
+                    await asyncio.sleep(1)
+        raise GameOverException(output)
 
 class Russian(Game):
     """
@@ -477,39 +430,41 @@ class Russian(Game):
     name = "Russian"
     max_bet_gold:int = max_bet_gold
 
-    def __init__(self, **kwargs):
-        super().__init__()
+    def __init__(self,kwargs):
+        super().__init__(kwargs)
         gold = kwargs["gold"]
         bullet_num = kwargs.get("bullet_num",1)
         self.gold:int = gold
         self.bullet_num:int = bullet_num
         self.bullet:list = self.random_bullet(bullet_num)
         self.index:int = 0
-        self.session.gold = gold
 
     @staticmethod
-    def parse_arg(arg:str):
+    def parse_arg(event:Event) -> dict:
+        kwargs = Game.parse_arg(event)
+        args = event.args
         gold = bet_gold
-        bullet_num = 1
-        if arg:
-            arg = arg.split()
-            if len(arg) == 1:
-                arg = arg[0]
-                if arg.isdigit():
-                    if 0 < (tmp := int(arg)) < 7:
-                        bullet_num = tmp
-                    else:
-                        gold = tmp
-            else:
-                if arg[0].isdigit():
-                    if 0 < (tmp := int(arg[0])) < 7:
-                        bullet_num = tmp
-                        if arg[1].isdigit():
-                            gold = int(arg[1])
-                    else:
-                        gold = tmp
-
-        return {"gold":gold,"bullet_num":bullet_num}
+        bullet_num = 1        
+        if not args:
+            pass
+        elif len(args) == 1:
+            if args[0].isdigit():
+                if 0 < (tmp := int(args[0])) < 7:
+                    bullet_num = tmp
+                else:
+                    gold = tmp
+        else:
+            if args[0].isdigit():
+                if 0 < (tmp := int(args[0])) < 7:
+                    bullet_num = tmp
+                    if args[1].isdigit():
+                        gold = int(args[1])
+                else:
+                    gold = tmp
+                    
+        kwargs["gold"] = gold
+        kwargs["bullet_num"] = bullet_num
+        return kwargs
 
     @staticmethod
     def random_bullet(bullet_num:int):
@@ -522,53 +477,61 @@ class Russian(Game):
             bullet_lst[i] = 1
         return bullet_lst
 
-    async def action(self, bot:Bot, user_id:int, *args):
+    def action(self, event:Event):
         """
         开枪！！！
         """
+        user_id = event.user_id
         session = self.session
         if msg := session.shot_check(user_id):
             return None if msg == " " else msg
-        group_id = session.group_id
 
         index = self.index
         MAG = self.bullet[index:]
-        count = args[0] if args[0] else 1
+        count = event.args_to_int(1)
         count = len(MAG) if count < 1 else count
 
         msg = f"连开{count}枪！\n" if count > 1 else ""
 
         if 1 in MAG[:count]:
-            session.win = session.player1_id if user_id == session.player2_id else session.player2_id
-            await bot.send_group_msg(group_id = group_id, message = (
-                MessageSegment.at(user_id) + msg +
-                random.choice(["嘭！，你直接去世了","眼前一黑，你直接穿越到了异世界...(死亡)","终究还是你先走一步..."]) +
+            session.win = session.p1_uid if user_id == session.p2_uid else session.p2_uid
+            result =(
+                msg + random.choice(["嘭！，你直接去世了","眼前一黑，你直接穿越到了异世界...(死亡)","终究还是你先走一步..."])+
                 f"\n第 {index + MAG.index(1) + 1} 发子弹送走了你..."
-                ))
-            await self.end(bot)
+                )
+            self.end(result)
         else:
             session.nextround()
             self.index += count
-            next_name = user_data[session.next].group_accounts[group_id].nickname
-            await bot.send_group_msg(group_id = group_id, message = (
-                random.choice(["呼呼，没有爆裂的声响，你活了下来","虽然黑洞洞的枪口很恐怖，但好在没有子弹射出来，你活下来了",f'{"咔 "*count}，看来运气不错，你活了下来']) +
-                f"\n下一枪中弹的概率：{round(self.bullet_num * 100 / (len(MAG) - count),2)}%\n"
-                f"轮到 {next_name}了"
-                ))
+            next_name = session.p1_nickname if session.next == session.p1_uid else session.p2_nickname
+            residual = len(MAG) - count
+            if residual == 1:
+                residual = len(self.bullet)
+                tip = "\n重新拨动滚轮！" + tip
+                self.bullet  = self.random_bullet(1)
+                self.index = 0
+            tip = f"\n下一枪中弹的概率：{round(self.bullet_num * 100 / residual,2)}%\n"                    
+            result = (
+                random.choice(["呼呼，没有爆裂的声响，你活了下来",
+                               "虽然黑洞洞的枪口很恐怖，但好在没有子弹射出来，你活下来了",
+                               f'{"咔 "*count}，看来运气不错，你活了下来']) + tip +f"轮到 {next_name}了")
+            return result
 
-    def game_tips(self, msg):
+    def start_tips(self, msg):
         """
         发起游戏：俄罗斯轮盘
         """
-        return (("咔 " * self.bullet_num)[:-1] + "，装填完毕\n"
-                f'挑战金额：{self.gold}\n'
-                f'第一枪的概率为：{round(self.bullet_num * 100 / 7,2)}%\n'
-                f'{msg}')
+        return (
+            ("咔 " * self.bullet_num)[:-1] + "，装填完毕\n" +
+            (f'本场金币：{self.gold}\n' if self.gold else "") +
+            f'第一枪的概率为：{round(self.bullet_num * 100 / 7,2)}%\n'
+            f'{msg}'
+            )
 
     def session_tips(self):
         tip1 = "本场对决为【俄罗斯轮盘】\n"
         tip2 = "开枪！"
-        return self.acceptmessage(tip1, tip2);
+        return self.accept_tips(tip1, tip2);
 
     def end_tips(self):
         return " ".join(("—" if x == 0 else "|") for x in self.bullet)
@@ -580,13 +543,12 @@ class Dice(Game):
     name = "Dice"
     max_bet_gold:int = max_bet_gold
 
-    def __init__(self, **kwargs):
-        super().__init__()
+    def __init__(self, kwargs):
+        super().__init__(kwargs)
         gold = kwargs["gold"]
         self.gold:int = gold
         self.dice_array1:list = [random.randint(1,6) for i in range(5)]
         self.dice_array2:list = [random.randint(1,6) for i in range(5)]
-        self.session.gold = gold
 
     @staticmethod
     def dice_pt(dice_array:list) -> int:
@@ -641,20 +603,20 @@ class Dice(Game):
         lst_dict = {0:"〇",1:"１",2:"２",3:"３",4:"４",5:"５",6:"６",7:"７",8:"８",9:"９"}
         return " ".join(lst_dict[x] for x in dice_array)
 
-    async def action(self, bot:Bot, user_id:int, *args):
+    def action(self, event:Event):
         """
         开数！！！
         """
+        user_id = event.user_id
         session = self.session
         if msg := session.shot_check(user_id):
             return None if msg == " " else msg
-        group_id = session.group_id
 
         session.gold += self.gold
         session.gold = min(session.gold, session.bet_limit)
 
-        player1_id = session.player1_id
-        player2_id = session.player2_id
+        player1_id = session.p1_uid
+        player2_id = session.p2_uid
 
         dice_array1 = (self.dice_array1[:int(session.round/2+0.5)] + [0, 0, 0, 0, 0])[:5]
         dice_array2 = (self.dice_array2[:int(session.round/2)] + [0, 0, 0, 0, 0])[:5]
@@ -667,37 +629,42 @@ class Dice(Game):
 
         session.win = player1_id if pt1 > pt2 else player2_id
         session.nextround()
-
-        next_name = "结算" if session.round > 10 else user_data[session.next].group_accounts[group_id].nickname
+        
+        next_name = session.p1_nickname if session.next == session.p1_uid else session.p2_nickname
+        next_name = "结算" if session.round > 10 else next_name
         msg = (
-            f'玩家：{user_data[player1_id].group_accounts[group_id].nickname}\n'
+            f'玩家：{session.p1_nickname}\n'
             f"组合：{self.dice_list(dice_array1)}\n"
             f"点数：{self.dice_pt_analyses(pt1)}\n"
             "----\n"
-            f'玩家：{user_data[player2_id].group_accounts[group_id].nickname}\n'
+            f'玩家：{session.p2_nickname}\n'
             f"组合：{self.dice_list(dice_array2)}\n"
             f"点数：{self.dice_pt_analyses(pt2)}\n"
-            "----\n"
-            f"结算金额：{session.gold}\n"
-            f'领先：{user_data[session.win].group_accounts[group_id].nickname}\n'
+            "----\n" +
+            (f"结算金额：{session.gold}\n" if session.gold else "") +
+            f'领先：{session.p1_nickname if session.win == session.p1_uid else session.p2_nickname}\n'
             f'下一回合：{next_name}'
             )
-        await bot.send_group_msg(group_id = group_id, message = MessageSegment.image(linecard_to_png(msg, width = 700)))
+        msg = linecard_to_png(msg, width = 700)
         if session.round > 10:
-            await self.end(bot)
+            self.end(msg)
+        else:
+            return msg
 
-    def game_tips(self, msg):
+    def start_tips(self, msg):
         """
         发起游戏：掷色子
         """
-        return ("哗啦哗啦~，骰子准备完毕\n"
-                f'挑战金额：{self.gold}/次\n'
-                f'{msg}')
+        return (
+            "哗啦哗啦~，骰子准备完毕\n" +
+            (f'本场金币：{self.gold}/次\n' if self.gold else "") +
+            f'{msg}'
+            )
 
     def session_tips(self):
         tip1 = "本场对决为【掷色子】\n"
         tip2 = "开数！"
-        return self.acceptmessage(tip1, tip2);
+        return self.accept_tips(tip1, tip2);
 
     def end_tips(self):
         return (
@@ -708,13 +675,13 @@ class Dice(Game):
 
 class Poker(Game):
     """
-    扑克对战
+    卡牌对战
     """
     name = "Poker"
     max_bet_gold:int = max_bet_gold *5
 
-    def __init__(self, **kwargs):
-        super().__init__()
+    def __init__(self, kwargs):
+        super().__init__(kwargs)
         gold = kwargs["gold"]
         deck = self.random_poker(2)
         hand = deck[0:3].copy()
@@ -724,7 +691,6 @@ class Poker(Game):
         self.ACT:int = 1
         self.P1:dict = {"hand":hand,"HP":20,"ATK":0,"DEF":0,"SP":0}
         self.P2:dict = {"hand":[],"HP":25,"ATK":0,"DEF":0,"SP":2}
-        self.session.gold = gold
 
     @staticmethod
     def random_poker(n:int = 1):
@@ -836,44 +802,40 @@ class Poker(Game):
             Player["SP"] = 0 if Player["SP"] < 0 else Player["SP"]
             return msg
 
-    async def action(self, bot:Bot, user_id:int, *args):
+    def action(self, event:Event):
         """
         出牌
         """
-        session = self.session
         if self.ACT == 0:
-            return
+            return        
+        user_id = event.user_id
+        session = self.session
         if msg := session.shot_check(user_id):
             return None if msg == " " else msg
-        if not 1<= (index := args[0]) <= 3:
+        if not 1<= (index := event.args_to_int(0)) <= 3:
             return "请发送【出牌 1/2/3】打出你的手牌。"
-        group_id = session.group_id
-
         self.ACT = 0
         session.nextround()
         deck = self.deck
-        if user_id == session.player1_id:
+        if user_id == session.p1_uid:
             Active = self.P1
             Passive = self.P2
         else:
             Active = self.P2
             Passive = self.P1
-        
+            
+        result_list = []
         # 出牌判定
-        msg = self.pokerACT.action(index - 1,Active)
-        try:
-            await bot.send_group_msg(group_id = group_id, message = MessageSegment.at(user_id) + msg)
-        except:
-            try:
-                await bot.send_group_msg(group_id = group_id, message = MessageSegment.at(user_id) + MessageSegment.image(linecard_to_png(msg,font_size = 30)))
-            except:
-                pass
+        result_list.append(self.pokerACT.action(index - 1,Active))
 
-        await asyncio.sleep(0.03*len(msg))
+
+        # await asyncio.sleep()
 
         # 敌方技能判定
-        next_name = user_data[session.next].group_accounts[group_id].nickname
-        if Passive["SP"] > 0:
+        next_name = session.p1_nickname if session.next == session.p1_uid else session.p2_nickname
+        if Passive["SP"] < 1:
+            msg = None
+        else:
             roll = random.randint(1,20)
             if  Passive["SP"] < roll:
                 msg = f'{next_name} 二十面骰判定为{roll}点，当前技能点{Passive["SP"]}\n技能发动失败...'
@@ -881,14 +843,9 @@ class Poker(Game):
                 msg = f'{next_name} 二十面骰判定为{roll}点，当前技能点{Passive["SP"]}\n技能发动成功！\n'
                 msg += self.pokerACT.skill(deck[0], Passive)
                 del deck[0]
-
-            try:
-                await bot.send_group_msg(group_id = group_id, message = msg)
-            except:
-                try:
-                    await bot.send_group_msg(group_id = group_id, message = MessageSegment.image(linecard_to_png(msg,font_size = 30)))
-                except:
-                    pass
+         
+                
+        result_list.append(msg)
 
         # 回合结算
         Active["HP"] += Active["DEF"] - Active["ATK"] if Active["DEF"] < Passive["ATK"] else 0
@@ -908,11 +865,11 @@ class Poker(Game):
         next_name = "游戏结束" if Active["HP"] < 1 or Passive["HP"] < 1 or Passive["HP"] >= 40 or [0,0] in hand else next_name
 
         msg = (
-            f'玩家：{user_data[session.player1_id].group_accounts[group_id].nickname}\n'
+            f'玩家：{session.p1_nickname}\n'
             "状态：\n"
             f'HP {self.P1["HP"]} SP {self.P1["SP"]} DEF {self.P1["DEF"]}\n'
             "----\n"
-            f'玩家：{user_data[session.player2_id].group_accounts[group_id].nickname}\n'
+            f'玩家：{session.p2_nickname}\n'
             "状态：\n"
             f'HP {self.P2["HP"]} SP {self.P2["SP"]} DEF {self.P2["DEF"]}\n'
             "----\n"
@@ -920,28 +877,37 @@ class Poker(Game):
             "手牌：\n[center]" + 
             "".join(f'【{self.pokerACT.suit[suit]}{self.pokerACT.point[point]}】' for suit, point in Passive["hand"])
             )
-        await asyncio.sleep(0.5)
-        await bot.send_group_msg(group_id = group_id, message = MessageSegment.image(linecard_to_png(msg, width = 880)))
-
+        result_list.append(linecard_to_png(msg, width = 880))
+        async def result():
+            yield result_list[0]
+            await asyncio.sleep(0.03*len(result_list[0]))
+            if result_list[1]:
+                yield result_list[1]
+                await asyncio.sleep(1)
+            yield result_list[2]
+            
         if next_name == "游戏结束":
             Passive["HP"] = Passive["HP"] + 100 if Passive["HP"] >= 40 else Passive["HP"]
-            session.win = session.player1_id if self.P1["HP"] > self.P2["HP"] else session.player2_id
-            await self.end(bot)
+            session.win = session.p1_uid if self.P1["HP"] > self.P2["HP"] else session.p2_uid
+            self.end(result)
         else:
             self.ACT = 1
+            return result
 
-    def game_tips(self, msg):
+    def start_tips(self, msg):
         """
-        发起游戏：扑克对战
+        发起游戏：卡牌对战
         """
-        return ("唰唰~，随机牌堆已生成\n"
-                f'挑战金额：{self.gold}\n'
-                f'{msg}')
+        return (
+            "唰唰~，随机牌堆已生成\n" +
+            (f'本场金币：{self.gold}\n' if self.gold else "") +
+            f'{msg}'
+            )
 
     def session_tips(self):
         tip1 = "本场对决为【扑克对战】\n"
         tip2 = "出牌！\n"
-        tip2 += MessageSegment.image(linecard_to_png((
+        tip3 = linecard_to_png((
             "P1初始状态\n"
             f'HP {self.P1["HP"]} SP {self.P1["SP"]} DEF {self.P1["DEF"]}\n'
             "----\n"
@@ -950,11 +916,11 @@ class Poker(Game):
             "----\n"
             "P1初始手牌\n[center]" + 
             "".join(f'【{self.pokerACT.suit[suit]}{self.pokerACT.point[point]}】' for suit, point in self.P1["hand"])
-            ), width = 880))
-        return self.acceptmessage(tip1, tip2);
+            ), width = 880)
+        return [self.accept_tips(tip1, tip2),tip3];
 
     def end_tips(self):
-        return "" 
+        return 
 
 class LuckyNumber(Game):
     """
@@ -963,25 +929,23 @@ class LuckyNumber(Game):
     name = "LuckyNumber"
     max_bet_gold:int = max_bet_gold
 
-    def __init__(self, **kwargs):
-        super().__init__()
+    def __init__(self, kwargs):
+        super().__init__(kwargs)
         gold = kwargs["gold"]
         self.gold:int = gold
         self.number:int = random.randint(1,100)
-        self.session.gold = gold
 
     @staticmethod
-    def parse_arg(arg:str):
-        if arg.isdigit():
-            gold = int(arg)
-        else:
-            gold = int(bet_gold/10)
-        return {"gold":gold}
+    def parse_arg(event:Event) -> dict:
+        kwargs = Game.parse_arg(event)
+        kwargs["gold"] = event.args_to_int(int(bet_gold/10))
+        return kwargs
 
-    async def action(self, bot:Bot, user_id:int, *args):
+    def action(self, event:Event):
         """
         猜数字
         """
+        user_id = event.user_id
         session = self.session
         if msg := session.shot_check(user_id):
             return None if msg == " " else msg
@@ -990,35 +954,38 @@ class LuckyNumber(Game):
         session.gold = min(session.gold, session.bet_limit)
         session.nextround()
 
-        N = args[0]
+        N = int(event.raw_command)
         TrueN = self.number
 
         if N == TrueN:
             session.win = user_id
-            await self.end(bot)
+            self.end()
         else:
             if N > TrueN:
-                msg = f"{N}比这个数字大\n金额：{session.gold}"
+                msg = f"{N}比这个数字大"
             else:
-                msg = f"{N}比这个数字小\n金额：{session.gold}"
-            await bot.send_group_msg(group_id = session.group_id, message = msg)
+                msg = f"{N}比这个数字小"
+            if session.gold:
+                msg += f"\n金额：{session.gold}"
+            return msg
 
-
-    def game_tips(self, msg):
+    def start_tips(self, msg):
         """
         发起游戏：猜数字
         """
-        return (f"随机 1-100 数字已生成。"
-                f"挑战金额：{self.gold}/次\n"
-                f"{msg}")
+        return (
+            "随机 1-100 数字已生成。\n" +
+            (f'本场金币：{self.gold}/次\n' if self.gold else "") +
+            f"{msg}"
+            )
 
     def session_tips(self):
         tip1 = "本场对决为【猜数字】\n"
         tip2 = "发送数字"
-        return self.acceptmessage(tip1, tip2);
+        return self.accept_tips(tip1, tip2)
 
     def end_tips(self):
-        return "" 
+        return 
 
 class Cantrell(Game):
     """
@@ -1030,8 +997,8 @@ class Cantrell(Game):
     cantrell_suit = {4:"♠",3:"♥",2:"♣",1:"♦"}
     cantrell_point = {1:"2",2:"3",3:"4",4:"5",5:"6",6:"7",7:"8",8:"9",9:"10",10:"J",11:"Q",12:"K",13:"A"}
 
-    def __init__(self, **kwargs):
-        super().__init__()
+    def __init__(self, kwargs):
+        super().__init__(kwargs)
         gold = kwargs["gold"]
         level = kwargs.get("level",1)
         level = 1 if level < 1 else level
@@ -1053,31 +1020,33 @@ class Cantrell(Game):
         self.pt1:Tuple[int,str] = pt1
         self.hand2:list = hand2
         self.pt2:Tuple[int,str] = pt2
-        self.session.gold = gold
 
     @staticmethod
-    def parse_arg(arg:str):
-        gold = bet_gold
+    def parse_arg(event:Event) -> dict:
+        kwargs = Game.parse_arg(event)
+        gold = kwargs["gold"]
         level = 1
-        if arg:
-            arg = arg.split()
-            if len(arg) == 1:
-                arg = arg[0]
-                if arg.isdigit():
-                    if 0 < (tmp := int(arg)) <= 5:
+        args = event.args
+        if args:
+            if len(args) == 1:
+                if args[0].isdigit():
+                    if 0 < (tmp := int(args[0])) <= 5:
                         level = tmp
                     else:
                         gold = tmp
             else:
-                if arg[0].isdigit():
-                    if 0 < (tmp := int(arg[0])) <= 5:
+                if args[0].isdigit():
+                    if 0 < (tmp := int(args[0])) <= 5:
                         level = tmp
-                        if arg[1].isdigit():
-                            gold = int(arg[1])
+                        if args[1].isdigit():
+                            gold = int(args[1])
                     else:
                         gold = tmp
-
-        return {"gold":gold,"level":level}
+                        if args[1].isdigit():
+                            level = int(args[1])
+        kwargs["gold"] = gold
+        kwargs["level"] = level
+        return kwargs
 
     @staticmethod
     def is_straight(points):
@@ -1175,113 +1144,113 @@ class Cantrell(Game):
                 max_hand = hand
         return max_hand,(max_pt,max_name)
 
-    async def action(self, bot:Bot, user_id:int, *args):
+    def action(self, event:Event):
         """
         看牌|加注
         """
+        user_id = event.user_id
         session = self.session
         if msg := session.shot_check(user_id):
             return None if msg == " " else msg
-        if args[0] == 0:
-            await self.cantrell_check(bot, user_id)
+        if event.raw_command == "看牌":
+            return self.cantrell_check(event)
         else:
-            msg = await self.cantrell_play(bot, user_id, args[1])
-            await bot.send_group_msg(group_id = session.group_id, message = msg)
+            return self.cantrell_play(user_id,event.args_to_int(self.gold))
 
-    async def cantrell_check(self, bot:Bot, user_id:int):
+    def cantrell_check(self, event:Event):
         """
         看牌
         """
         session = self.session
-        expose = math.ceil(session.round/2) + 3
+        expose = math.ceil(session.round/2) + 2
         expose = min(expose,5)
         session.time = time.time() + 60
-        if user_id == session.player1_id:
+        if event.user_id == session.p1_uid:
             hand = self.hand1
         else:
             hand = self.hand2
         msg = (
             "你的手牌：\n"
-            + ("|" + "".join(f'{self.cantrell_suit[suit]}{self.cantrell_point[point]}|' for suit, point in hand[0:expose]) + (5 - expose)*"   |")
+            + ("|" + "".join(f'{self.cantrell_suit[suit]}{self.cantrell_point[point]}|' for suit, point in hand[0:expose]))
             )
-        if not await Manager.try_send_private_msg(user_id = user_id, message = MessageSegment.image(linecard_to_png(msg))):
-            await bot.send_group_msg(group_id = session.group_id, message = f"私聊发送失败，请检查是否添加{bot_name}为好友。\n游戏继续！")
+        if event.is_private():
+            event.group_id = session.group_id
+            return msg
+        else:
+            return "请私信回复 看牌 查看手牌"
 
-    async def cantrell_play(self, bot:Bot, user_id:int, gold:int):
+    def cantrell_play(self, user_id:int, gold:int):
         """
-        加注
+        开牌
         """
         session = self.session
         gold = self.gold if gold == None else gold
         gold = min(gold, session.bet_limit - session.gold)
         if gold > self.max_bet_gold:
-            return MessageSegment.at(user_id) + f"加注金额不能超过{self.max_bet_gold}"
+            return f"开牌金额不能超过{self.max_bet_gold}"
         expose = session.round / 2
         session.nextround()
         session.time += 120
         if expose == int(expose):
             gold = max(gold, self.gold)
             session.gold += gold
-            group_id = session.group_id
-            expose = int(expose) + 3
+            expose = int(expose) + 2
             hand1 = self.hand1[0:expose]
             hand2 = self.hand2[0:expose]
             cantrell_suit = self.cantrell_suit
             cantrell_point = self.cantrell_point
 
-            msg = (
-                f'玩家：{user_data[session.player1_id].group_accounts[group_id].nickname}\n'
-                "手牌：\n"
-                f'|{"".join(f"{cantrell_suit[suit]}{cantrell_point[point]}|" for suit, point in hand1)}{(5 - expose)*"   |"}'
-                "\n----\n"
-                f'玩家：{user_data[session.player2_id].group_accounts[group_id].nickname}\n'
-                "手牌：\n"
-                f'|{"".join(f"{cantrell_suit[suit]}{cantrell_point[point]}|" for suit, point in hand2)}{(5 - expose)*"   |"}'
-                )
-
             if expose == 5:
-                session.win = session.player1_id if self.pt1[0] > self.pt2[0] else session.player2_id
-                await self.end(bot)
+                session.win = session.p1_uid if self.pt1[0] > self.pt2[0] else session.p2_uid
+                msg = (
+                    "P1手牌：\n"
+                    "|" + "".join(f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand1) +
+                    f"\n牌型：\n{self.pt1[1]}"
+                    "\n----\n"
+                    "P2手牌：\n"
+                    "|" + "".join(f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand2) +
+                    f"\n牌型：\n{self.pt2[1]}")
+                self.end(linecard_to_png(msg, width = 880))
             else:
-                return MessageSegment.image(linecard_to_png(f"您已跟注{gold}金币\n" + msg, width = 880))
+                msg = (
+                    f'玩家：{session.p1_nickname}\n'
+                    "手牌：\n"
+                    f'|{"".join(f"{cantrell_suit[suit]}{cantrell_point[point]}|" for suit, point in hand1)}{(5 - expose)*"   |"}'
+                    "\n----\n"
+                    f'玩家：{session.p2_nickname}\n'
+                    "手牌：\n"
+                    f'|{"".join(f"{cantrell_suit[suit]}{cantrell_point[point]}|" for suit, point in hand2)}{(5 - expose)*"   |"}'
+                    )
+                return linecard_to_png(f"您已跟注{gold}金币\n" if gold else "" + msg, width = 880)
         else:
             self.gold = gold
-            return MessageSegment.at(user_id) + f"您已加注{gold}金币"
+            return f"您已加注{gold}金币，" if gold else"" + f"请{session.p2_nickname}看牌|开牌"
 
-    def game_tips(self, msg):
+    def start_tips(self, msg):
         """
         发起游戏：港式五张
         """
-        return ("唰唰~，随机牌堆已生成\n"
-                f'开局金额：{self.gold}\n'
+        return ("唰唰~，随机牌堆已生成\n" +
+                (f'本场金币：{self.gold}\n' if self.gold else "") +
                 f'等级：Lv.{self.level}\n'
                 f'{msg}')
 
     def session_tips(self):
-        tip1 = "本场对决为【港式五张】\n"
-        tip2 = "\n看牌|加注\n"
+        tip1 = "本场对决为【Cantrell】\n"
+        tip2 = "\n看牌|开牌\n"
         cantrell_suit = self.cantrell_suit
         cantrell_point = self.cantrell_point
-        tip2 += MessageSegment.image(linecard_to_png((
+        tip3 = linecard_to_png((
             "P1初始手牌：\n"
-            "|" + "".join(f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand1[0:3]) + "   |   |"
+            "|" + "".join(f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand1[0:2]) + "   |   |   |"
             "\n----\n"
             'P2初始手牌\n'
-            "|" + "".join(f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand2[0:3]) + "   |   |"
-            ), width = 880))
-        return self.acceptmessage(tip1, tip2);
+            "|" + "".join(f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand2[0:2]) + "   |   |   |"
+            ), width = 880)
+        return [self.accept_tips(tip1, tip2),tip3];
 
     def end_tips(self):
-        cantrell_suit = self.cantrell_suit
-        cantrell_point = self.cantrell_point
-        return MessageSegment.image(linecard_to_png((
-            "P1手牌：\n"
-            "|" + "".join(f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand1) +
-            f"\n牌型：\n{self.pt1[1]}"
-            "\n----\n"
-            "P2手牌：\n"
-            "|" + "".join(f'{cantrell_suit[suit]}{cantrell_point[point]}|' for suit, point in self.hand2) +
-            f"\n牌型：\n{self.pt2[1]}"), width = 880))
+        return
 
 class Blackjack(Game):
     """
@@ -1293,15 +1262,14 @@ class Blackjack(Game):
     Blackjack_suit = {4:"♠",3:"♥",2:"♣",1:"♦"}
     Blackjack_point = {1:"A",2:"2",3:"3",4:"4",5:"5",6:"6",7:"7",8:"8",9:"9",10:"10",11:"J",12:"Q",13:"K"}
 
-    def __init__(self, **kwargs):
-        super().__init__()
+    def __init__(self, kwargs):
+        super().__init__(kwargs)
         gold = kwargs["gold"]
         deck = Poker.random_poker()
         self.gold:int = gold
         self.deck = deck[2:]
         self.hand1 = [deck[0],]
         self.hand2 = [deck[1],]
-        self.session.gold = gold
 
     @staticmethod
     def Blackjack_pt(hand:list) -> int:
@@ -1313,85 +1281,89 @@ class Blackjack(Game):
         if 1 in pts and pt <= 11:
             pt += 10
         return pt
-
-    async def action(self, bot:Bot, user_id:int, *args):
+    def action(self, event:Event):
         """
-        抽牌|停牌|双倍下注
+        抽牌|停牌|双倍停牌
         """
+        user_id = event.user_id
         session = self.session
         if msg := session.shot_check(user_id):
             return None if msg == " " else msg
-        card = args[0]
-        if card == "停牌":
-            await self.Blackjack_Stand(bot)
-        elif card == "抽牌":
-            await self.Blackjack_Hit(bot, user_id)
+        if event.raw_command == "停牌":
+            return self.Blackjack_Stand()
+        elif event.raw_command == "抽牌":
+            return self.Blackjack_Hit(event)
         else:
-            await self.Blackjack_DoubleDown(bot, user_id)
+            return self.Blackjack_DoubleDown(event)
 
-    async def Blackjack_Hit(self, bot:Bot, user_id:int):
+    def Blackjack_Hit(self, event:Event):
         """
         抽牌
         """
         session = self.session
         session.time = time.time()
 
-        if user_id == session.player1_id:
+        if event.user_id == session.p1_uid:
             hand = self.hand1
-            session.win = session.player2_id
+            session.win = session.p2_uid
         else:
             hand = self.hand2
-            session.win = session.player1_id
+            session.win = session.p1_uid
         deck = self.deck
         card = deck[0]
         del deck[0]
         hand.append(card)
         pt = self.Blackjack_pt(hand)
+        msg = (
+            "你的手牌：\n"
+            f'|{"".join(f"{self.Blackjack_suit[suit]}{self.Blackjack_point[point]}|" for suit, point in hand)}\n'
+            + f'合计:{pt}点'
+            )
         if pt > 21:
-            await self.end(bot)
+            self.end(msg)
+        if event.is_private():
+            event.group_id = session.group_id
         else:
-            msg = (
-                "你的手牌：\n"
-                f'|{"".join(f"{self.Blackjack_suit[suit]}{self.Blackjack_point[point]}|" for suit, point in hand)}\n'
-                + f'合计:{pt}点')
-            if not await Manager.try_send_private_msg(user_id = user_id, message = MessageSegment.image(linecard_to_png(msg))):
-                await bot.send_group_msg(group_id = session.group_id, message = f"私聊发送失败，请检查是否添加{bot_name}为好友。\n游戏继续！")
+            msg = "请私信抽牌！\n" + msg
+        return msg
 
-    async def Blackjack_Stand(self, bot:Bot):
+    def Blackjack_Stand(self):
         """
         停牌
         """
         session = self.session
         session.nextround()
         if session.round == 2:
-            await bot.send_group_msg(group_id = session.group_id, message = Message(f"请{MessageSegment.at(session.player2_id)}\n抽牌|停牌|双倍下注"))
+            return f"请{session.p2_nickname}抽牌|停牌|双倍停牌"
         else:
             hand1 = self.hand1
             hand2 = self.hand2
             Blackjack_pt = self.Blackjack_pt
             if Blackjack_pt(hand1) > Blackjack_pt(hand2):
-                session.win = session.player1_id
+                session.win = session.p1_uid
             else:
-                session.win = session.player2_id
-            await self.end(bot)
+                session.win = session.p2_uid
+            self.end()
 
-    async def Blackjack_DoubleDown(self, bot:Bot, user_id:int):
+    def Blackjack_DoubleDown(self, event:Event):
         """
-        双倍下注
+        双倍停牌
         """
         session = self.session
         session.gold += session.gold
         session.gold = min(session.gold, session.bet_limit)
-        await self.Blackjack_Hit(bot,user_id)
-        await self.Blackjack_Stand(bot)
+        self.Blackjack_Hit(event)
+        return self.Blackjack_Stand()
 
-    def game_tips(self, msg):
+    def start_tips(self, msg):
         """
         发起游戏：21点
         """
-        return ("唰唰~，随机牌堆已生成\n"
-                f'挑战金额：{self.gold}\n'
-                f'{msg}')
+        return (
+            "唰唰~，随机牌堆已生成\n" +
+            (f'本场金币：{self.gold}\n' if self.gold else "") +
+            f'{msg}'
+            )
 
     def session_tips(self):
         hand1 = self.hand1[0]
@@ -1399,10 +1371,13 @@ class Blackjack(Game):
         Blackjack_suit = self.Blackjack_suit
         Blackjack_point = self.Blackjack_point
 
-        tip1 = "本场对决为【21点】\n"
-        tip2 = "\n抽牌|停牌|双倍下注\n"
-        tip2 += f'P1：{Blackjack_suit[hand1[0]]}{Blackjack_point[hand1[1]]}|P2：{Blackjack_suit[hand2[0]]}{Blackjack_point[hand2[1]]}'
-        return self.acceptmessage(tip1, tip2);
+        tip1 = "本场对决为【BlackJack】\n"
+        tip2 = "\n抽牌|停牌|双倍停牌"
+        tip3 = (
+            f'\nP1：{Blackjack_suit[hand1[0]]}{Blackjack_point[hand1[1]]}'
+            f'\nP2：{Blackjack_suit[hand2[0]]}{Blackjack_point[hand2[1]]}'
+            )
+        return self.accept_tips(tip1, tip2 + tip3);
 
     def end_tips(self):
         hand1 = self.hand1
@@ -1410,14 +1385,14 @@ class Blackjack(Game):
         Blackjack_suit = self.Blackjack_suit
         Blackjack_point = self.Blackjack_point
         Blackjack_pt = self.Blackjack_pt
-        return MessageSegment.image(linecard_to_png((
-            "P1手牌：\n"
+        return linecard_to_png((
+            f"{self.session.p1_nickname}手牌：\n"
             f'|{"".join(f"{Blackjack_suit[suit]}{Blackjack_point[point]}|" for suit, point in hand1)}\n'
             + f'合计:{Blackjack_pt(hand1)}点'
             "\n----\n"
-            "P2手牌：\n"
+            f"{self.session.p2_nickname}手牌：\n"
             f'|{"".join(f"{Blackjack_suit[suit]}{Blackjack_point[point]}|" for suit, point in hand2)}\n'
-            f'合计:{Blackjack_pt(hand2)}点')))
+            f'合计:{Blackjack_pt(hand2)}点'))
 
 class ABCard(Game):
     """
@@ -1426,8 +1401,8 @@ class ABCard(Game):
     name = "ABCard"
     max_bet_gold:int = max_bet_gold
 
-    def __init__(self, **kwargs):
-        super().__init__()
+    def __init__(self, kwargs):
+        super().__init__(kwargs)
         gold = kwargs["gold"]
         self.gold:int = gold
         self.hand1 = ["A","B","1","2","3"]
@@ -1435,26 +1410,26 @@ class ABCard(Game):
         self.pt1 = 0
         self.pt2 = 0
         self.first = None
-        self.session.gold = gold
 
-    async def action(self, bot:Bot, user_id:int, *args):
+    def action(self, event:Event):
         """
         出牌
         """
+        user_id = event.user_id
         session = self.session
         if msg := session.shot_check(user_id):
             return None if msg == " " else msg
-        group_id = session.group_id
-        card = args[0].upper()
-        if user_id == session.player1_id:
+        
+        card = event.raw_command.upper()
+        if user_id == session.p1_uid:
             hand = self.hand1
             if card in self.hand1:
                 hand.remove(card)
                 self.first = card
-                await bot.send_group_msg(group_id = group_id,message = MessageSegment.at(session.player2_id) + "对方已出牌，现在是你的回合。请打出你的手牌。")
                 session.nextround()
-                return
+                return f"{session.p1_nickname}已出牌，现在是{session.p2_nickname}的回合。请打出手牌。"
             else:
+                event.group_id = session.group_id
                 return f"出牌失败。你的手牌还剩\n| {' | '.join(hand)} |"
         else:
             hand = self.hand2
@@ -1465,19 +1440,20 @@ class ABCard(Game):
                     msg += "本轮是平局\n"
                 elif self.first == "A" or card == "B" or (self.first == "1" and card == "2") or (self.first == "2" and card == "3") or (self.first == "3" and card == "1"):
                     self.pt1 += 1
-                    msg += MessageSegment.at(session.player1_id) + "赢得了本轮对决\n"
+                    msg += f"{session.p1_nickname}赢得了本轮对决\n"
                 else:
                     self.pt2 += 1
-                    msg += MessageSegment.at(session.player2_id) + "赢得了本轮对决\n"
+                    msg += f"{session.p2_nickname}赢得了本轮对决\n"
                 msg += f"双方比分 {self.pt1} - {self.pt2}\n"
-                msg += f"当前赌注 {session.gold} 金币\n"
+                if session.gold:
+                    msg += f"当前赌注 {session.gold} 金币\n"
                 msg += f"P1手牌| {' | '.join(self.hand1)} |\n"
                 msg += f"P2手牌| {' | '.join(self.hand2)} |"
-                await bot.send_group_msg(group_id = group_id,message = msg)
                 session.gold += self.gold
                 session.gold = min(session.gold, session.bet_limit)
                 session.nextround()
                 if session.round == 9:
+                    temp = msg
                     self.first = self.hand1[0]
                     card = self.hand2[0]
                     msg = f"双方出牌 {self.first} - {card}\n"
@@ -1485,36 +1461,41 @@ class ABCard(Game):
                         msg += "本轮是平局\n"
                     elif self.first == "A" or card == "B" or (self.first == "1" and card == "2") or (self.first == "2" and card == "3") or (self.first == "3" and card == "1"):
                         self.pt1 += 1
-                        msg += MessageSegment.at(session.player1_id) + "赢得了本轮对决\n"
+                        msg += f"{session.p1_nickname}赢得了本轮对决\n"
                     else:
                         self.pt2 += 1
-                        msg += MessageSegment.at(session.player2_id) + "赢得了本轮对决\n"
+                        msg += f"{session.p2_nickname}赢得了本轮对决\n"
                     session.gold += self.gold
                     session.gold = min(session.gold, session.bet_limit)
                     msg += f"双方比分 {self.pt1} - {self.pt2}\n"
-                    msg += f"当前赌注 {session.gold} 金币\n"
-                    session.win = session.player1_id if self.pt1 > self.pt2 else session.player2_id
-                    msg+= "获胜者：" + MessageSegment.at(session.win)
-                    await asyncio.sleep(0.5)
-                    await bot.send_group_msg(group_id = group_id,message = msg)
-                    await asyncio.sleep(1)
-                    await self.end(bot)
-                return
+                    if session.gold:
+                        msg += f"当前赌注 {session.gold} 金币\n"
+                    session.win = session.p1_uid if self.pt1 > self.pt2 else session.p2_uid
+                    msg+= f"获胜者：{session.p1_nickname if session.win == session.p1_uid else session.p2_nickname}"
+                    async def result():
+                        yield temp
+                        await asyncio.sleep(1)
+                        yield msg
+                    self.end(result)
+                return msg
             else:
+                event.group_id = session.group_id
                 return f"出牌失败。你的手牌还剩\n| {' | '.join(hand)} |"
 
-    def game_tips(self, msg):
+    def start_tips(self, msg):
         """
         发起游戏：AB牌
         """
-        return ("双方手牌准备完毕\n"
-                f'挑战金额：{self.gold}/轮\n'
-                f'{msg}')
+        return (
+            "双方手牌准备完毕\n" + 
+            (f'本场金币：{self.gold}/轮\n' if self.gold else "") +
+            f'{msg}'
+            )
 
     def session_tips(self):
         tip1 = "本场对决为【AB牌】\n"
-        tip2 = "暗牌出牌"
-        return self.acceptmessage(tip1, tip2);
+        tip2 = "打出手牌"
+        return self.accept_tips(tip1, tip2);
 
     def end_tips(self):
         return "" 
@@ -1526,25 +1507,25 @@ class GunFight(Game):
     name = "GunFight"
     max_bet_gold:int = max_bet_gold *5
 
-    def __init__(self, **kwargs):
-        super().__init__()
+    def __init__(self, kwargs):
+        super().__init__(kwargs)
         gold = kwargs["gold"]
         self.gold:int = gold
         self.MAG1 = 1
         self.MAG2 = 1
         self.first = None
-        self.session.gold = gold
 
-    async def action(self, bot:Bot, user_id:int, *args):
+    def action(self, event:Event):
         """
         装弹|开枪|闪避|闪枪|预判开枪
         """
+        user_id = event.user_id
         session = self.session
         if msg := session.shot_check(user_id):
             return None if msg == " " else msg
-        group_id = session.group_id
-        card = args[0]
-        if user_id == session.player1_id:
+        
+        card = event.raw_command
+        if user_id == session.p1_uid:
             if card == "装弹":
                 self.MAG1 += 1
                 self.MAG1 = min(self.MAG1,6)
@@ -1554,8 +1535,7 @@ class GunFight(Game):
                 self.MAG1 -= 1
             self.first = card
             session.nextround()
-            await bot.send_group_msg(group_id = group_id,message = MessageSegment.at(session.player2_id) + "对方已行动，现在是你的回合。")
-            return
+            return f"{session.p1_nickname}已行动，现在是{session.p2_nickname}的回合。"
         else:
             if card == "装弹":
                 self.MAG2 += 1
@@ -1568,128 +1548,82 @@ class GunFight(Game):
             msg = f"双方行动 {self.first} - {card}\n"
             msg += f"剩余子弹 {self.MAG1} - {self.MAG2}\n"
             if self.first == "开枪" and card in {"装弹","预判开枪"} or self.first == "闪枪" and card in {"装弹","开枪"} or self.first == "预判开枪" and card in {"闪避","闪枪"}:
-                session.win = session.player1_id
-                msg += MessageSegment.at(session.player1_id) + "赢得了对决"
+                session.win = session.p1_uid
+                msg += f"{session.p1_nickname}赢得了对决"
             elif card == "开枪" and self.first in {"装弹","预判开枪"} or card == "闪枪" and self.first in {"装弹","开枪"} or card == "预判开枪" and self.first in {"闪避","闪枪"}:
-                session.win = session.player2_id
-                msg += MessageSegment.at(session.player2_id) + "赢得了对决"
+                session.win = session.p2_uid
+                msg += f"{session.p2_nickname}赢得了对决"
             else:
                 self.first = None
-                msg += f"本轮平局。请{MessageSegment.at(session.player1_id)}开始行动！"
-                await bot.send_group_msg(group_id = group_id,message = msg)
-                return
-            await bot.send_group_msg(group_id = group_id,message = msg)
-            await asyncio.sleep(1)
-            await self.end(bot)
+                msg += f"本轮平局。请{session.p1_nickname}开始行动！"
+                return msg
+            self.end(msg)
             
-    def game_tips(self, msg):
+    def start_tips(self, msg):
         """
         发起游戏：西部枪战
         """
-        return ("场地准备完毕\n"
-                f'挑战金额：{self.gold}\n'
-                f'{msg}')
+        return (
+            "场地准备完毕\n" +
+            (f'本场金币：{self.gold}\n' if self.gold else "") +
+            f'{msg}'
+            )
 
     def session_tips(self):
         tip1 = "本场对决为【西部枪战】\n"
         tip2 = "\n装弹|开枪|闪避|闪枪|预判开枪"
-        return self.acceptmessage(tip1, tip2);
+        return self.accept_tips(tip1, tip2);
 
     def end_tips(self):
         return "" 
 
-def random_game(event:GroupMessageEvent, gold:int):
+class MultiplayerGame(AROF):
     """
-    发起游戏：随机对战
+    多人游戏类
     """
-    group_account = Manager.locate_user(event)[1]
-    if group_account.props.get("32002",0) < 1:
-        return f"你未持有持有【{props_library['32002']['name']}】，无法发起随机对战。"
+    name:str = "MultiplayerGame"
 
-    cls = random.choice([Russian,Dice,Poker,LuckyNumber,Cantrell,Blackjack,ABCard,GunFight])
-    return cls.creat(event, gold = gold)
-
-class AROF():
-    """
-    其他类
-    """
-    name:str = "AROF"
-
-    def __init__(self):
-        self.session:Session = Session()
-
-    @staticmethod
-    def parse_arg(arg:str):
-        if arg.isdigit():
-            gold = int(arg)
-        else:
-            gold = bet_gold
-        return {"gold":gold}
+    def __init__(self,kwargs):
+        self.session:Session = Session(kwargs)
 
     @classmethod
-    def creat(cls, event:GroupMessageEvent, **kwargs):
+    def start(cls, event:Event) -> Result:
         """
-        发起多人游戏
+        开始多人游戏
         """
-        flag, msg = cls.start(event, **kwargs)
-        if flag == False:
+        group_id = event.group_id
+        game = current_games.get(group_id)
+        if not game:
+            pass
+        elif isinstance(game,MultiplayerGame):
+            overtime = time.time() - game.session.time
+            if overtime > 180:
+                pass
+            elif game.world.start == 0:
+                return "一场游戏正在报名中"
+            else:
+                return f"一场游戏正在进行中，遇到问题可以{f'在{t}秒后' if (t := int(180 - overtime)) > 0 else ''}输入【游戏重置】重置游戏"            
+        elif msg := game.session.create_check(event):
             return msg
-        return current_games[event.group_id].game_tips(msg)
-
-    @classmethod
-    def start(cls, event:GroupMessageEvent, **kwargs) -> Tuple[bool,Message]:
-        """
-        创建多人游戏
-        """
-        game = current_games.get(event.group_id)
-        if game:
-            if msg := game.create_check():
-                return False, msg
-            if msg := game.session.create_check(event):
-                return False, msg
-        group_id = kwargs["group_id"] = event.group_id
-        user_id = kwargs["user_id"] = event.user_id
-        game = current_games[group_id] = cls(**kwargs)
-        return True, MessageSegment.at(user_id)
-
-    def create_check(self):
-        overtime = time.time() - self.session.time + 180
-        if overtime > 180:
-            return None
-        if self.world.start == 0:
-            return "一场游戏正在报名中"
-        else:
-            return f"一场游戏正在进行中，遇到问题可以{f'在{t}秒后' if (t := int(180 - overtime)) > 0 else ''}输入【游戏重置】重置游戏"
+        kwargs = {
+            "at":" ",
+            "gold":event.args_to_int(bet_gold),
+            "group_id":event.group_id,
+            "p1_uid":event.user_id,
+            "p1_nickname": event.nickname
+            }
+        game = current_games[group_id] = cls(kwargs)
+        return game.start_tips(event.nickname)
+    
+    @abstractmethod
+    def start_tips(self,msg):
+        """游戏开始的提示"""
 
     @abstractmethod
-    def join(self, event:GroupMessageEvent, *args):
+    def join(self, event:Event) -> Result:
         """
         加入游戏
         """
-
-    def accept(self):
-        """
-        接受挑战
-        """
-        return None
-
-    def refuse(self):
-        """
-        拒绝挑战
-        """
-        return None
-
-    async def overtime(self):
-        """
-        超时结算
-        """
-        return None
-
-    async def fold(self):
-        """
-        认输
-        """
-        return None
 
     def restart(self):
         """
@@ -1706,7 +1640,7 @@ class AROF():
 from .HorseRace.start import load_dlcs
 from .HorseRace.race_group import race_group as RaceWorld
 
-class HorseRace(AROF):
+class HorseRace(MultiplayerGame):
     """
     赛马小游戏
     """
@@ -1714,16 +1648,11 @@ class HorseRace(AROF):
 
     events_list = load_dlcs()
 
-    def __init__(self, **kwargs):
-        super().__init__()
-        self.session.time = time.time() + 180
-        self.session.group_id = kwargs["group_id"]
-        self.session.player1_id = kwargs["user_id"]
-        self.session.at = -1
-        self.session.gold = kwargs["gold"]
+    def __init__(self, kwargs):
+        super().__init__(kwargs)
         self.world = RaceWorld()
-
-    def join(self, event:GroupMessageEvent, *args):
+        
+    def join(self, event:Event) -> Result:
         """
         赛马加入
         """
@@ -1741,19 +1670,19 @@ class HorseRace(AROF):
             return "加入失败！赛马场就那么大，满了满了！"
         if race.is_player_in(user_id) == True:
             return "加入失败！您已经加入了赛马场!"
-        horsename = args[0] if args else None
+        horsename = event.single_arg("")
         if not horsename:
             return "请输入你的马儿名字"
-        horsename = horsename[:2]+"酱" if len(horsename) > 5 else horsename
+        horsename = horsename[:2]+"酱" if len(horsename) > 7 else horsename
         race.add_player(horsename, user_id, group_account.nickname)
         return  (
-            MessageSegment.at(user_id) + "\n" +
+            f"{event.nickname}\n"
             "> 加入赛马成功\n"
             "> 赌上马儿性命的一战即将开始!\n"
             f"> 赛马场位置:{query_of_player + 1}/{max_player}"
             )
 
-    async def run(self, bot:Bot):
+    def run(self):
         """
         赛马开始
         """
@@ -1772,107 +1701,86 @@ class HorseRace(AROF):
         session = self.session
         group_id = session.group_id
         session.time = time.time() + 180
-        await bot.send_group_msg(group_id = group_id, message = (
-            f'> 比赛开始\n'
-            f'> 当前奖金：{session.gold * player_count}金币'))
-        await asyncio.sleep(0.5)
-        while race.start == 1:
-            # 回合数+1
-            race.round_add()
-            #移除超时buff
-            race.del_buff_overtime()
-            #马儿全名计算
-            race.fullname()
-            #回合事件计算
-            text = race.event_start(events_list)
-            #马儿移动
-            race.move()
-            #场地显示
-            display = race.display()
-        
-            output = linecard_to_png(display, font_size = 30)
-
-            try:
-                await bot.send_group_msg(group_id = group_id, message = (Message(text) + MessageSegment.image(output)))
-            except:
-                text = ""
-                try:
-                    await bot.send_group_msg(group_id = group_id,message =(MessageSegment.image(output)))
-                except:
-                    pass
-
-            await asyncio.sleep(0.5 + int(0.06 * len(text)))
-            
-            #全员失败计算
-            if race.is_die_all():
-                for x in race.player:
-                    uid = x.playeruid
-                    if uid in user_data:
-                        user = user_data[uid]
-                        user.gold -= session.gold
-                        user.group_accounts[group_id].gold  -= session.gold
-                del current_games[group_id]
-                await bot.send_group_msg(group_id = group_id,message = "比赛已结束，鉴定为无马生还")
-                return
-
-            #全员胜利计算
-            winer = race.is_win_all()
-            winer_list="\n"
-            if winer != []:
-                await bot.send_group_msg(group_id = group_id,message = (
-                    f'> 比赛结束\n'
-                    f'> {bot_name}正在为您生成战报...'))
-                await asyncio.sleep(1)
-                gold = int(session.gold * player_count / len(winer))
-                for x in race.player:
-                    uid = x.playeruid
-                    if uid in user_data:
-                        user = user_data[uid]
-                        user.gold -= session.gold
-                        user.group_accounts[group_id].gold -= session.gold
-                for x in winer:
-                    uid = x[1]
-                    winer_list += "> "+ x[0] + "\n"
-                    if uid in user_data:
-                        user = user_data[uid]
-                        user.gold += gold
-                        user.group_accounts[group_id].gold  += gold
-                del current_games[group_id]
-                await bot.send_group_msg(group_id = group_id,message = (
-                    f"> 比赛已结束，胜者为：{winer_list}"
-                    f"> 本次奖金：{gold} 金币"))
-                return
+        empty_race = ["[  ]" for _ in range(max_player - player_count)]
+        async def result():
+            yield f'> 比赛开始\n> 当前奖金：{session.gold * player_count}金币' if session.gold else "比赛开始！"
             await asyncio.sleep(1)
+            while race.start == 1:
+                # 回合数+1
+                race.round_add()
+                #移除超时buff
+                race.del_buff_overtime()
+                #马儿全名计算
+                race.fullname()
+                #回合事件计算
+                text = race.event_start(events_list)
+                #马儿移动
+                race.move()
+                #场地显示
+                output = linecard_to_png("\n".join(race.display() + empty_race), font_size = 30)
+                yield [text,output]
+                await asyncio.sleep(0.5 + int(0.06 * len(text)))
+                #全员失败计算
+                if race.is_die_all():
+                    for x in race.player:
+                        user_id = x.playeruid
+                        if user_id in Manager.user_data:
+                            user,group_accounts = Manager.locate_user_at(user_id,group_id)
+                            user.gold -= session.gold
+                            group_accounts.gold  -= session.gold
+                    del current_games[group_id]
+                    yield "比赛已结束，鉴定为无马生还"
+                    return
 
-    def game_tips(self, msg):
+                #全员胜利计算
+                winer = race.is_win_all()
+                winer_list="\n"
+                if winer != []:
+                    yield f'> 比赛结束\n> {bot_name}正在为您生成战报...'
+                    await asyncio.sleep(1)
+                    gold = int(session.gold * player_count / len(winer))
+                    for x in race.player:
+                        user_id = x.playeruid
+                        if user_id in Manager.user_data:
+                            user,group_accounts = Manager.locate_user_at(user_id,group_id)
+                            user.gold -= session.gold
+                            group_accounts.gold  -= session.gold
+                    for user_name,user_id in winer:
+                        winer_list += f"> {user_name}\n"
+                        if user_id in Manager.user_data:
+                            user,group_accounts = Manager.locate_user_at(user_id,group_id)
+                            user.gold += gold
+                            group_accounts.gold  += gold
+                    del current_games[group_id]
+                    yield f"> 比赛已结束，胜者为：{winer_list}" + (f"> 本次奖金：{gold} 金币" if gold else "> 祝贺！")
+                    return
+                await asyncio.sleep(1)
+        return result
+    
+    def start_tips(self, msg):
         """
         发起游戏：赛马
         """
         return (
-            msg + "\n" +
-            "> 创建赛马比赛成功！\n"
-            f"> 本场金额：{self.session.gold}金币\n"
+            f"{msg}\n"
+            "> 创建赛马比赛成功！\n" +
+            (f"> 本场金额：{self.session.gold}金币\n" if self.session.gold else "") +
             "> 输入 【赛马加入 名字】 即可加入赛马。"
             )
 
 from .Fortress.core import World as FortressWorld
 
-class Fortress(AROF):
+class Fortress(MultiplayerGame):
     """
     要塞战
     """
     name:str = "Fortress"
 
-    def __init__(self, **kwargs):
-        super().__init__()
-        self.session.time = time.time() + 180
-        self.session.group_id = kwargs["group_id"]
-        self.session.player1_id = kwargs["user_id"]
-        self.session.at = -1
-        self.session.gold = kwargs["gold"]
+    def __init__(self,kwargs):
+        super().__init__(kwargs)
         self.world = FortressWorld()
 
-    def join(self, event:GroupMessageEvent, *args):
+    def join(self, event:Event) -> Result:
         """
         要塞战加入
         """
@@ -1892,6 +1800,7 @@ class Fortress(AROF):
             return "人满了"
         index = None
         team = None
+        args = event.args
         if args:
             if len(args) == 1:
                 args = args[0]
@@ -1918,14 +1827,14 @@ class Fortress(AROF):
 
         world.add_player(group_account,index,team or user_id)
         return  (
-            MessageSegment.at(user_id) + "\n" +
+            f"{event.nickname}\n"
             "> 要塞战加入成功\n"
             "> 战争即将开始!\n"
             f"> 你的位置是 {index} 号城\n"
             f"> 你的队伍是 {team if team else '个人'}"
             )
 
-    async def run(self, bot:Bot):
+    def run(self):
         """
         要塞战开始
         """
@@ -1940,11 +1849,13 @@ class Fortress(AROF):
         else:
             return f"开始失败！要塞战需要最少{min_player}人参与"
         group_id = self.session.group_id
-        await bot.send_group_msg(group_id = group_id, message = MessageSegment.image(world.draw()))
-        msg = "请" + MessageSegment.at(world.ids[0]) + "开始行动"
-        await bot.send_group_msg(group_id = group_id, message = msg)
+        async def result():
+            yield world.draw()
+            await asyncio.sleep(1)
+            yield f"请{world.players[world.ids[0]].group_account.nickname}开始行动"
+        return result
 
-    async def AROF_start(self, bot:Bot, user_id:int):
+    def session_start(self, event:Event) -> Result:
         """
         开始行动
         """
@@ -1953,7 +1864,7 @@ class Fortress(AROF):
         if start == 0:
             return
         start -= 1
-        if world.ids[start] != user_id:
+        if world.ids[start] != event.user_id:
             return "现在不是你的回合。"
         if world.act != 0:
             return "你的回合已开始。"
@@ -1963,12 +1874,13 @@ class Fortress(AROF):
         for index in range(0,15):
             if (castle := world.castles.get(index)) and castle.user_id == world.ids[start]:
                 msg += f"你的{index}号城获得了：\n{castle.turntable()}\n"
-        group_id = self.session.group_id
-        await bot.send_group_msg(group_id = group_id, message = msg[:-1])
-        await asyncio.sleep(1)
-        await bot.send_group_msg(group_id = group_id, message = MessageSegment.image(world.draw()))
-
-    async def AROF_end(self, bot:Bot, user_id:int):
+        async def result():
+            yield msg[:-1]
+            await asyncio.sleep(1)
+            yield world.draw()
+        return result
+    
+    def session_end(self, event:Event) -> Result:
         """
         结束行动
         """
@@ -1977,7 +1889,7 @@ class Fortress(AROF):
         if start == 0:
             return
         start -= 1
-        if world.ids[start] != user_id:
+        if world.ids[start] != event.user_id:
             return "现在不是你的回合。"
         world.act = 0
         msg = ""
@@ -1985,11 +1897,9 @@ class Fortress(AROF):
         if world.start > (len(world.ids)):
             world.start = 1
             world.round += 1
-        msg = "请" + MessageSegment.at(world.ids[world.start - 1]) + "开始行动"
-        group_id = self.session.group_id
-        await bot.send_group_msg(group_id = group_id, message = msg)
+        return f"请{world.players[world.ids[world.start - 1]].group_account.nickname}开始行动"
 
-    async def AROF_action(self, bot:Bot, user_id:int, *args):
+    def session_action(self, event:Event) -> Result:
         """
         行动
         """
@@ -1998,22 +1908,184 @@ class Fortress(AROF):
         if start == 0:
             return
         start -= 1
-        if world.ids[start] != user_id:
+        if world.ids[start] != event.user_id:
             return "现在不是你的回合。"
-        if world.act == 0:
-            await self.AROF_start(bot,user_id)
-            await asyncio.sleep(1)
-        msg = "|".join(args)
-        group_id = self.session.group_id
-        await bot.send_group_msg(group_id = group_id, message = msg)
+        async def result():
+            if world.act == 0:
+                async for x in self.session_start(event)():
+                    yield x
+                await asyncio.sleep(1)
+            yield "|".join(event.args)
+        return result
 
-    def game_tips(self, msg):
+    def start_tips(self, msg):
         """
         发起游戏：要塞战
         """
         return (
-            msg + "\n" +
-            "> 要塞战创建成功！\n"
-            f"> 本场金额：{self.session.gold}金币\n"
+            f"{msg}\n"
+            "> 要塞战创建成功！\n" +
+            (f"> 本场金额：{self.session.gold}金币\n" if self.session.gold else "") +
             "> 输入 【要塞加入 编号 队伍】 即可加入要塞战。"
             )
+
+current_games:Dict[str,AROF] = {}
+
+# 开始游戏
+
+GAMES_DICT:Dict[str,Type[AROF]] = {
+    "Russian": Russian,
+    "Dice": Dice,
+    "Poker": Poker,
+    "LuckyNumber": LuckyNumber,
+    "Cantrell": Cantrell,
+    "Blackjack": Blackjack,
+    "ABCard": ABCard,
+    "GunFight": GunFight,
+    "HorseRace": HorseRace,
+    "Fortress": Fortress,
+    }
+
+StartGameCommand = {
+    "Russian":{"俄罗斯轮盘","装弹"},
+    "Dice":{"掷色子", "摇色子", "掷骰子", "摇骰子"},
+    "Poker":{"扑克对战", "卡牌对战"},
+    "LuckyNumber":{"猜数字"},
+    "Cantrell":{"同花顺","港式五张","梭哈"},
+    "Blackjack":{"21点"},
+    "ABCard":{"AB牌","ab牌"},
+    "GunFight":{"西部枪战","西部对战","牛仔对战","牛仔对决"},
+    "HorseRace":{"赛马创建","创建赛马"},
+    "Fortress":{"堡垒战创建","要塞战创建","创建堡垒战","创建要塞战"},
+    }
+
+for event_name,commands in StartGameCommand.items():
+    @reg_auto_event(f"{event_name}:Start",commands,need_extra_args = {"at"})
+    async def _(event:Event) -> str:
+        if event.is_private():
+            return
+        game = GAMES_DICT[event.event_name[:-6]]
+        return game.start(event)
+
+@reg_command("random_game",{"随机对战"})
+async def _(event:Event) -> str:
+    gold = event.args_to_int(-1)
+    group_account = Manager.locate_user(event)[1]
+    if group_account.props.get("32002",0) < 1:
+        return f"你未持有持有【{Prop.get_prop_name('32002')}】，无法发起随机对战。"
+    game = random.choice([Russian,Dice,Poker,LuckyNumber,Cantrell,Blackjack,ABCard,GunFight])
+    return game.start(event, gold = gold)
+
+PlayGameCommand = {
+    "Russian":{"开枪","咔", "嘭", "嘣"},
+    "Dice":{"取出","开数", "开点"},
+    "Poker":{"出牌"},
+    "LuckyNumber":"^\d{1,3}$",
+    "Cantrell":{"看牌","开牌"},
+    "Blackjack":{"停牌","抽牌","双倍停牌"},
+    "ABCard":{"A","a","B","b","1","2","3"},
+    "GunFight":{"装弹","开枪","闪避","闪枪","预判开枪"},
+    }
+
+# 进行对战游戏
+
+for event_name,commands in PlayGameCommand.items():
+    @reg_auto_event(f"{event_name}:Play",commands)
+    async def _(event:Event) -> str:
+        group_id = Manager.get_user(event.user_id).connect if event.is_private() else event.group_id
+        game = current_games.get(group_id)
+        if not game or game.name != event.event_name[:-5]:
+            return
+        try:
+            result = game.action(event)
+        except GameOverException as e:
+            result = e.result
+        if event.is_private():
+            event.group_id = group_id
+            @event.got()
+            async def _(event:Event):
+                event.finish()
+                return result
+            return "请在群内回复 确认 以完成操作"
+        else:
+            return result
+  
+# 加入多人游戏        
+
+MultiplayerGameTips = {
+   "HorseRace":"赛马活动未开始，请输入【赛马创建】创建赛马场",
+   "Fortress":"要塞战未开始，请输入【要塞战创建】创建要塞战游戏",
+   }
+   
+JoinMultiplayerGameCommand = {
+   "HorseRace":{"赛马加入","加入赛马"},
+   "Fortress":{"要塞加入","堡垒加入","加入要塞","加入堡垒"},
+   }
+
+for event_name,commands in JoinMultiplayerGameCommand.items():
+    @reg_auto_event(f"{event_name}:Join",commands)
+    async def _(event:Event) -> str:
+        game = current_games.get(event.group_id)
+        game_name = event.event_name[:-5]
+        if not game or game.name != game_name:
+            return MultiplayerGameTips[game_name]
+        return game.join(event)
+
+# 开始多人游戏
+
+RunMultiplayerGameCommand = {
+   "HorseRace":{"赛马开始","开始赛马"},
+   "Fortress":{"游戏开始","开始游戏"},
+   }
+   
+for event_name,commands in RunMultiplayerGameCommand.items():
+    @reg_auto_event(f"{event_name}:Run",commands)
+    async def _(event:Event) -> str:
+        game = current_games.get(event.group_id)
+        game_name = event.event_name[:-4]
+        if not game or game.name != game_name:
+            return MultiplayerGameTips[game_name]
+        return game.run()
+
+# AROF环节
+
+@reg_command("GameAccept",{"接受挑战","接受决斗","接受对决"})
+async def _(event:Event) -> str:
+    if game := current_games.get(event.group_id):
+        return game.accept(event)
+    
+@reg_command("GameRefuse",{"拒绝挑战","拒绝决斗","拒绝对决"})
+async def _(event:Event) -> str:
+    if game := current_games.get(event.group_id):
+        return game.refuse(event.user_id)
+    
+@reg_command("GameOvertime",{"超时结算"})
+async def _(event:Event) -> str:
+    if game := current_games.get(event.group_id):
+        return game.overtime()
+    
+@reg_command("GameFold",{"认输", "投降", "结束"})
+async def _(event:Event) -> str:
+    if game := current_games.get(event.group_id):
+        return game.fold(event.user_id)
+
+@reg_command("GameClear",{"清除游戏", "清除对局", "清除对决", "清除对战"},need_extra_args = {"permission"})
+async def _(event:Event) -> str:
+    if event.permission() and event.group_id in current_games:
+        del current_games[event.group_id]
+
+@reg_command("session_start",{"回合开始"})
+async def _(event:Event) -> str:
+    if game := current_games.get(event.group_id):
+        return game.session_start(event)
+    
+@reg_command("session_end",{"回合结束"})
+async def _(event:Event) -> str:
+    if game := current_games.get(event.group_id):
+        return game.session_end(event)
+
+@reg_command("session_action",{"行动"})
+async def _(event:Event) -> str:
+    if game := current_games.get(event.group_id):
+        return game.session_action(event)
+

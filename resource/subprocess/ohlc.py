@@ -68,4 +68,4 @@ if __name__ == "__main__":
     history_file = russian_path / "market_history.json"
     with open(history_file, "r", encoding="utf8") as f:
         market_history = json.load(f)
-    market_candlestick((9.5,3), 12, market_history[company_id], candlestick_cache / f"{company_id}.png")
+    market_candlestick((9.5,3), 12, market_history["data"][company_id], candlestick_cache / f"{company_id}.png")

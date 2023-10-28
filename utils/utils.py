@@ -1,51 +1,26 @@
-import re
-import unicodedata
+import httpx
+import asyncio
 
-from nonebot.adapters.onebot.v11 import MessageEvent, Message
+from io import BytesIO
+from nonebot import get_driver
 
-def get_message_at(message:Message) -> list:
-    '''
-    获取at列表
-    '''
-    qq_list = []
-    for msg in message:
-        if msg.type == "at":
-            qq_list.append(msg.data["qq"])
-    return qq_list
+driver = get_driver()
+command_start = {x for x in driver.config.command_start if x}
+def extract_command(msg:str):
+    for command in command_start:
+        if msg.startswith(command):
+            return msg[len(command):]
+    return msg
+async def download_url(url:str) -> BytesIO:
+    async with httpx.AsyncClient() as client:
+        for _ in range(3):
+            try:
+                resp = await client.get(url, timeout=20)
+                resp.raise_for_status()
+                return BytesIO(resp.content)
+            except Exception:
+                await asyncio.sleep(3)
+    return None
 
-def image_url(event:MessageEvent) -> list:
-    '''
-    获取图片url
-    '''
-    url = []
-    for msg in event.message:
-        if msg.type == "image":
-            url.append(msg.data["url"])
-    if event.reply:
-        for msg in event.reply.message:
-            if msg.type == "image":
-                url.append(msg.data["url"])
-    return url
 
-def is_number(s) -> bool:
-    try:
-        float(s)
-        return True
-    except ValueError:
-        pass
-    try:
-        unicodedata.numeric(s)
-        return True
-    except (TypeError, ValueError):
-        pass
-    return False
 
-def number(N) -> int:
-    try:
-        n = int(N)
-    except ValueError:
-        try:
-            n = int(unicodedata.numeric(N))
-        except (TypeError, ValueError):
-            n = 0
-    return n

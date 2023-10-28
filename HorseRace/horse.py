@@ -157,6 +157,5 @@ class horse:
             display += "[+？]"
             for i in range(0, setting_track_length):
                 display += "."
-        display += "\n"
         return display
 

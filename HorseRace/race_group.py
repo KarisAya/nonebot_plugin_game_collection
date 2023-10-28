@@ -72,10 +72,7 @@ class race_group():
         """
         所有马儿数据显示（须先移动)
         """
-        display = ""
-        for i in range(0, len(self.player)):
-            display += self.player[i].display()
-        return display
+        return [player.display() for player in self.player]
 
     def is_die_all(self) -> bool:
         """
@@ -101,7 +98,7 @@ class race_group():
         """
         事件触发
         """
-        event_display = f""
+        event_display = ""
         # 延时事件触发：
         for i in range(0, len(self.player)):
             if len(self.player[i].delay_events) > 0:

@@ -1,20 +1,6 @@
-﻿from nonebot.adapters.onebot.v11 import (
-    Bot,
-    MessageEvent,
-    GroupMessageEvent,
-    Message,
-    MessageSegment
-    )
-from collections import Counter
-
+﻿from collections import Counter
 import random
-
-from .utils.chart import info_splicing, alchemy_info
-from . import Manager
-
-data = Manager.data
-user_data = data.user
-group_data = data.group
+from .data import UserDict
 
 class Alchemy:
     elements  = ["1","2","3","4"]
@@ -82,32 +68,22 @@ class Alchemy:
             result += {k:v*N for k,v in cls.ProductsProperties[product].items()}
         return result
 
-def alchemy_refine(event:MessageEvent,Products:list) -> Message:
+def refine(user:UserDict, products:list):
     """
     元素精炼
     """
-    if not Products:
-        return "未指定需要精炼的元素"
-    codedict = {}
-    user = Manager.locate_user(event)[0]
+    code_dict = {}
     alchemy = user.alchemy
     msg = "精炼成功！你消耗了："
     sumn = 0
-    for product in Products:
+    for product in products:
         if (code := Alchemy.ProductsCode.get(product)) and (n := alchemy.get(code)):
-            codedict[code] = n
+            code_dict[code] = n
             alchemy[code] = 0
             msg += f"\n{product}：{n}个"
             sumn += n
-    if not codedict:
+    if not code_dict:
         return "精炼失败。你没有指定的元素。"
     props = user.props
     props["33101"] = sumn + props.get("33101",0)
     return msg
-
-async def my_info(event:MessageEvent) -> Message:
-    """
-    炼金资料卡
-    """
-    user,group_account = Manager.locate_user(event)
-    return MessageSegment.image(info_splicing(await alchemy_info(user,group_account.nickname if group_account else user.nickname),Manager.BG_path(user.user_id),5))

@@ -1,39 +1,39 @@
-from typing import Tuple,Dict
+from typing import Tuple,Dict,List
 from pathlib import Path
+from PIL import Image
 from collections import Counter
-from nonebot.adapters.onebot.v11 import (
-    Bot,
-    Message,
-    MessageEvent,
-    GroupMessageEvent,
-    MessageSegment,
-    )
-from nonebot import get_driver
+import time
+import asyncio
+from .Processor import Event
+from .utils.chart import gini_coef as gini,default_BG
+from .data import DataBase, UserDict, GroupAccount, GroupDict, Company,MarketHistory,OHLC
+from .config import path,lucky_clover,bet_gold,max_bet_gold,BG_image
+
 from nonebot.log import logger
-
-from .utils.utils import image_url
-from .utils.chart import gini_coef, default_BG
-from .utils.avatar import download_url
-from .data import DataBase, UserDict, GroupAccount, GroupDict, Company, props_library
-from .config import max_bet_gold, lucky_clover, path, BG_image,bet_gold
-
-driver = get_driver()
 
 # 加载数据
 
-datafile = path / "russian_data.json"
+data_file = path / "russian_data.json"
 
-if datafile.exists():
-    with open(datafile, "r") as f:
+if data_file.exists():
+    with open(data_file, "r") as f:
         data = DataBase.loads(f.read())
 else:
-    data = DataBase(file = datafile)
+    data = DataBase(file = data_file)
 
 log = data.verification()
 logger.info(f"\n{log}")
 
 user_data = data.user
 group_data = data.group
+
+data_file = path / "market_history.json"
+
+if data_file.exists():
+    with open(data_file, "r", encoding = "utf8") as f:
+        market_history = MarketHistory.loads(f.read())
+else:
+    market_history = MarketHistory(file = data_file)
 
 """+++++++++++++++++
 |     ／l、        |
@@ -42,87 +42,93 @@ group_data = data.group
 |　   じしf_, )ノ  |
 +++++++++++++++++"""
 
-def locate_user(event:MessageEvent) ->Tuple[UserDict,GroupAccount]:
+def locate_user(event:Event) ->Tuple[UserDict,GroupAccount]:
     """
     定位个人账户
     """
     user_id = event.user_id
+    group_id = event.group_id
+
     user = user_data.setdefault(user_id,UserDict(event))
-    if isinstance(event,GroupMessageEvent):
-        group_id = event.group_id
-        group = group_data.setdefault(group_id,GroupDict(group_id = group_id,company = Company(company_id = group_id)))
-        namelist = group.namelist
-        if user_id in namelist:
-            group_account = user.group_accounts[group_id]
-            group_account.nickname = event.sender.card or event.sender.nickname
-        else:
-            namelist.add(user_id)
-            user.group_accounts[group_id] = GroupAccount(event)
-            group_account = user.group_accounts[group_id]
-            data.save()
-    else:
+    if event.is_private():
         group_id = user.connect
         if group_id:
             group_account = user.group_accounts.get(group_id)
         else:
             group_account = None
-
+    else:
+        group_id = event.group_id
+        group = group_data.setdefault(group_id,GroupDict(group_id = group_id,company = Company(company_id = group_id)))
+        namelist = group.namelist
+        if user_id in namelist:
+            group_account = user.group_accounts[group_id]
+            group_account.nickname = event.nickname
+        else:
+            namelist.add(user_id)
+            group_account = user.group_accounts[group_id] = GroupAccount(event)
+            data.save()
     return user,group_account
 
-def locate_user_at(event:GroupMessageEvent, user_id:int) ->Tuple[UserDict,GroupAccount]:
+def locate_group(group_id:str) -> GroupDict:
+    """
+    定位群账户
+    """
+    return group_data.get(group_id)
+
+def locate_user_at(user_id:str,group_id:str) ->Tuple[UserDict,GroupAccount]:
     """
     定位at账户
     """
-    if user_id not in user_data:
-        user_data[user_id] = UserDict(user_id = user_id, nickname = str(user_id))
-    user = user_data[user_id]
-    group_id = event.group_id
+    user = user_data.setdefault(user_id,UserDict(user_id = user_id, nickname = ""))
     group = group_data.setdefault(group_id,GroupDict(group_id = group_id))
     namelist = group.namelist
-
     if user_id not in namelist:
         namelist.add(user_id)
-        user.group_accounts[group_id] = GroupAccount(group_id = group_id,nickname = user.nickname)
         data.save()
-    group_account = user.group_accounts[group_id]
+    group_account = user.group_accounts.setdefault(group_id,GroupAccount(group_id = group_id,nickname = user.nickname))
     return user,group_account
 
-company_index:Dict[str,int] = {}
-
-def update_company_index():
+def locate_user_all(group_id:str) ->List[Tuple[UserDict,GroupAccount]]:
     """
-    从群数据生成公司名查找群号的字典
+    定位本群全部账户
     """
-    company_index.clear()
-    for group_id in group_data:
-        if company_name := group_data[group_id].company.company_name:
-            company_index[company_name] = group_id
-            company_index[str(group_id)] = group_id
+    group = locate_group(group_id)
+    if not group:
+        return []
+    users = []
+    for user_id in group.namelist:
+        user = user_data[user_id]
+        users.append((user,user.group_accounts[group_id]))
 
-update_company_index()
+def get_user(user_id:str) -> UserDict:
+    return user_data.get(user_id)
 
-def BG_path(user_id:int) -> Path:
-    my_BG = BG_image / f"{str(user_id)}.png"
+def pay_tax(locate:Tuple[UserDict,GroupAccount], group:GroupDict, tax:int):
+    """
+    上税
+    """
+    locate[0].gold -= tax
+    locate[1].gold -= tax
+    group.company.bank += tax
+
+def account_connect(event:Event, group_id:str = None):
+    """
+    关联账户
+    """
+    if not group_id:
+        if event.is_private():
+            return
+        group_id = event.group_id
+    user = get_user(event.user_id)
+    if group_id in user.group_accounts:
+        user.connect = group_id
+
+def BG_path(user_id:str) -> Path:
+    my_BG = BG_image / f"{user_id}.png"
     if my_BG.exists():
         return my_BG
     else:
         return default_BG
-
-async def add_BG_image(event:MessageEvent):
-    user = locate_user(event)[0]
-    if user.props.get("33001",0) < 1:
-        return f"你的【{props_library['33001']['name']}】已失效"
-    if url := image_url(event):
-        if not (bytes_image := await download_url(url[0])):
-            return "图片下载失败"
-        else:
-            with open(BG_image / f"{str(event.user_id)}.png", 'wb') as f:
-                f.write(bytes_image)
-            return "图片下载成功"
-
-async def del_BG_image(event:MessageEvent):
-    Path.unlink(BG_image / f"{str(event.user_id)}.png", True)
-    return "背景图片删除成功！"
 
 def PropsCard_list(locate:Tuple[UserDict,GroupAccount]):
     """
@@ -168,7 +174,7 @@ def Achieve_list(locate:Tuple[UserDict,GroupAccount]):
 
     return rank
 
-def group_wealths(group_id:int, level:int = 1) -> float:
+def group_wealths(group_id:str, level:int = 1) -> float:
     """
     群内总资产
     """
@@ -182,7 +188,7 @@ def group_wealths(group_id:int, level:int = 1) -> float:
 
     return total * level 
 
-def group_wealths_detailed(group_id:int) -> Tuple[int,dict]:
+def group_wealths_detailed(group_id:str) -> Tuple[str,dict]:
     """
     详细的群内总资产
     """
@@ -199,7 +205,7 @@ def group_wealths_detailed(group_id:int) -> Tuple[int,dict]:
         invist += Counter(group_account.invest)
     return gold,dict(invist)
 
-def invest_value(invest:Dict[int,int]) -> float:
+def invest_value(invest:Dict[str,str]) -> float:
     """
     计算投资价值
     invest:投资信息（{company_id:n}）
@@ -212,7 +218,7 @@ def invest_value(invest:Dict[int,int]) -> float:
         value += n * unit
     return value
 
-def group_ranklist(group_id:int , title:str) -> list:
+def group_ranklist(group_id:str , title:str) -> list:
     """
     群内排行榜
         param:
@@ -264,19 +270,6 @@ def group_ranklist(group_id:int , title:str) -> list:
     rank.sort(key=lambda x:x[1],reverse=True)
     return rank
 
-#def group_rank(group_id:int, title:str = "金币", top:int = 20) -> str:
-#    if not (ranklist := group_ranklist(group_id, title)):
-#        return "无数据。"
-#    rank = ""
-#    i = 1
-#    for x in ranklist[:top]:
-#        user = user_data[x[0]]
-#        group_account = user.group_accounts[group_id]
-#        nicname = group_account.nickname
-#        rank += f"{i}.{nicname}：{x[1]}\n"
-#        i += 1
-#    return MessageSegment.image(text_to_png(rank[:-1]))
-
 def All_ranklist(title:str) -> list:
     """
     总排行榜
@@ -321,18 +314,12 @@ def All_ranklist(title:str) -> list:
     rank.sort(key=lambda x:x[1],reverse=True)
     return rank
 
-def company_level(group_id:int) -> int:
-    """
-    获取公司等级
-    """
-    return group_data[group_id].company.level
-
-def Gini(group_id:int, limit:int = bet_gold) -> float:
+def gini_coef(group_id:str, limit:int = bet_gold) -> float:
     """
     本群基尼系数
     """
     if group_id in group_data:
-        level = company_level(group_id)
+        level = locate_group(group_id).company.level
         namelist = group_data[group_id].namelist
     else:
         return None
@@ -343,17 +330,27 @@ def Gini(group_id:int, limit:int = bet_gold) -> float:
 
     rank = [x for x in rank if x > limit]
     rank.sort()
-    return gini_coef(rank)
+    return gini(rank)
 
-async def try_send_private_msg(user_id:int, message: Message) -> bool:
-    """
-    发送私聊消息
-    """
-    bot_list = driver.bots.values()
-    for bot in bot_list:
-        friend_list = await bot.get_friend_list()
-        friend_list = [friend["user_id"] for friend in friend_list]
-        if user_id in friend_list:
-            await bot.send_private_msg(user_id = user_id, message = message)
-            return True
-    return False
+async def candlestick(group_id:str):
+    p = OHLC(path, group_id)
+    overtime = time.time() + 30
+    while (p.poll()) == None:
+        if time.time() > overtime:
+            return
+        await asyncio.sleep(0.5)
+    return Image.open(path / "candlestick" / f"{group_id}.png")
+
+
+#async def try_send_private_msg(user_id:int, message: Message) -> bool:
+#    """
+#    发送私聊消息
+#    """
+#    bot_list = driver.bots.values()
+#    for bot in bot_list:
+#        friend_list = await bot.get_friend_list()
+#        friend_list = [friend["user_id"] for friend in friend_list]
+#        if user_id in friend_list:
+#            await bot.send_private_msg(user_id = user_id, message = message)
+#            return True
+#    return False

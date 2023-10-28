@@ -26,7 +26,7 @@ class Castle(BaseModel):
     城池属性
     """
     HP:int = 10
-    user_id:int = None
+    user_id:str = None
     army:Dict[int,int] = {}
     tower_L:int = 0
     tower_R:int = 0
@@ -102,14 +102,14 @@ class Player(BaseModel):
     team:str = None
     color:str = None
     castle_ids:list = []
-
+    
 class World(BaseModel):
     """
     世界属性
     """
     start:int = 0
-    castles:Dict[int,Castle] = {}
-    players:Dict[int,Player] = {}
+    castles:Dict[str,Castle] = {}
+    players:Dict[str,Player] = {}
     ids = []
     teams:list = []
     team_color:list = ["#cc0000","#351c75","#e69138","#0b5394","#f1c232","#1155cc","#6aa84f","#134f5c","#45818e","#38761d","#3c78d8","#bf9000","#3d85c6","#b45f06"]

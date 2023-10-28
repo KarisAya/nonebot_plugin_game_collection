@@ -1,89 +1,83 @@
-from typing import Dict,Union
+from typing import Dict,Tuple,List
 from pydantic import BaseModel
 from pathlib import Path
 from collections import Counter
-import random
+from sys import platform
+
+import os
 import math
 import datetime
+import subprocess
+
+from .Processor import Event
 
 try:
     import ujson as json
 except ModuleNotFoundError:
     import json
-
-from nonebot.adapters.onebot.v11 import MessageEvent,GroupMessageEvent
+    
+python = "python" if platform == "win32" else "python3"
 
 class GroupAccount(BaseModel):
     """
     用户群账户
     """
-    user_id:int = None
-    group_id:int = None
+    user_id:str = None
+    group_id:str = None
     nickname:str = None
     is_sign:bool = False
     revolution:bool = False
     security:int = 0
     gold:int = 0
-    invest:Dict[int,int] = {}
+    invest:Dict[str,int] = {}
     props:Dict[str,int] = {}
 
-    def __init__(self, event:GroupMessageEvent = None, **obj):
+    def __init__(self, event:Event = None, **obj):
         """
         初始化群账户
         """
         if event:
             obj["user_id"] = event.user_id
             obj["group_id"] = event.group_id
-            obj["nickname"] = event.sender.card or event.sender.nickname
+            obj["nickname"] = event.nickname
         super().__init__(**obj)
 
 class UserDict(BaseModel):
     """
     用户字典
     """
-    user_id:int = None
+    user_id:str = None
     nickname:str = None
+    avatar_url:str = "https://avatars.githubusercontent.com/u/51886078"
     gold:int = 0
     win:int = 0
     lose:int = 0
     Achieve_win:int = 0
     Achieve_lose:int = 0
-    group_accounts:Dict[int,GroupAccount] = {}
-    connect:int = 0
+    group_accounts:Dict[str,GroupAccount] = {}
+    connect:str = 0
     props:Dict[str,int] = {}
     alchemy:Dict[str,int] = {}
 
-    def __init__(self, event:MessageEvent = None, **obj):
+    def __init__(self, event:Event = None, **obj):
         """
         初始化用户字典
         """
         if event:
             obj["user_id"] = event.user_id
-            obj["nickname"] = event.sender.nickname
+            obj["nickname"] = event.nickname
         super().__init__(**obj)
 
-class UserData(Dict[int, UserDict]):
+class UserData(Dict[str, UserDict]):
     """
     用户数据
     """
-    def get_nickname(self, user_id, group_id):
-        """
-        获取用户名
-        """
-        if user_id in self:
-            user = self[user_id]
-            if group_id in user.group_accounts:
-                return user.group_accounts[group_id].nickname
-            else:
-                return user.nickname
-        else:
-            return "已注销"
 
 class ExchangeInfo(BaseModel):
     """
     交易信息
     """
-    group_id:int = None
+    group_id:str = None
     quote:float = 0.0
     n:int = 0
 
@@ -91,7 +85,7 @@ class Company(BaseModel):
     """
     公司账户
     """
-    company_id:int = None
+    company_id:str = None
     """群号"""
     company_name:str = None
     """公司名称"""
@@ -111,7 +105,7 @@ class Company(BaseModel):
     """全群资产"""
     bank:int = 0
     """群金库"""
-    invest:dict[int,int] = {}
+    invest:dict[str,int] = {}
     """群投资"""
     transfer_limit:float = 0.0
     """每日转账限制"""
@@ -119,11 +113,11 @@ class Company(BaseModel):
     """今日转账额"""
     intro:str = None
     """群介绍"""
-    exchange:Dict[int,ExchangeInfo] = {}
+    exchange:Dict[str,ExchangeInfo] = {}
     """本群交易市场"""
     orders:dict = {}
     """当前订单"""
-
+    
     def Buyback(self, group_account:GroupAccount, n:int = None):
         """
         让公司回收本账户的股票
@@ -142,13 +136,13 @@ class GroupDict(BaseModel):
     """
     群字典
     """
-    group_id:int = None
+    group_id:str = None
     namelist:set = set()
     revolution_time:float = 0.0
-    Achieve_revolution:Dict[int,int] = {}
+    Achieve_revolution:Dict[str,int] = {}
     company:Company = Company()
 
-class GroupData(Dict[int, GroupDict]):
+class GroupData(Dict[str, GroupDict]):
     """
     群数据
     """
@@ -176,13 +170,13 @@ class DataBase(BaseModel):
         for user_id, user in data_dict["user"].items():
             for group_id, group_account in user["group_accounts"].items():
                 user["group_accounts"][group_id] = GroupAccount.parse_obj(group_account)
-            Truedata.user[int(user_id)] = UserDict.parse_obj(user)
+            Truedata.user[user_id] = UserDict.parse_obj(user)
 
         for group_id, group in data_dict["group"].items():
             for user_id, exchange_info in group["company"]["exchange"].items():
                 group["company"]["exchange"][user_id] = ExchangeInfo.parse_obj(exchange_info)
             group["company"] = Company.parse_obj(group["company"])
-            Truedata.group[int(group_id)] = GroupDict.parse_obj(group)
+            Truedata.group[group_id] = GroupDict.parse_obj(group)
         return Truedata
 
     def verification(self):
@@ -200,7 +194,7 @@ class DataBase(BaseModel):
             # 回归
             user.user_id = user_id
             # 清理未持有的道具
-            user.props = {k:v for k,v in user.props.items() if v > 0 and k in props_index}
+            user.props = {k:v for k,v in user.props.items() if v > 0 and k in props_library}
             # 删除无效群账户
             group_accounts = user.group_accounts = {k:v for k,v in user.group_accounts.items() if k in namelist_check}
             gold = 0
@@ -210,7 +204,7 @@ class DataBase(BaseModel):
                 group_account.user_id = user_id
                 group_account.group_id = group_id
                 # 清理未持有的道具
-                group_account.props = {k:v for k,v in group_account.props.items() if v > 0 and k in props_index}
+                group_account.props = {k:v for k,v in group_account.props.items() if v > 0 and k in props_library}
                 # 删除无效及未持有的股票
                 invest = group_account.invest = {k:v for k,v in group_account.invest.items() if k in companys and v > 0}
                 # 群名单检查
@@ -297,18 +291,33 @@ class DataBase(BaseModel):
             group.company.transfer_limit = int(group.company.group_gold/10) if group.company.group_gold else float("inf")
         self.save()
 
+class MarketHistory(BaseModel):
+    data:Dict[str,List[Tuple[float,float,float]]] = {}
+    file:Path
+    
+    def record(self,company_id:str,data:Tuple[float,float,float]):
+        self.data.setdefault(company_id,[]).append(data)
+        self.data[company_id] = self.data[company_id][-720:]
+    @classmethod
+    def loads(cls, data:str):
+        """
+        从json字符串中加载数据
+        """
+        return cls.parse_obj(json.loads(data))
+        
+    def save(self):
+        """
+        保存数据
+        """
+        with open(self.file,"w") as f:
+            f.write(self.json(indent = 4))
+            
 """+++++++++++++++++
-——————————
-    上面是定义~♡
 ——————————
    ᕱ⑅ᕱ。 ᴍᴏʀɴɪɴɢ
   (｡•ᴗ-)_
 ——————————
-    下面是实例~♡
-——————————
 +++++++++++++++++"""
-
-import os
 
 resourcefile = Path(os.path.join(os.path.dirname(__file__),"./resource"))
 
@@ -316,27 +325,11 @@ resourcefile = Path(os.path.join(os.path.dirname(__file__),"./resource"))
 with open(resourcefile / "props_library.json", "r", encoding="utf8") as f:
     props_library = json.load(f)
 
-def update_props_index(props_index:dict):
-    """
-    从道具库生成道具名查找道具代号字典
-    """
-    props_index.clear()
-    for prop_code,prop in props_library.items():
-        props_index[prop["name"]] = prop_code
-        props_index[prop_code] = prop_code
-
-props_index:Dict[str,str] = {}
-update_props_index(props_index)
-
 # 加载菜单
 with open(resourcefile / "menu_data.json", "r", encoding="utf8") as f:
     menu_data = json.load(f)
-
+   
 # OHLC子程序
-import subprocess
-from sys import platform
-
-python = "python" if platform == "win32" else "python3"
 
 def OHLC(path, company_id):
     """

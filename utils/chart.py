@@ -13,8 +13,8 @@ import numpy as np
 import re
 
 from .avatar import download_avatar,download_groupavatar
-
-from ..data import UserDict, GroupAccount,Company
+from .utils import download_url
+from ..data import Company
 from ..data import resourcefile
 
 from ..config import BG_image,fontname,fallback_fonts
@@ -311,43 +311,37 @@ def line_splicing(info:list):
     canvas.save(output,'png')
     return output
     
-async def bar_chart(user_id:int, info:str, lenth:float):
+def bar_chart(info:str, lenth:float):
     """
     带头像的条形图
     """
     canvas = Image.new("RGBA", (880, 60))
-    avatar = Image.open(await download_avatar(user_id))
-    avatar = avatar.resize((60,60))
-    circle_mask = Image.new("RGBA", avatar.size, (255, 255, 255, 0))
-    ImageDraw.Draw(circle_mask).ellipse(((0,0),avatar.size), fill="black")
-    canvas.paste(avatar, (5, 0), circle_mask)
     draw = ImageDraw.Draw(canvas)
     draw.rectangle(((70,10), (860, 50)), fill = "#00000033")
     draw.rectangle(((70,10), (80 + int(lenth*780), 50)), fill = "#99CCFF")
     draw.text((80,10), info, fill = (0,0,0), font = font_normal)
-    return canvas
+    async def func(url:str):
+        avatar = Image.open(await download_url(url))
+        avatar = avatar.resize((60,60))
+        circle_mask = Image.new("RGBA", avatar.size, (255, 255, 255, 0))
+        ImageDraw.Draw(circle_mask).ellipse(((0,0),avatar.size), fill="black")
+        canvas.paste(avatar, (5, 0), circle_mask)
+        return canvas
+    return func
 
-def integer_log(number, base):
-    result = 0
-    while number >= base:
-        number //= base
-        result += 1
-    return result
-
-async def alchemy_info(user:UserDict,nickname:str):
+def alchemy_info(alchemy:dict,nickname:str,avatar:bytes):
     """
     炼金账户
     """
     canvas = Image.new("RGBA", (880, 400))
-    avatar = Image.open(await download_avatar(user.user_id))
-    avatar = avatar.resize((160,160))
+    avatar = Image.open(avatar).resize((160,160))
     circle_mask = Image.new("RGBA", avatar.size, (255, 255, 255, 0))
     ImageDraw.Draw(circle_mask).ellipse(((0,0),avatar.size), fill="black")
     canvas.paste(avatar, (20, 20), circle_mask)
     draw = ImageDraw.Draw(canvas)
     draw.line(((20, 200), (480, 200)), fill = "gray", width = 4)
 
-    alchemy = Counter(user.alchemy)
+    alchemy = Counter(alchemy)
     # 创建变量标签
     labels = ['蒸汽', '雷电', '岩浆', '尘埃', '沼泽', '寒冰']
     # 创建变量值
@@ -426,16 +420,18 @@ async def alchemy_info(user:UserDict,nickname:str):
     info.append(bar_chart(f"尘埃Lv.{level}",element/2**(level+1),"#99CCCCCC"))
     return info
 
-async def my_info_head(user:UserDict, nickname:str):
+def my_info_head(
+    gold:int,
+    win:int,
+    lose:int,
+    nickname:str,
+    avatar:bytes
+    ):
     """
     我的资料卡第一个信息
     """
-    gold = user.gold
-    win = user.win
-    lose = user.lose
     canvas = Image.new("RGBA", (880, 300))
-    avatar = Image.open(await download_avatar(user.user_id))
-    avatar = avatar.resize((260,260))
+    avatar = Image.open(avatar).resize((260,260))
     circle_mask = Image.new("RGBA", avatar.size, (255, 255, 255, 0))
     ImageDraw.Draw(circle_mask).ellipse(((0,0),avatar.size), fill="black")
     canvas.paste(avatar, (20, 20), circle_mask)
@@ -445,6 +441,22 @@ async def my_info_head(user:UserDict, nickname:str):
     draw.text((300,140),f"金币 {'{:,}'.format(gold)}", fill = (0,0,0),font = font_normal)
     draw.text((300,190),f"战绩 {win}:{lose}", fill = (0,0,0),font = font_normal)
     draw.text((300,240),f"胜率 {(round(win * 100 / (win + lose), 2) if win > 0 else 0)}%\n", fill=(0,0,0),font = font_normal)
+    return canvas
+
+def my_exchange_head(gold:int,nickname:str,invest:dict,avatar:bytes):
+    """
+    我的交易信息第一个信息
+    """
+    canvas = Image.new("RGBA", (880, 250))
+    avatar = Image.open(avatar).resize((210,210))
+    circle_mask = Image.new("RGBA", avatar.size, (255, 255, 255, 0))
+    ImageDraw.Draw(circle_mask).ellipse(((0,0),avatar.size), fill="black")
+    canvas.paste(avatar, (20, 20), circle_mask)
+    draw = ImageDraw.Draw(canvas)
+    draw.text((250,40),f"{nickname}", fill = (0,0,0),font = font_big)
+    draw.line(((250, 120), (860, 120)), fill = "gray", width = 4)
+    draw.text((250,140),f"金币 {'{:,}'.format(gold)}", fill = (0,0,0),font = font_normal)
+    draw.text((250,190),f"股票 {len(invest)}", fill = (0,0,0),font = font_normal)
     return canvas
 
 def my_info_account(msg:str, dist):
@@ -492,25 +504,16 @@ def my_info_account(msg:str, dist):
     linecard(msg, width = 880, height = 400,padding = (20,30),endline = "账户信息",canvas = canvas)
     return canvas
 
-async def group_info_head(group_name:str, company_name:str, group_id:int, member_count:Tuple[int,int]):
+def group_info_head(company_name:str, group_id:int, member_count:int):
     """
     群资料卡第一个信息
     """
-    canvas = Image.new("RGBA", (880, 300))
-    avatar = Image.open(await download_groupavatar(group_id))
-    avatar = avatar.resize((260,260))
-    circle_mask = Image.new("RGBA", avatar.size, (255, 255, 255, 0))
-    ImageDraw.Draw(circle_mask).ellipse(((0,0),avatar.size), fill="black")
-    canvas.paste(avatar, (20, 20), circle_mask)
+    canvas = Image.new("RGBA", (880, 250))
     draw = ImageDraw.Draw(canvas)
-    draw.text((300,40),f"{group_name}", fill = (0,0,0),font = font_big)
-    draw.line(((300, 120), (860, 120)), fill = "gray", width = 6)
-    draw.text((300,140),f"公司：{company_name if company_name else '未注册'}", fill = (0,0,0),font = font_normal)
-    draw.text((300,190),f"单位：{str(group_id)[:4]}...", fill = (0,0,0),font = font_normal)
-    draw.rectangle(((300,240), (740,280)), fill = "#00000033")
-    draw.rectangle(((300,240), (300 + int(440 * member_count[0]/(member_count[1])),280)), fill = "#99CCFF")
-    draw.text((310,240),f"{member_count[0]}/{member_count[1]}", fill = (0,0,0),font = font_normal )
-    draw.text((750,240),f"{round(100 * member_count[0]/member_count[1],1)}%", fill = (0,0,0),font = font_normal)
+    draw.text((20,40),company_name if company_name else '未注册', fill = (0,0,0),font = font_big)
+    draw.line(((0, 120), (880, 120)), fill = "gray", width = 4)
+    draw.text((20,140),f"注册：{str(group_id)[:4]}...", fill = (0,0,0),font = font_normal)
+    draw.text((20,190),f"成员：{member_count}", fill = (0,0,0),font = font_normal)
     return canvas
 
 def group_info_account(company:Company, dist):
@@ -567,24 +570,6 @@ def group_info_account(company:Company, dist):
     plt.close()
 
     return Image.open(output)
-
-async def my_exchange_head(group_account:GroupAccount):
-    """
-    我的交易信息第一个信息
-    """
-    gold = group_account.gold
-    canvas = Image.new("RGBA", (880, 250))
-    avatar = Image.open(await download_avatar(group_account.user_id))
-    avatar = avatar.resize((210,210))
-    circle_mask = Image.new("RGBA", avatar.size, (255, 255, 255, 0))
-    ImageDraw.Draw(circle_mask).ellipse(((0,0),avatar.size), fill="black")
-    canvas.paste(avatar, (20, 20), circle_mask)
-    draw = ImageDraw.Draw(canvas)
-    draw.text((250,40),f"{group_account.nickname}", fill = (0,0,0),font = font_big)
-    draw.line(((250, 120), (860, 120)), fill = "gray", width = 4)
-    draw.text((250,140),f"金币 {'{:,}'.format(group_account.gold)}", fill = (0,0,0),font = font_normal)
-    draw.text((250,190),f"股票 {len(group_account.invest)}", fill = (0,0,0),font = font_normal)
-    return canvas
 
 def info_splicing(info:List[IMG],BG_path, spacing:int = 20):
     """
@@ -646,6 +631,8 @@ def CropResize(img,size:Tuple[int,int]):
     output = output.resize(size)
     return output
 
+# 上面是图片
+
 def gini_coef(wealths:list) -> float:
     """
     计算基尼系数
@@ -656,3 +643,10 @@ def gini_coef(wealths:list) -> float:
     N = len(wealths_cum)
     S = np.trapz(wealths_cum / wealths_sum,np.array(range(N))/(N-1))
     return 1 - 2*S
+
+def integer_log(number, base):
+    result = 0
+    while number >= base:
+        number //= base
+        result += 1
+    return result

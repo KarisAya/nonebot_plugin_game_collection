@@ -1,4 +1,4 @@
-from nonebot import on_message,on_command
+from nonebot import on_message,on_command,on_fullmatch
 from nonebot.permission import SUPERUSER
 from nonebot.log import logger
 from nonebot_plugin_apscheduler import scheduler
@@ -132,21 +132,12 @@ async def _():
     logger.info(f'游戏数据已保存！！')
 
 
-## 清理无效账户
-#delist = on_fullmatch("清理无效账户", rule = to_me(), permission = SUPERUSER, priority = 20, block = True)
+# 清理市场账户
+cancellation = on_fullmatch("清理市场账户", permission = SUPERUSER, priority = 20, block = True)
 
-#@delist.handle()
-#async def _():
-#    await delist.send("正在启动清理程序。")
-#    log = await Account.delist()
-#    logger.info("\n" + log)
-#    with open(path / "delist.log","a",encoding = "utf8") as f:
-#        f.write(
-#            f"\n{datetime.datetime.fromtimestamp(time.time()).strftime('%Y 年 %m 月 %d 日 %H:%M:%S')}\n"
-#            "——————————————\n"
-#            + log + "\n"
-#            "——————————————\n"
-#            )
-#    log = data.verification()
-#    logger.info(f"\n{log}")
-#    await delist.finish("清理完成！")
+@cancellation.handle()
+async def _():
+   await cancellation.send("正在启动清理程序。")
+   result = '\n'.join(await Manager.cancellation())
+   Market.update_company_index()
+   await cancellation.finish(f"清理完成！\n已删除以下公司：\n{result}")

@@ -7,7 +7,7 @@ import asyncio
 from .Processor import Event
 from .utils.chart import gini_coef as gini,default_BG
 from .data import DataBase, UserDict, GroupAccount, GroupDict, Company,MarketHistory,OHLC
-from .config import path,lucky_clover,bet_gold,max_bet_gold,BG_image
+from .config import path,backup,lucky_clover,bet_gold,max_bet_gold,BG_image
 
 from nonebot.log import logger
 
@@ -341,16 +341,42 @@ async def candlestick(group_id:str):
         await asyncio.sleep(0.5)
     return Image.open(path / "candlestick" / f"{group_id}.png")
 
-
-#async def try_send_private_msg(user_id:int, message: Message) -> bool:
-#    """
-#    发送私聊消息
-#    """
-#    bot_list = driver.bots.values()
-#    for bot in bot_list:
-#        friend_list = await bot.get_friend_list()
-#        friend_list = [friend["user_id"] for friend in friend_list]
-#        if user_id in friend_list:
-#            await bot.send_private_msg(user_id = user_id, message = message)
-#            return True
-#    return False
+async def cancellation():
+    """
+    清理市场账户
+    """
+    folders = [f for f in backup.iterdir() if f.is_dir()]
+    if not folders:
+        return
+    oldest_folder = min(folders, key = lambda f:f.stat().st_ctime)
+    files = [f for f in oldest_folder.iterdir() if f.is_file()]
+    if not files:
+        return
+    oldest_file = min(files, key = lambda f:f.stat().st_ctime)
+    print(oldest_file)
+    with open(oldest_file, "r") as f:
+        old_data = DataBase.loads(f.read())
+    old_data.verification()
+    company_ids = [group.group_id for group in old_data.group.values() if group.company.company_name]
+    result = []
+    for company_id in company_ids:
+        old_namelist = old_data.group[company_id].namelist
+        for user_id in old_namelist:
+            old_group_account = old_data.user[user_id].group_accounts[company_id]
+            user = data.user.get(user_id)
+            if not user:
+                continue
+            group_account = user.group_accounts.get(company_id)
+            if not group_account:
+                continue
+            if group_account != old_group_account:
+                break
+        else:
+            group = locate_group(company_id)
+            if not group:
+                continue
+            result.append(group.company.company_name)
+            group.company.company_name = None         
+    return result
+                
+        

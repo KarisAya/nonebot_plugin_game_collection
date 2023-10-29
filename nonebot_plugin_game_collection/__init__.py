@@ -31,22 +31,22 @@ __plugin_meta__ = PluginMetadata(
 from nonebot.adapters.qq import Bot as QQBot, MessageCreateEvent
 from .adapters.qq import Adapters as QQAdapters, send as QQsend
 
-game = on_message(priority=20, block=False)
+main = on_message(priority=20, block=False)
 
 
-@game.handle()
-async def _(matcher: Matcher, bot: QQBot,event: MessageCreateEvent):
+@main.handle()
+async def _(matcher: Matcher, bot: QQBot, event: MessageCreateEvent):
     data_list = Event.check(
         extract_command(event.get_plaintext()),
         event.get_user_id(),
         event.guild_id or "private",
     )
     if not data_list:
-        await game.finish()
+        await main.finish()
     matcher.stop_propagation()
     for _data in data_list:
-        await QQsend(game.send, await run(_data, QQAdapters, bot, event))
-    await game.finish()
+        await QQsend(main.send, await run(_data, QQAdapters, bot, event))
+    await main.finish()
 
 
 from nonebot.adapters.onebot.v11 import (
@@ -56,7 +56,7 @@ from nonebot.adapters.onebot.v11 import (
 from .adapters.v11 import Adapters as OneBotAdapters, send as OneBotsend
 
 
-@game.handle()
+@main.handle()
 async def _(matcher: Matcher, bot: OneBot, event: OneBotMessageEvent):
     data_list = Event.check(
         extract_command(event.get_plaintext()),
@@ -64,11 +64,11 @@ async def _(matcher: Matcher, bot: OneBot, event: OneBotMessageEvent):
         getattr(event, "group_id", "private"),
     )
     if not data_list:
-        await game.finish()
+        await main.finish()
     matcher.stop_propagation()
     for _data in data_list:
-        await OneBotsend(game.send, await run(_data, OneBotAdapters, bot, event))
-    await game.finish()
+        await OneBotsend(main.send, await run(_data, OneBotAdapters, bot, event))
+    await main.finish()
 
 
 """+++++++++++++++++++++++++++++++++++++

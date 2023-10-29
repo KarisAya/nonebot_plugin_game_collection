@@ -107,24 +107,25 @@ async def _(event: Event) -> Result:
     user, group_account = Manager.locate_user(event)
     if not group_account:
         return "私聊未关联账户，请发送【关联账户】关联群内账户。"
-    gold = event.args_to_int()
     company = Manager.locate_group(group_account.group_id).company
     if event.raw_command == "取金币":
         if not event.permission():
             return
+        gold = event.args_to_int()
         if company.bank < gold:
             return f"金币不足。本群金库还有{company.bank}枚金币。"
         tip = "取出"
         sign = 1
     elif event.raw_command == "存金币":
+        gold = event.args_to_int()
         if group_account.gold < gold:
             return f"金币不足。你还有{group_account.gold}枚金币。"
         tip = "存入"
         sign = -1
     else:
-        msg = f"本群金库还有{company.bank}枚金币。\n"
-        msg += "\n".join(
-            f"{Manager.locate_group(company_id).company.company_name}:{n}\n"
+        msg = f"本群金库还有{company.bank}枚金币。"
+        msg += "".join(
+            f"\n{Manager.locate_group(company_id).company.company_name}:{n}"
             for company_id, n in company.invest.items()
         )
         return msg
@@ -707,7 +708,7 @@ async def _(event: Event) -> Result:
     return f"恭喜您完成了订单{key}，您获得了{gold}金币。"
 
 
-@reg_command("inherit_group", {"继承公司账户","继承群账户"}, need_extra_args={"permission"})
+@reg_command("inherit_group", {"继承公司账户", "继承群账户"}, need_extra_args={"permission"})
 async def _(event: Event) -> Result:
     if event.permission() != 3:
         return
@@ -773,6 +774,7 @@ async def _(event: Event) -> Result:
         f">{company_name(k) or '已注销'}:{v}" for k, v in invest_private.items()
     )
     del Manager.group_data[Deceased.group_id]
+    update_company_index()
     Manager.data.verification()
     return (
         "继承已完成\n"
@@ -781,7 +783,7 @@ async def _(event: Event) -> Result:
         f">投资:\n{invest_group_info}\n"
         ">个人账户总入账\n"
         f">金币:{gold_private}\n"
-        f">投资:\n{invest_private_info}\n"
+        f">投资:\n{invest_private_info}"
     )
 
 

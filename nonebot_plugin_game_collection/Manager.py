@@ -57,7 +57,6 @@ def locate_user(event: Event) -> Tuple[UserDict, GroupAccount]:
     """
     user_id = event.user_id
     group_id = event.group_id
-    print(user_id, type(user_id), group_id, type(group_id))
     user = user_data.setdefault(user_id, UserDict(event))
     if event.is_private():
         group_id = user.connect
@@ -385,7 +384,7 @@ def gini_coef(group_id: str, limit: int = bet_gold) -> float:
 async def candlestick(group_id: str):
     p = OHLC(path, group_id)
     overtime = time.time() + 30
-    while (p.poll()) == None:
+    while (p.poll()) is None:
         if time.time() > overtime:
             return
         await asyncio.sleep(0.5)
@@ -404,7 +403,6 @@ async def cancellation():
     if not files:
         return
     oldest_file = min(files, key=lambda f: f.stat().st_ctime)
-    print(oldest_file)
     with open(oldest_file, "r") as f:
         old_data = DataBase.loads(f.read())
     old_data.verification()

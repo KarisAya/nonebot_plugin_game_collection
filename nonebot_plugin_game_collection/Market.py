@@ -767,21 +767,21 @@ async def _(event: Event) -> Result:
             return Manager.locate_group(k).company.company_name
 
     invest_group_info = "\n".join(
-        f">>{company_name(k) or '已注销'}:{v}" for k, v in invest_group.items()
+        f">{company_name(k) or '已注销'}:{v}" for k, v in invest_group.items()
     )
     invest_private_info = "\n".join(
-        f">>{company_name(k) or '已注销'}:{v}" for k, v in invest_private.items()
+        f">{company_name(k) or '已注销'}:{v}" for k, v in invest_private.items()
     )
     del Deceased
     Manager.data.verification()
     return (
         "继承已完成\n"
         ">群金库入账\n"
-        f">>金币:{gold_group}\n"
-        f">>投资:\n{invest_group_info}\n"
+        f">金币:{gold_group}\n"
+        f">投资:\n{invest_group_info}\n"
         ">个人账户总入账\n"
-        f">>金币:{gold_private}\n"
-        f">>投资:\n{invest_private_info}\n"
+        f">金币:{gold_private}\n"
+        f">投资:\n{invest_private_info}\n"
     )
 
 

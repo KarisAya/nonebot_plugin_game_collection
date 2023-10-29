@@ -35,7 +35,7 @@ __plugin_meta__ = PluginMetadata(
 from nonebot.adapters.qq import Bot as QQBot, MessageCreateEvent
 from .adapters.qq import Adapters as QQAdapters, send as QQsend
 
-matcher = on_message(priority=100, block=True)
+matcher = on_message(priority=20, block=False)
 
 
 @matcher.handle()
@@ -47,6 +47,7 @@ async def _(bot: QQBot, event: MessageCreateEvent):
     )
     if not data_list:
         await matcher.finish()
+    matcher.stop_propagation()
     for _data in data_list:
         await QQsend(matcher.send, await run(_data, QQAdapters, bot, event))
     await matcher.finish()
@@ -68,6 +69,7 @@ async def _(bot: OneBot, event: OneBotMessageEvent):
     )
     if not data_list:
         await matcher.finish()
+    matcher.stop_propagation()
     for _data in data_list:
         await OneBotsend(matcher.send, await run(_data, OneBotAdapters, bot, event))
     await matcher.finish()

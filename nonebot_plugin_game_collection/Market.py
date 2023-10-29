@@ -4,22 +4,23 @@ import time
 import math
 import datetime
 
-from .data import Company,ExchangeInfo
-from .Processor import Event,Result,reg_command
+from .data import Company, ExchangeInfo
+from .Processor import Event, Result, reg_command
 from . import Prop
 from . import Alchemy
 from . import Manager
 
 from .utils.chart import (
     linecard,
-    linecard_to_png, 
+    linecard_to_png,
     group_info_head,
     group_info_account,
-    info_splicing
-    )
+    info_splicing,
+)
 from .config import gacha_gold, max_bet_gold
 
-def check_company_name(company_name:str):
+
+def check_company_name(company_name: str):
     """
     检查公司名是否合法
     """
@@ -44,9 +45,12 @@ def check_company_name(company_name:str):
     except:
         return None
 
-@reg_command("company_public",{"市场注册","公司注册","注册公司"},need_extra_args = {"to_me","permission"})
-async def _(event:Event) -> Result:
-    if event.is_private() or not(event.permission() and event.to_me()):
+
+@reg_command(
+    "company_public", {"市场注册", "公司注册", "注册公司"}, need_extra_args={"to_me", "permission"}
+)
+async def _(event: Event) -> Result:
+    if event.is_private() or not (event.permission() and event.to_me()):
         return
     company_name = event.single_arg()
     group_id = event.group_id
@@ -65,17 +69,20 @@ async def _(event:Event) -> Result:
     company.company_id = group_id
     company.company_name = company_name
     company.time = time.time()
-    company.level = min(20,sum(group.Achieve_revolution.values()) + 1)
+    company.level = min(20, sum(group.Achieve_revolution.values()) + 1)
     company.stock = company.issuance = 20000 * company.level
     company.group_gold = gold * company.level
     company.float_gold = company.gold = company.group_gold * 0.8
-    company.intro = f"发行初始信息\n金币 {round(gold,2)}\n基尼系数{round(gini,3)}\n{company_name} 名称检查通过\n发行成功！"
+    company.intro = (
+        f"发行初始信息\n金币 {round(gold,2)}\n基尼系数{round(gini,3)}\n{company_name} 名称检查通过\n发行成功！"
+    )
     update_company_index()
-    return f'{company_name}发行成功，发行价格为每股{round((gold/ 20000),2)}金币'
+    return f"{company_name}发行成功，发行价格为每股{round((gold/ 20000),2)}金币"
 
-@reg_command("company_rename",{"公司重命名"},need_extra_args = {"to_me","permission"})
-async def _(event:Event) -> Result:
-    if event.is_private() or not(event.permission() and event.to_me()):
+
+@reg_command("company_rename", {"公司重命名"}, need_extra_args={"to_me", "permission"})
+async def _(event: Event) -> Result:
+    if event.is_private() or not (event.permission() and event.to_me()):
         return
     company_name = event.single_arg()
     group_id = event.group_id
@@ -83,18 +90,21 @@ async def _(event:Event) -> Result:
     if not company.company_name:
         return "本群未在市场注册，不可重命名。"
     user = Manager.locate_user(event)[0]
-    if user.props.get("33001",0) < 1:
+    if user.props.get("33001", 0) < 1:
         return f"你的【{Prop.get_prop_name('33001')}】已失效"
     if check := check_company_name(company_name):
         return check
     old_company_name = company.company_name
     company.company_name = company_name
     update_company_index()
-    return f'【{old_company_name}】已重命名为【{company_name}】'
+    return f"【{old_company_name}】已重命名为【{company_name}】"
 
-@reg_command("bank_gold",{"存金币","取金币","查看群金库","群金库查看"},need_extra_args = {"permission"})
-async def _(event:Event) -> Result:
-    user,group_account = Manager.locate_user(event)
+
+@reg_command(
+    "bank_gold", {"存金币", "取金币", "查看群金库", "群金库查看"}, need_extra_args={"permission"}
+)
+async def _(event: Event) -> Result:
+    user, group_account = Manager.locate_user(event)
     if not group_account:
         return "私聊未关联账户，请发送【关联账户】关联群内账户。"
     gold = event.args_to_int()
@@ -113,20 +123,24 @@ async def _(event:Event) -> Result:
         sign = -1
     else:
         msg = f"本群金库还有{company.bank}枚金币。\n"
-        msg += "\n".join(f"{Manager.locate_group(company_id).company.company_name}:{n}\n" for company_id,n in company.invest.items())
+        msg += "\n".join(
+            f"{Manager.locate_group(company_id).company.company_name}:{n}\n"
+            for company_id, n in company.invest.items()
+        )
         return msg
-    gold = sign *gold
+    gold = sign * gold
     user.gold += gold
     group_account.gold += gold
     company.bank -= gold
     return f"你{tip}了{abs(gold)}金币。"
 
-@reg_command("bank_invest",{"存股票","取股票"},need_extra_args = {"permission"})
-async def _(event:Event) -> Result:
-    user,group_account = Manager.locate_user(event)
+
+@reg_command("bank_invest", {"存股票", "取股票"}, need_extra_args={"permission"})
+async def _(event: Event) -> Result:
+    user, group_account = Manager.locate_user(event)
     if not group_account:
         return "私聊未关联账户，请发送【关联账户】关联群内账户。"
-    company_name,count,_ = event.args_parse()
+    company_name, count, _ = event.args_parse()
     if company_name in company_index:
         company_id = company_index[company_name]
     else:
@@ -143,30 +157,33 @@ async def _(event:Event) -> Result:
         tip = "存入"
         sign = -1
     company = Manager.locate_group(group_account.group_id).company
-    count = min(invest.get(company_id,0),count)
+    count = min(invest.get(company_id, 0), count)
     if count == 0:
         return f"数量不足，无法{tip}：{company_name}"
-    group_account.invest[company_id] = group_account.invest.get(company_id,0) + sign * count
-    company.invest[company_id] = company.invest.get(company_id,0) - sign * count
+    group_account.invest[company_id] = (
+        group_account.invest.get(company_id, 0) + sign * count
+    )
+    company.invest[company_id] = company.invest.get(company_id, 0) - sign * count
     return f"你{tip}了{count}个{company_name}"
 
-@reg_command("Market_buy",{"购买","发行购买"})
-async def _(event:Event) -> Result:
-    user,group_account = Manager.locate_user(event)
+
+@reg_command("Market_buy", {"购买", "发行购买"})
+async def _(event: Event) -> Result:
+    user, group_account = Manager.locate_user(event)
     if not group_account:
         return "私聊未关联账户，请发送【关联账户】关联群内账户。"
-    company_name,buy,limit = event.args_parse()
+    company_name, buy, limit = event.args_parse()
     if company_name in company_index:
         company_id = company_index[company_name]
     else:
         return f"没有 {company_name} 的注册信息"
     company = Manager.locate_group(company_id).company
     company_name = company.company_name
-    buy = min(company.stock,buy)
+    buy = min(company.stock, buy)
     if buy < 1:
         return "已售空，请等待结算或在交易市场购买。"
 
-    group_gold = Manager.group_wealths(company_id,company.level)
+    group_gold = Manager.group_wealths(company_id, company.level)
     if group_gold < 10 * company.level * max_bet_gold:
         return f"【{company_name}】金币过少({round(group_gold,2)})，无法交易。"
     float_gold = company.float_gold
@@ -175,9 +192,9 @@ async def _(event:Event) -> Result:
     my_gold = my_gold_level * group_account.gold
     value = 0.0
     inner_buy = 0
-    limit = limit if limit else float('inf')
+    limit = limit if limit else float("inf")
     for _ in range(buy):
-        unit = max(group_gold, float_gold)/SI
+        unit = max(group_gold, float_gold) / SI
         if unit > limit:
             tip = f"价格超过限制（{limit}）。"
             break
@@ -193,9 +210,11 @@ async def _(event:Event) -> Result:
         return f"购买失败，{tip}"
     # 结算股票
     company.stock -= inner_buy
-    group_account.invest[company_id] = group_account.invest.get(company_id,0) + inner_buy
+    group_account.invest[company_id] = (
+        group_account.invest.get(company_id, 0) + inner_buy
+    )
     # 结算金币
-    gold = math.ceil(value/my_gold_level)
+    gold = math.ceil(value / my_gold_level)
     user.gold -= gold
     group_account.gold -= gold
     company.gold += value
@@ -209,25 +228,26 @@ async def _(event:Event) -> Result:
         f"总计：{math.ceil(value)}（{gold}）\n"
         "——————————\n"
         "交易成功！"
-        )
+    )
 
-@reg_command("Market_settle",{"结算","官方结算"})
-async def _(event:Event) -> Result:
-    user,group_account = Manager.locate_user(event)
+
+@reg_command("Market_settle", {"结算", "官方结算"})
+async def _(event: Event) -> Result:
+    user, group_account = Manager.locate_user(event)
     if not group_account:
         return "私聊未关联账户，请发送【关联账户】关联群内账户。"
-    company_name,settle,limit = event.args_parse()
+    company_name, settle, limit = event.args_parse()
     if company_name in company_index:
         company_id = company_index[company_name]
     else:
         return f"没有 {company_name} 的注册信息"
-    my_stock = group_account.invest.get(company_id,0)
-    settle = min(settle,my_stock)
+    my_stock = group_account.invest.get(company_id, 0)
+    settle = min(settle, my_stock)
     if settle < 1:
         return f"您未持有 {company_name}"
     company = Manager.locate_group(company_id).company
     company_name = company.company_name
-    group_gold = Manager.group_wealths(company_id,company.level)
+    group_gold = Manager.group_wealths(company_id, company.level)
     if group_gold < 10 * company.level * max_bet_gold:
         return f"【{company_name}】金币过少({group_gold})，无法交易。"
     float_gold = company.float_gold
@@ -239,14 +259,14 @@ async def _(event:Event) -> Result:
     inner_settle = 0
     limit = limit if limit else 1
     for _ in range(settle):
-        unit = float_gold/SI
+        unit = float_gold / SI
         if unit < limit:
             break
         value += unit
         float_gold -= unit
         inner_settle += 1
-    gold = value/my_gold_level
-    if group_account.props.get("42001",0):
+    gold = value / my_gold_level
+    if group_account.props.get("42001", 0):
         fee = 0
         tips = f"『{Prop.get_prop_name('42001')}』免手续费"
     else:
@@ -259,7 +279,9 @@ async def _(event:Event) -> Result:
         del group_account.invest[company_id]
         stock = 0
     else:
-        stock = group_account.invest[company_id] = group_account.invest.get(company_id) - inner_settle
+        stock = group_account.invest[company_id] = (
+            group_account.invest.get(company_id) - inner_settle
+        )
     # 结算金币
     gold = int(gold) - fee
     user.gold += gold
@@ -282,14 +304,15 @@ async def _(event:Event) -> Result:
         f"总计：{int(value)}（{gold+fee}）\n"
         "——————————\n"
         "交易成功！\n" + tips
-        )
+    )
 
-@reg_command("Exchange_buy",{"市场购买"})
-async def _(event:Event) -> Result:
-    user,group_account = Manager.locate_user(event)
+
+@reg_command("Exchange_buy", {"市场购买"})
+async def _(event: Event) -> Result:
+    user, group_account = Manager.locate_user(event)
     if not group_account:
         return "私聊未关联账户，请发送【关联账户】关联群内账户。"
-    company_name,buy,_ = event.args_parse()
+    company_name, buy, _ = event.args_parse()
     if company_name in company_index:
         company_id = company_index[company_name]
     else:
@@ -298,18 +321,22 @@ async def _(event:Event) -> Result:
     company = Manager.locate_group(company_id).company
     company_name = company.company_name
 
-    rank = [(user_id,exchange) for user_id,exchange in company.exchange.items() if user_id != user.user_id and exchange.n > 0]
+    rank = [
+        (user_id, exchange)
+        for user_id, exchange in company.exchange.items()
+        if user_id != user.user_id and exchange.n > 0
+    ]
     if not rank:
         return f"没有正在出售的 {company_name}"
-    rank.sort(key = lambda x:x[1].quote)
+    rank.sort(key=lambda x: x[1].quote)
 
     value = 0.0
     Exlist = []
     level = Manager.locate_group(group_account.group_id).company.level
     my_gold = group_account.gold * level
-    for user_id,exchange in rank:
+    for user_id, exchange in rank:
         n = exchange.n
-        Exlist.append([user_id,n])
+        Exlist.append([user_id, n])
         if buy < n:
             Exlist[-1][1] = buy
             break
@@ -320,18 +347,20 @@ async def _(event:Event) -> Result:
             return f"你的金币不足（{group_account.gold}）"
     value = 0.0
     count = 0
-    group_account.invest.setdefault(company_id,0)
-    for user_id,n in Exlist:
+    group_account.invest.setdefault(company_id, 0)
+    for user_id, n in Exlist:
         exchange = company.exchange[user_id]
         # 定位卖家
-        seller_user,seller_group_account = Manager.locate_user_at(user_id,exchange.group_id)
+        seller_user, seller_group_account = Manager.locate_user_at(
+            user_id, exchange.group_id
+        )
         seller_level = Manager.locate_group(exchange.group_id).company.level
         # 记录信息
         unsettled = exchange.quote * n
         value += unsettled
         count += n
         # 卖家金币结算
-        unsettled = math.ceil(unsettled/seller_level)
+        unsettled = math.ceil(unsettled / seller_level)
         seller_user.gold += unsettled
         seller_group_account.gold += unsettled
         # 股票结算
@@ -339,10 +368,10 @@ async def _(event:Event) -> Result:
         group_account.invest[company_id] += n
         exchange.n -= n
     # 买家金币结算
-    gold = math.ceil(value/level)
+    gold = math.ceil(value / level)
     user.gold -= gold
     group_account.gold -= gold
-    company.exchange = {k:v for k,v in company.exchange.items() if v.n > 0}
+    company.exchange = {k: v for k, v in company.exchange.items() if v.n > 0}
 
     return (
         f"{company_name}\n"
@@ -352,19 +381,20 @@ async def _(event:Event) -> Result:
         f"总计：{math.ceil(value)}（{gold}）\n"
         "——————————\n"
         "交易成功！"
-        )
+    )
 
-@reg_command("Exchange_sell",{"出售","市场出售", "卖出", "上架", "发布交易信息"})
-async def _(event:Event) -> Result:
-    user,group_account = Manager.locate_user(event)
+
+@reg_command("Exchange_sell", {"出售", "市场出售", "卖出", "上架", "发布交易信息"})
+async def _(event: Event) -> Result:
+    user, group_account = Manager.locate_user(event)
     if not group_account:
         return "私聊未关联账户，请发送【关联账户】关联群内账户。"
-    company_name,n,quote = event.args_parse()
+    company_name, n, quote = event.args_parse()
     if company_name in company_index:
         company_id = company_index[company_name]
     else:
         return f"没有 {company_name} 的注册信息"
-    my_stock = group_account.invest.get(company_id,0)
+    my_stock = group_account.invest.get(company_id, 0)
     if my_stock < n:
         return f"你的账户中没有足够的股票（{my_stock}）。"
     user_id = user.user_id
@@ -381,7 +411,7 @@ async def _(event:Event) -> Result:
     else:
         if not quote:
             return
-        group_gold = Manager.group_wealths(company_id,company.level)
+        group_gold = Manager.group_wealths(company_id, company.level)
         float_gold = company.float_gold
         SI = company.issuance
         if user_id in exchange:
@@ -389,14 +419,13 @@ async def _(event:Event) -> Result:
         else:
             tips = "交易信息发布成功！"
         exchange[user_id] = ExchangeInfo(
-            group_id = group_account.group_id,
-            quote = quote,
-            n = n)
+            group_id=group_account.group_id, quote=quote, n=n
+        )
         # 自动结算交易市场上的股票
         value = 0.0
         inner_settle = 0
         for _ in range(n):
-            unit = float_gold/SI
+            unit = float_gold / SI
             if unit < quote:
                 break
             value += quote
@@ -405,10 +434,10 @@ async def _(event:Event) -> Result:
 
         if inner_settle > 0:
             # 结算股票
-            company.Buyback(group_account,inner_settle)
+            company.Buyback(group_account, inner_settle)
             # 结算金币
             my_gold_level = Manager.locate_group(group_account.group_id).company
-            gold = int(value/my_gold_level)
+            gold = int(value / my_gold_level)
             user.gold += gold
             group_account.gold += gold
             company.gold -= value
@@ -418,13 +447,13 @@ async def _(event:Event) -> Result:
     return (
         f"{company.company_name}\n"
         "——————————\n"
-        f'报价：{quote}\n'
-        f'数量：{n}\n'
-        "——————————\n"
-        + tips
-        )
+        f"报价：{quote}\n"
+        f"数量：{n}\n"
+        "——————————\n" + tips
+    )
 
-async def group_info(group_id, bg_id:str = None) -> Result:
+
+async def group_info(group_id, bg_id: str = None) -> Result:
     """
     群资料卡
     """
@@ -433,15 +462,15 @@ async def group_info(group_id, bg_id:str = None) -> Result:
     group = Manager.locate_group(group_id)
     company = group.company
     company_name = group.company.company_name
-    info.append(group_info_head(company_name or "未注册", group_id,len(group.namelist)))
+    info.append(group_info_head(company_name or "未注册", group_id, len(group.namelist)))
     # 加载公司信息
     if company_name:
         # 注册信息
         msg = (
             f"公司等级 {company.level}\n"
             f"成立时间 {datetime.datetime.fromtimestamp(company.time).strftime('%Y 年 %m 月 %d 日')}\n"
-            )
-        info.append(linecard(msg + stock_profile(company), width = 880, endline = "注册信息"))
+        )
+        info.append(linecard(msg + stock_profile(company), width=880, endline="注册信息"))
         # 蜡烛图
         ohlc = await Manager.candlestick(group_id)
         if ohlc:
@@ -449,51 +478,65 @@ async def group_info(group_id, bg_id:str = None) -> Result:
         # 资产分布
         invist = Counter(company.invest)
         for inner_user_id in group.namelist:
-            invist += Counter(Manager.locate_user_at(inner_user_id,group_id)[1].invest)
+            invist += Counter(Manager.locate_user_at(inner_user_id, group_id)[1].invest)
         dist = []
-        for inner_company_id,n in invist.items():
+        for inner_company_id, n in invist.items():
             inner_company = Manager.locate_group(inner_company_id).company
-            inner_company_name = inner_company.company_name or f"（{str(inner_company_id)[-4:]}）"
-            unit = max(inner_company.float_gold / inner_company.issuance,0)
-            dist.append([unit*n, inner_company_name])
+            inner_company_name = (
+                inner_company.company_name or f"（{str(inner_company_id)[-4:]}）"
+            )
+            unit = max(inner_company.float_gold / inner_company.issuance, 0)
+            dist.append([unit * n, inner_company_name])
 
         if dist:
-            info.append(group_info_account(company,dist))
+            info.append(group_info_account(company, dist))
 
-        ranklist = [(inner_user_id,exchange) for inner_user_id,exchange in company.exchange.items() if exchange.n > 0]
+        ranklist = [
+            (inner_user_id, exchange)
+            for inner_user_id, exchange in company.exchange.items()
+            if exchange.n > 0
+        ]
         if ranklist:
-            ranklist.sort(key=lambda x:x[1].quote)
+            ranklist.sort(key=lambda x: x[1].quote)
+
             def result(inner_user_id, exchange):
                 nickname = Manager.get_user(inner_user_id).nickname
-                nickname = nickname if len(nickname) < 7 else nickname[:6]+'..'
+                nickname = nickname if len(nickname) < 7 else nickname[:6] + ".."
                 return f"[pixel][20]{nickname}[nowrap]\n[pixel][300]单价 {exchange.quote}[nowrap]\n[pixel][600]数量 {exchange.n}\n"
-            msg = "".join(result(inner_user_id,exchange) for inner_user_id,exchange in ranklist[:10])
-            info.append(linecard(msg, width = 880, font_size = 40,endline = "市场详情"))
+
+            msg = "".join(
+                result(inner_user_id, exchange)
+                for inner_user_id, exchange in ranklist[:10]
+            )
+            info.append(linecard(msg, width=880, font_size=40, endline="市场详情"))
 
         msg = company.intro
         if msg:
-            info.append(linecard(msg + '\n', width = 880, font_size = 40,endline = "公司介绍"))
+            info.append(linecard(msg + "\n", width=880, font_size=40, endline="公司介绍"))
 
     # 路灯挂件
     ranklist = list(group.Achieve_revolution.items())
     if ranklist:
-        ranklist.sort(key=lambda x:x[1],reverse=True)
+        ranklist.sort(key=lambda x: x[1], reverse=True)
+
         def result(inner_user_id, n):
-            user,group_account = Manager.locate_user_at(inner_user_id,group_id)
+            user, group_account = Manager.locate_user_at(inner_user_id, group_id)
             return f"{group_account.nickname or user.nickname}[nowrap]\n[right]{n}次\n"
-        msg = "".join(result(inner_user_id,n) for inner_user_id,n in ranklist[:10])
-        info.insert(min(len(info),2),linecard(msg, width = 880, endline = "路灯挂件"))
 
-    return info_splicing(info, Manager.BG_path(bg_id),10)
+        msg = "".join(result(inner_user_id, n) for inner_user_id, n in ranklist[:10])
+        info.insert(min(len(info), 2), linecard(msg, width=880, endline="路灯挂件"))
 
-def stock_profile(company:Company) -> str:
+    return info_splicing(info, Manager.BG_path(bg_id), 10)
+
+
+def stock_profile(company: Company) -> str:
     """
     产业信息
     """
     group_gold = company.group_gold
     float_gold = company.float_gold
     SI = company.issuance
-    rate = company.group_gold * (2  - company.stock / SI)/company.float_gold
+    rate = company.group_gold * (2 - company.stock / SI) / company.float_gold
     rate = rate - 1
     rate = f'{round(rate*100,2)}% {"↑[color][green]" if rate > 0 else "↓[color][red]"}'
     msg = (
@@ -503,8 +546,9 @@ def stock_profile(company:Company) -> str:
         f"[pixel][450]结算价格 {'{:,}'.format(round(float_gold/SI,2))}\n"
         f"股票数量 {company.stock}[nowrap]\n"
         f"[pixel][450]回归趋势 [nowrap]\n{rate}\n"
-        )
+    )
     return msg
+
 
 def Market_info_All() -> Result:
     """
@@ -513,21 +557,27 @@ def Market_info_All() -> Result:
     global company_index
     company_ids = set([company_index[company_id] for company_id in company_index])
     companys = [Manager.locate_group(company_id).company for company_id in company_ids]
-    companys.sort(key = lambda x:x.group_gold, reverse = True)
+    companys.sort(key=lambda x: x.group_gold, reverse=True)
     return linecard_to_png(
-        "----\n".join(f"{company.company_name}\n----\n{stock_profile(company)}" for company in companys)[:-1],
-        font_size = 40,
-        width = 880)
-        
-@reg_command("group_info",{"群资料卡"})
-async def _(event:Event) -> Result:
-    user,group_account = Manager.locate_user(event)
+        "----\n".join(
+            f"{company.company_name}\n----\n{stock_profile(company)}"
+            for company in companys
+        )[:-1],
+        font_size=40,
+        width=880,
+    )
+
+
+@reg_command("group_info", {"群资料卡"})
+async def _(event: Event) -> Result:
+    user, group_account = Manager.locate_user(event)
     if not group_account:
         return "私聊未关联账户，请发送【关联账户】关联群内账户。"
-    return await group_info(group_account.group_id,event.user_id)
+    return await group_info(group_account.group_id, event.user_id)
 
-@reg_command("Market_info",{"市场信息","查看市场"})
-async def _(event:Event) -> Result:
+
+@reg_command("Market_info", {"市场信息", "查看市场"})
+async def _(event: Event) -> Result:
     company_name = event.single_arg(" ")
     if company_name == " ":
         return Market_info_All() if company_index else "市场不存在"
@@ -535,9 +585,10 @@ async def _(event:Event) -> Result:
         company_id = company_index[company_name]
     else:
         return f"没有 {company_name} 的注册信息"
-    return await group_info(company_id,event.user_id)
+    return await group_info(company_id, event.user_id)
 
-def pricelist(user_id:int) -> Result:
+
+def pricelist(user_id: int) -> Result:
     """
     市场价格表
     """
@@ -550,13 +601,13 @@ def pricelist(user_id:int) -> Result:
     if not companys:
         return "市场为空"
 
-    companys.sort(key = lambda x:x.group_gold, reverse = True)
+    companys.sort(key=lambda x: x.group_gold, reverse=True)
 
-    def result(company:Company) -> str:
+    def result(company: Company) -> str:
         group_gold = company.group_gold
         float_gold = company.float_gold
         SI = company.issuance
-        gold = max(group_gold,float_gold)
+        gold = max(group_gold, float_gold)
         stock = company.stock
         return (
             "----\n"
@@ -564,21 +615,30 @@ def pricelist(user_id:int) -> Result:
             f"[pixel][20]发行 [nowrap]\n[color][{'green' if gold == float_gold else 'red'}]{'{:,}'.format(round(gold/SI,2))}[nowrap]\n"
             f"[pixel][300]结算 [nowrap]\n[color][green]{'{:,}'.format(round(float_gold/SI,2))}[nowrap]\n"
             f"[pixel][600]数量 [nowrap]\n[color][{'green' if stock else 'red'}]{stock}\n"
+        )
+
+    return info_splicing(
+        [
+            linecard(
+                "".join(result(company) for company in companys),
+                width=880,
+                endline="市场价格表",
             )
+        ],
+        Manager.BG_path(user_id),
+    )
 
-    return info_splicing([linecard(
-        "".join(result(company) for company in companys),
-        width = 880,
-        endline = "市场价格表"
-        )], Manager.BG_path(user_id))
 
-@reg_command("Market_pricelist",{"市场价格表","股票价格表"})
-async def _(event:Event) -> Result:
+@reg_command("Market_pricelist", {"市场价格表", "股票价格表"})
+async def _(event: Event) -> Result:
     return pricelist(event.user_id)
 
-@reg_command("company_intro",{"更新公司简介","添加公司简介", "修改公司简介"},need_extra_args = {"permission"})
-async def _(event:Event) -> Result:
-    if event.is_private() or not(event.permission() and event.to_me()):
+
+@reg_command(
+    "company_intro", {"更新公司简介", "添加公司简介", "修改公司简介"}, need_extra_args={"permission"}
+)
+async def _(event: Event) -> Result:
+    if event.is_private() or not (event.permission() and event.to_me()):
         return
     group = Manager.locate_group(event.group_id)
     if not group:
@@ -586,82 +646,173 @@ async def _(event:Event) -> Result:
     group.company.intro = " ".join(event.args)
     return "简介更新完成!"
 
-@reg_command("alchemy_order",{"查看元素订单"})
-async def _(event:Event) -> Result:
-    user,group_account = Manager.locate_user(event)
+
+@reg_command("alchemy_order", {"查看元素订单"})
+async def _(event: Event) -> Result:
+    user, group_account = Manager.locate_user(event)
     if not group_account:
         return "私聊未关联账户，请发送【关联账户】关联群内账户。"
     orders = Manager.locate_group(group_account.group_id).company.orders
     if not orders:
         return "今日本群元素订单已完成。"
-    def result(order:dict) -> str:
-        lst = [(min(user.alchemy.get(code,0),999), order.get(code,0)) for code in ['5','6','7','8','9','0']]
-        return(
+
+    def result(order: dict) -> str:
+        lst = [
+            (min(user.alchemy.get(code, 0), 999), order.get(code, 0))
+            for code in ["5", "6", "7", "8", "9", "0"]
+        ]
+        return (
             f"[color][{'red' if lst[0][0] < lst[0][1] else 'green'}][pixel][20]{Alchemy.ProductsName['5']} {lst[0][1]}/{lst[0][0]}[nowrap]\n"
             f"[color][{'red' if lst[1][0] < lst[1][1] else 'green'}][pixel][300]{Alchemy.ProductsName['6']} {lst[1][1]}/{lst[1][0]}[nowrap]\n"
             f"[color][{'red' if lst[2][0] < lst[2][1] else 'green'}][pixel][600]{Alchemy.ProductsName['7']} {lst[2][1]}/{lst[2][0]}\n"
             f"[color][{'red' if lst[3][0] < lst[3][1] else 'green'}][pixel][20]{Alchemy.ProductsName['8']} {lst[3][1]}/{lst[3][0]}[nowrap]\n"
             f"[color][{'red' if lst[4][0] < lst[4][1] else 'green'}][pixel][300]{Alchemy.ProductsName['9']} {lst[4][1]}/{lst[4][0]}[nowrap]\n"
             f"[color][{'red' if lst[5][0] < lst[5][1] else 'green'}][pixel][600]{Alchemy.ProductsName['0']} {lst[5][1]}/{lst[5][0]}\n"
-            )
-    info = [linecard(result(order),width = 880,endline = f"编号{i}") for i,order in orders.items()]
-    return info_splicing(info, Manager.BG_path(group_account.user_id),5)
+        )
 
-@reg_command("complete_order",{"完成元素订单"})
-async def _(event:Event) -> Result:
+    info = [
+        linecard(result(order), width=880, endline=f"编号{i}")
+        for i, order in orders.items()
+    ]
+    return info_splicing(info, Manager.BG_path(group_account.user_id), 5)
+
+
+@reg_command("complete_order", {"完成元素订单"})
+async def _(event: Event) -> Result:
     key = event.single_arg()
-    user,group_account = Manager.locate_user(event)
+    user, group_account = Manager.locate_user(event)
     if not group_account:
         return "私聊未关联账户，请发送【关联账户】关联群内账户。"
     company = Manager.locate_group(group_account.group_id).company
     orders = company.orders
     if not orders:
         return "今日本群元素订单已完成。"
-    order = orders.get(key) 
+    order = orders.get(key)
     if not order:
         return f"不存在元素订单编号【{key}】"
     tip = ""
-    for k,v in order.items():
-        n = user.alchemy.get(k,0)
+    for k, v in order.items():
+        n = user.alchemy.get(k, 0)
         if n < v:
             tip += f"\n{Alchemy.ProductsName[k]} {v - n}个"
     if tip:
         return f"你的元素不足,你还需要：{tip}"
-    for k,v in order.items():
+    for k, v in order.items():
         user.alchemy[k] -= v
-    gold = random.randint(10,30) * gacha_gold
+    gold = random.randint(10, 30) * gacha_gold
     user.gold += gold
     group_account.gold += gold
     company.bank += gacha_gold * 2
     del orders[key]
     return f"恭喜您完成了订单{key}，您获得了{gold}金币。"
 
-def company_update(company:Company):
+
+@reg_command("inherit_group", {"继承公司账户"}, need_extra_args={"permission"})
+async def _(event: Event) -> Result:
+    if event.permission() != 3:
+        return
+    if len(event.args) != 3:
+        return
+    arrow = event.args[1]
+    if arrow == "->":
+        Deceased = event.args[0]
+        Heir = event.args[2]
+    elif arrow == "<-":
+        Deceased = event.args[2]
+        Heir = event.args[0]
+    else:
+        return "请输入:Deceased -> Heir"
+    Deceased = company_index.get(Deceased) or Deceased
+    Deceased = Manager.locate_group(Deceased)
+    if not Deceased:
+        return "被继承群不存在"
+    Heir = company_index.get(Heir) or Heir
+    Heir = Manager.locate_group(Heir)
+    if not Heir:
+        return "继承群不存在"
+    ExRate = Deceased.company.level / Heir.company.level
+    gold_group = 0
+    invest_group = Counter()
+    gold_private = 0
+    invest_private = Counter()
+    # 继承群金库
+    gold = math.ceil(Deceased.company.bank * ExRate)
+    Heir.company.bank += gold
+    gold_group += gold
+    invest = Counter(Deceased.company.invest)
+    Heir.company.invest = dict(Counter(Heir.company.invest) + invest)
+    invest_group += invest
+    # 继承群员账户
+    for user_id in Deceased.namelist:
+        Deceased_account = Manager.locate_user_at(user_id, Deceased.group_id)[1]
+        gold = math.ceil(Deceased_account.gold * ExRate)
+        invest = Counter(Deceased_account.invest)
+        if user_id in Heir.namelist:
+            Heir_account = Manager.locate_user_at(user_id, Heir.group_id)[1]
+            Heir_account.gold += gold
+            Heir_account.invest = dict(Counter(Heir_account.invest) + invest)
+            gold_private += gold
+            invest_private += invest
+        else:
+            Heir.company.bank += gold
+            Heir.company.invest = dict(Counter(Heir.company.invest) + invest)
+            gold_group += gold
+            invest_group += invest
+
+        del Deceased_account
+
+    def company_name(k):
+        group = Manager.locate_group(k)
+        if group:
+            return Manager.locate_group(k).company.company_name
+
+    invest_group_info = "\n".join(
+        f">>{company_name(k) or '已注销'}:{v}" for k, v in invest_group.items()
+    )
+    invest_private_info = "\n".join(
+        f">>{company_name(k) or '已注销'}:{v}" for k, v in invest_private.items()
+    )
+    del Deceased
+    Manager.data.verification()
+    return (
+        "继承已完成\n"
+        ">群金库入账\n"
+        f">>金币:{gold_group}\n"
+        f">>投资:\n{invest_group_info}\n"
+        ">个人账户总入账\n"
+        f">>金币:{gold_private}\n"
+        f">>投资:\n{invest_private_info}\n"
+    )
+
+
+def company_update(company: Company):
     """
     刷新公司信息
         company:公司账户
     """
     company_id = company.company_id
     # 更新全群金币数
-    group_gold = company.group_gold = Manager.group_wealths(company_id,company.level)
+    group_gold = company.group_gold = Manager.group_wealths(company_id, company.level)
     # 固定资产回归值 = 全群金币数 + 股票融资
     SI = company.issuance
-    line = group_gold * (2  - company.stock / SI)
+    line = group_gold * (2 - company.stock / SI)
     # 公司金币数回归到固定资产回归值
     gold = company.gold
-    gold += (line - gold)/96
+    gold += (line - gold) / 96
     company.gold = gold
     if gold > 0.0:
         # 股票价格变化 = 趋势性影响（正态分布） + 随机性影响（平均分布）
         float_gold = company.float_gold
-        float_gold += float_gold * random.gauss(0,0.03) + gold * random.uniform(-0.1, 0.1)
+        float_gold += float_gold * random.gauss(0, 0.03) + gold * random.uniform(
+            -0.1, 0.1
+        )
         # 股票价格向债务价值回归
         deviation = gold - float_gold
-        float_gold +=  0.1 * deviation * abs(deviation / gold)
+        float_gold += 0.1 * deviation * abs(deviation / gold)
         # Nan检查
         float_gold = group_gold if math.isnan(float_gold) else float_gold
         # 自动结算交易市场上的股票
-        for user_id,exchange in company.exchange.items():
+        for user_id, exchange in company.exchange.items():
             if not (user := Manager.get_user(user_id)):
                 exchange.n = 0
                 continue
@@ -673,7 +824,7 @@ def company_update(company:Company):
             value = 0.0
             inner_settle = 0
             for _ in range(exchange.n):
-                unit = float_gold/SI
+                unit = float_gold / SI
                 if unit < quote:
                     break
                 value += quote
@@ -683,20 +834,27 @@ def company_update(company:Company):
             if not inner_settle:
                 continue
             # 结算股票
-            company.Buyback(group_account,inner_settle)
+            company.Buyback(group_account, inner_settle)
             # 结算金币
             gold = int(value / Manager.locate_group(exchange.group_id).company.level)
             user.gold += gold
             group_account.gold += gold
             company.gold -= value
         # 清理无效交易信息
-        company.exchange = {user_id:exchange for user_id,exchange in company.exchange.items() if exchange.n > 0}
+        company.exchange = {
+            user_id: exchange
+            for user_id, exchange in company.exchange.items()
+            if exchange.n > 0
+        }
     else:
         float_gold = 0.0
     # 更新浮动价格
     company.float_gold = float_gold
     # 记录价格历史
-    Manager.market_history.record(company_id,(time.time(), group_gold / SI, float_gold / SI))
+    Manager.market_history.record(
+        company_id, (time.time(), group_gold / SI, float_gold / SI)
+    )
+
 
 def update():
     """
@@ -711,6 +869,7 @@ def update():
 
     return "\n".join(log)
 
+
 def new_order():
     """
     发布订单
@@ -720,13 +879,15 @@ def new_order():
         company = Manager.locate_group(company_id).company
         orders = company.orders
         for i in range(company.level):
-            i = str(i+1)
+            i = str(i + 1)
             if i in orders:
                 continue
             else:
                 orders[i] = Alchemy.random_products(10)
-                
+
+
 company_index = {}
+
 
 def update_company_index():
     """
@@ -738,5 +899,6 @@ def update_company_index():
         if company_name:
             company_index[company_name] = group_id
             company_index[group_id] = group_id
-            
+
+
 update_company_index()

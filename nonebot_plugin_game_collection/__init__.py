@@ -61,7 +61,7 @@ async def _(matcher: Matcher, bot: OneBot, event: OneBotMessageEvent):
     data_list = Event.check(
         extract_command(event.get_plaintext()),
         event.get_user_id(),
-        getattr(event, "group_id", "private"),
+        str(getattr(event, "group_id", "private")),
     )
     if not data_list:
         await main.finish()

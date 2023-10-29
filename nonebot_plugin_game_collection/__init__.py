@@ -1,12 +1,8 @@
 from nonebot import on_message, on_command, on_fullmatch
 from nonebot.permission import SUPERUSER
+from nonebot.matcher import Matcher
 from nonebot.log import logger
 from nonebot_plugin_apscheduler import scheduler
-
-try:
-    import ujson as json
-except ModuleNotFoundError:
-    import json
 
 import time
 import datetime
@@ -35,22 +31,22 @@ __plugin_meta__ = PluginMetadata(
 from nonebot.adapters.qq import Bot as QQBot, MessageCreateEvent
 from .adapters.qq import Adapters as QQAdapters, send as QQsend
 
-matcher = on_message(priority=20, block=False)
+game = on_message(priority=20, block=False)
 
 
-@matcher.handle()
-async def _(bot: QQBot, event: MessageCreateEvent):
+@game.handle()
+async def _(matcher: Matcher, bot: QQBot,event: MessageCreateEvent):
     data_list = Event.check(
         extract_command(event.get_plaintext()),
         event.get_user_id(),
         event.guild_id or "private",
     )
     if not data_list:
-        await matcher.finish()
+        await game.finish()
     matcher.stop_propagation()
     for _data in data_list:
-        await QQsend(matcher.send, await run(_data, QQAdapters, bot, event))
-    await matcher.finish()
+        await QQsend(game.send, await run(_data, QQAdapters, bot, event))
+    await game.finish()
 
 
 from nonebot.adapters.onebot.v11 import (
@@ -60,19 +56,19 @@ from nonebot.adapters.onebot.v11 import (
 from .adapters.v11 import Adapters as OneBotAdapters, send as OneBotsend
 
 
-@matcher.handle()
-async def _(bot: OneBot, event: OneBotMessageEvent):
+@game.handle()
+async def _(matcher: Matcher, bot: OneBot, event: OneBotMessageEvent):
     data_list = Event.check(
         extract_command(event.get_plaintext()),
         event.get_user_id(),
         getattr(event, "group_id", "private"),
     )
     if not data_list:
-        await matcher.finish()
+        await game.finish()
     matcher.stop_propagation()
     for _data in data_list:
-        await OneBotsend(matcher.send, await run(_data, OneBotAdapters, bot, event))
-    await matcher.finish()
+        await OneBotsend(game.send, await run(_data, OneBotAdapters, bot, event))
+    await game.finish()
 
 
 """+++++++++++++++++++++++++++++++++++++

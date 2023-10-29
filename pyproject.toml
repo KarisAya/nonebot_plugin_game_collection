@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "nonebot-plugin-game-collection"
+version = "0.1.0"
+description = ""
+authors = ["KarisAya <1048827424@qq.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12,<3.13"
+nonebot2 = "^2.1.1"
+pillow = "^10.1.0"
+fonttools = "^4.43.1"
+numpy = "^1.26.1"
+matplotlib = "^3.8.0"
+seaborn = "^0.13.0"
+nonebot-plugin-apscheduler = "^0.3.0"
+ujson = "^5.8.0"
+nonebot-adapter-onebot = "^2.3.1"
+nonebot-adapter-qq = "^1.0.1"
+mplfinance = "^0.12.10b0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

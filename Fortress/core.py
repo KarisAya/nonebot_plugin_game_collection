@@ -1,15 +1,9 @@
-﻿from typing import Dict,List
+﻿from typing import Dict
 from pydantic import BaseModel
-from pathlib import Path
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
 import math
 import random
-try:
-    import ujson as json
-except ModuleNotFoundError:
-    import json
-from collections import Counter
 from ..data import GroupAccount
 from ..config import fontname
 """

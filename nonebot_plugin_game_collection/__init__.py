@@ -131,7 +131,7 @@ Newday = on_command(
 async def _():
     log = Manager.data.verification()
     logger.info(f"\n{log}")
-    Manager.update_company_index()
+    Market.update_company_index()
     Market.new_order()
     Manager.data.Newday()
     with open(path / "Newday.log", "a", encoding="utf8") as f:

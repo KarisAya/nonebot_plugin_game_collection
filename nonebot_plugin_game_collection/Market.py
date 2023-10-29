@@ -707,7 +707,7 @@ async def _(event: Event) -> Result:
     return f"恭喜您完成了订单{key}，您获得了{gold}金币。"
 
 
-@reg_command("inherit_group", {"继承公司账户"}, need_extra_args={"permission"})
+@reg_command("inherit_group", {"继承公司账户","继承群账户"}, need_extra_args={"permission"})
 async def _(event: Event) -> Result:
     if event.permission() != 3:
         return
@@ -759,7 +759,7 @@ async def _(event: Event) -> Result:
             gold_group += gold
             invest_group += invest
 
-        del Deceased_account
+        del Manager.user_data[user_id].group_accounts[Deceased.group_id]
 
     def company_name(k):
         group = Manager.locate_group(k)
@@ -772,7 +772,7 @@ async def _(event: Event) -> Result:
     invest_private_info = "\n".join(
         f">{company_name(k) or '已注销'}:{v}" for k, v in invest_private.items()
     )
-    del Deceased
+    del Manager.group_data[Deceased.group_id]
     Manager.data.verification()
     return (
         "继承已完成\n"

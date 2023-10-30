@@ -123,12 +123,31 @@ async def _(event: Event) -> Result:
         tip = "存入"
         sign = -1
     else:
-        msg = f"本群金库还有{company.bank}枚金币。"
-        msg += "".join(
-            f"\n{Manager.locate_group(company_id).company.company_name}:{n}"
-            for company_id, n in company.invest.items()
-        )
-        return msg
+        invest_info = []
+        for inner_company_id, stock in company.invest.items():
+            inner_company = Manager.locate_group(inner_company_id).company
+            inner_company_name = inner_company.company_name
+            inner_company_gold = "{:,}".format(
+                round(inner_company.float_gold / inner_company.issuance, 2)
+            )
+            invest_info.append(
+                f"[pixel][20]公司 {inner_company_name}\n[pixel][20]结算 [nowrap]\n[color][green]{inner_company_gold}[nowrap]\n[pixel][400]数量 [nowrap]\n[color][green]{stock}"
+            )
+        if not invest_info:
+            return f"本群金库还有{company.bank}枚金币。"
+        else:
+            info = []
+            info.append(
+                linecard(
+                    f"[pixel][20]金币 {'{:,}'.format(company.bank)}\n",
+                    width=880,
+                    endline=f"金库等级：Lv{company.level}",
+                )
+            )
+            info.append(
+                linecard("\n----\n".join(invest_info) + "\n", width=880, endline="投资信息")
+            )
+            return info_splicing(info, Manager.BG_path(event.user_id))
     gold = sign * gold
     user.gold += gold
     group_account.gold += gold
@@ -138,7 +157,7 @@ async def _(event: Event) -> Result:
 
 @reg_command("bank_invest", {"存股票", "取股票"}, need_extra_args={"permission"})
 async def _(event: Event) -> Result:
-    user, group_account = Manager.locate_user(event)
+    group_account = Manager.locate_user(event)[1]
     if not group_account:
         return "私聊未关联账户，请发送【关联账户】关联群内账户。"
     company_name, count, _ = event.args_parse()
@@ -146,8 +165,8 @@ async def _(event: Event) -> Result:
         company_id = company_index[company_name]
     else:
         return f"没有 {company_name} 的注册信息"
-
-    if event.raw_command == "存股票":
+    company = Manager.locate_group(group_account.group_id).company
+    if event.raw_command == "取股票":
         if not event.permission():
             return
         invest = company.invest
@@ -157,13 +176,13 @@ async def _(event: Event) -> Result:
         invest = group_account.invest
         tip = "存入"
         sign = -1
-    company = Manager.locate_group(group_account.group_id).company
     count = min(invest.get(company_id, 0), count)
-    if count == 0:
+    if count < 1:
         return f"数量不足，无法{tip}：{company_name}"
     group_account.invest[company_id] = (
         group_account.invest.get(company_id, 0) + sign * count
     )
+    company = Manager.locate_group(group_account.group_id).company
     company.invest[company_id] = company.invest.get(company_id, 0) - sign * count
     return f"你{tip}了{count}个{company_name}"
 

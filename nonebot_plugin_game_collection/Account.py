@@ -357,7 +357,7 @@ async def _(event: Event) -> Result:
     )
 
 
-@reg_regex("gacha", "^.+连抽?卡?|单抽", need_extra_args={"to_me"})
+@reg_regex("gacha", r"^.+连抽?卡?|单抽", need_extra_args={"to_me"})
 async def _(event: Event) -> Result:
     if not event.to_me():
         return

@@ -8,7 +8,6 @@ import datetime
 import unicodedata
 
 from .Processor import Event, Result, reg_command, reg_regex
-from .Exceptions import SupArgsException
 from . import Market
 from . import Prop
 from . import Alchemy
@@ -423,9 +422,8 @@ async def _(event: Event) -> Result:
     if not user:
         return
     return info_splicing(
-        alchemy_info(user.alchemy, user.nickname, await event.avatar()).BG_path(
-            user.user_id
-        ),
+        alchemy_info(user.alchemy, user.nickname, await event.avatar()),
+        Manager.BG_path(user.user_id),
         5,
     )
 

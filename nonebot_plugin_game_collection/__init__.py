@@ -9,10 +9,11 @@ import datetime
 import shutil
 
 from .Processor import Event, run
+
 from . import Manager
-from . import Account
 from . import Market
-from . import Game
+from . import Account as _
+from . import Game as _
 
 from .data import menu_data
 from .utils.utils import extract_command

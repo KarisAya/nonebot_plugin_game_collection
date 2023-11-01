@@ -6,8 +6,8 @@ import datetime
 
 from .data import Company, ExchangeInfo
 from .Processor import Event, Result, reg_command
+from .Alchemy import Alchemy
 from . import Prop
-from . import Alchemy
 from . import Manager
 
 from .utils.chart import (

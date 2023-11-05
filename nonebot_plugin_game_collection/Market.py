@@ -750,6 +750,8 @@ async def _(event: Event) -> Result:
     Heir = Manager.locate_group(Heir)
     if not Heir:
         return "继承群不存在"
+    if Deceased is Heir:
+        return "无法继承自身"
     ExRate = Deceased.company.level / Heir.company.level
     gold_group = 0
     invest_group = Counter()

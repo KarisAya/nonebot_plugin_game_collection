@@ -255,8 +255,8 @@ async def _(event: Event) -> Result:
     dist = [x for x in dist if x[0] > 0]
     info.append(my_info_account(msg, dist or [(1.0, "None")]))
     # 加载股票信息
-    msg = "\n".join(
-        f"{Manager.locate_group(stock).company.company_name}[nowrap]\n[right][color][green]{i}"
+    msg = "".join(
+        f"{Manager.locate_group(stock).company.company_name}[nowrap]\n[right][color][green]{i}\n"
         for stock, i in group_account.invest.items()
         if i > 0
     )

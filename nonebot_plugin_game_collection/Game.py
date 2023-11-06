@@ -351,9 +351,12 @@ class Game(AROF):
             fee = int(gold * rand / 100)
             Manager.locate_group(group_id).company.bank += fee
             fee_tip = f"手续费：{fee}({rand}%)"
-        maxgold = int(max_bet_gold / 5)
+        maxgold = int(max_bet_gold * 5)
         if winner_group_account.props.get("52002", 0) > 0:
-            extra = int(gold * 0.1)
+            if winner_group_account.props.get("42002", 0) > 0:
+                extra = int(gold * 0.2)
+            else:
+                extra = int(gold * 0.1)
             if extra < maxgold:
                 extra_tip = f'◆『{Prop.get_prop_name("52002")}』\n'
             else:
@@ -372,7 +375,10 @@ class Game(AROF):
             security_tip = ""
 
         if loser_group_account.props.get("52001", 0) > 0:
-            off = int(gold * 0.1)
+            if winner_group_account.props.get("42002", 0) > 0:
+                off = int(gold * 0.2)
+            else:
+                off = int(gold * 0.1)
             if off < maxgold:
                 off_tip = f'◇『{Prop.get_prop_name("52001")}』\n'
             else:

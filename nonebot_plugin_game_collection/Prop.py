@@ -1,6 +1,5 @@
 from typing import Tuple, Dict, Callable
 import random
-import math
 
 from .data import UserDict, GroupAccount, props_library
 from .Processor import Event, Result
@@ -51,7 +50,7 @@ def random_props() -> str:
     if 0 < code <= 30:
         props = random.choice(["31001", "32001", "32002", "33001", "33101"])
     elif 30 < code <= 40:
-        props = random.choice(["41001", "42001", "42101"])
+        props = random.choice(["41001", "42001", "42002"])
     elif 40 < code <= 50:
         props = random.choice(["51001", "51002", "52001", "52002", "52101", "52102"])
     elif code == 51:

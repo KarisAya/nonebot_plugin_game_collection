@@ -1,8 +1,7 @@
-from nonebot import on_message, on_command, on_fullmatch
+from nonebot import require, on_message, on_command, on_fullmatch
 from nonebot.permission import SUPERUSER
 from nonebot.matcher import Matcher
 from nonebot.log import logger
-from nonebot_plugin_apscheduler import scheduler
 
 import time
 import datetime
@@ -78,6 +77,11 @@ async def _(matcher: Matcher, bot: OneBot, event: OneBotMessageEvent):
   (｡•ᴗ-)_
 ————————————————————
 +++++++++++++++++++++++++++++++++++++"""
+
+
+from nonebot_plugin_apscheduler import AsyncIOScheduler
+
+scheduler: AsyncIOScheduler = require("nonebot_plugin_apscheduler").scheduler
 
 
 # 市场更新

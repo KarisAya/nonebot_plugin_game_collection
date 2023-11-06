@@ -79,9 +79,7 @@ async def _(matcher: Matcher, bot: OneBot, event: OneBotMessageEvent):
 +++++++++++++++++++++++++++++++++++++"""
 
 
-from nonebot_plugin_apscheduler import AsyncIOScheduler
-
-scheduler: AsyncIOScheduler = require("nonebot_plugin_apscheduler").scheduler
+scheduler = require("nonebot_plugin_apscheduler").scheduler
 
 
 # 市场更新

@@ -257,8 +257,8 @@ async def _(event: Event) -> Result:
     # 加载股票信息
     msg = "\n".join(
         f"{Manager.locate_group(stock).company.company_name}[nowrap]\n[right][color][green]{i}"
-        for stock, i in group_account.invest
-        if i
+        for stock, i in group_account.invest.items()
+        if i > 0
     )
     if msg:
         info.append(linecard(msg, width=880, endline="股票信息"))
@@ -320,7 +320,7 @@ async def _(event: Event) -> Result:
 
         def result(prop_code, n):
             quant = "天" if prop_code[2] == "0" else "个"
-            prop = Manager.get_prop(prop_code)
+            prop = Prop.get_prop(prop_code)
             rare = prop["rare"]
             return linecard(
                 (

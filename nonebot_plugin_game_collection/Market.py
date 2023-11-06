@@ -549,6 +549,28 @@ async def group_info(group_id, bg_id: str = None) -> Result:
     return info_splicing(info, Manager.BG_path(bg_id), 10)
 
 
+def format_number(num) -> str:
+    """
+    格式化金币
+    """
+    if num < 10000:
+        return "{:,}".format(num if isinstance(num, int) else round(num, 2))
+    x = str(int(num))
+    if 10000 <= num < 100000000:
+        return f"{x[:-4]}万"
+    if 100000000 <= num < 1000000000000:
+        y = int(x[-8:-4])
+        if y:
+            return f"{x[:-8]}亿{y}万"
+        return f"{x[:-8]}亿"
+    if 1000000000000 <= num:
+        y = int(x[-8:-4])
+        z = round(int(x[:-8]) / 10000, 2)
+        if y:
+            return f"{z}万亿{y}万"
+        return f"{z}万亿"
+
+
 def stock_profile(company: Company) -> str:
     """
     产业信息
@@ -560,8 +582,8 @@ def stock_profile(company: Company) -> str:
     rate = rate - 1
     rate = f'{round(rate*100,2)}% {"↑[color][green]" if rate > 0 else "↓[color][red]"}'
     msg = (
-        f"账户金额 {'{:,}'.format(company.bank)}[nowrap]\n"
-        f"[pixel][450]资产总量 {'{:,}'.format(round(group_gold))}\n"
+        f"账户金额 {format_number(company.bank)}[nowrap]\n"
+        f"[pixel][450]资产总量 {format_number(round(group_gold))}\n"
         f"发行价格 {'{:,}'.format(round(max(group_gold,float_gold)/SI,2))}[nowrap]\n"
         f"[pixel][450]结算价格 {'{:,}'.format(round(float_gold/SI,2))}\n"
         f"股票数量 {company.stock}[nowrap]\n"

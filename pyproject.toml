@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nonebot-plugin-game-collection"
-version = "2.4.12"
+version = "2.4.13"
 description = '改自nonebot_plugin_russian合并了nonebot_plugin_horserace还有一些自编玩法的小游戏合集。'
 authors = ["KarisAya <1048827424@qq.com>"]
 readme = "README.md"
@@ -19,6 +19,7 @@ ujson = "^5.8.0"
 nonebot-adapter-onebot = "^2.3.1"
 nonebot-adapter-qq = "^1.0.1"
 mplfinance = "^0.12.10b0"
+httpx = "^0.25.1"
 
 
 [build-system]

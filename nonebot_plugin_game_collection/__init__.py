@@ -28,18 +28,18 @@ __plugin_meta__ = PluginMetadata(
     extra={"menu_data": menu_data, "menu_template": "default"},
 )
 
-from nonebot.adapters.qq import Bot as QQBot, MessageCreateEvent
+from nonebot.adapters.qq import Bot as QQBot, MessageEvent as QQMessageEvent
 from .adapters.qq import Adapters as QQAdapters, send as QQsend
 
 main = on_message(priority=20, block=False)
 
 
 @main.handle()
-async def _(matcher: Matcher, bot: QQBot, event: MessageCreateEvent):
+async def _(matcher: Matcher, bot: QQBot, event: QQMessageEvent):
     data_list = Event.check(
         extract_command(event.get_plaintext()),
         event.get_user_id(),
-        event.guild_id or "private",
+        str(getattr(event, "guild_id", "private")),
     )
     if not data_list:
         await main.finish()

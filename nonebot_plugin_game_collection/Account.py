@@ -22,6 +22,7 @@ from .utils.chart import (
     linecard,
     info_splicing,
 )
+from .utils.utils import format_number
 from .config import (
     sign_gold,
     revolt_gold,
@@ -234,8 +235,8 @@ async def _(event: Event) -> Result:
         msg += f"{x}\n"
     msg += (2 - len(Achieve)) * "\n"
     msg += (
-        f"金币 {'{:,}'.format(gold)}\n"
-        f"股票 {'{:,}'.format(round(value,2))}\n"
+        f"金币 {format_number(gold)}\n"
+        f"股票 {format_number(value)}\n"
         "签到 [nowrap]\n"
         f"[color][{is_sign[1]}]{is_sign[0]}\n"
         "补贴 还剩 [nowrap]\n"
@@ -496,10 +497,8 @@ def format_ranktitle(x: int, title: str = "金币"):
     """
     根据排行榜将数据格式化
     """
-    if title == "金币" or title == "总金币":
-        return "{:,}".format(x)
-    elif title == "总资产" or title == "资产" or title == "财富":
-        return "{:,}".format(round(x, 2))
+    if title in {"金币", "总金币", "总资产", "资产", "财富"}:
+        return format_number(x)
     elif title == "胜率":
         return f"{round(x*100,2)}%"
     else:

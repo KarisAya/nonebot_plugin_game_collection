@@ -25,3 +25,28 @@ async def download_url(url: str) -> BytesIO:
             except Exception:
                 await asyncio.sleep(3)
     return None
+
+
+def format_number(num) -> str:
+    """
+    格式化金币
+    """
+    if num < 10000:
+        return "{:,}".format(num if isinstance(num, int) else round(num, 2))
+    x = str(int(num))
+    if 10000 <= num < 100000000:
+        y = int(x[-4:])
+        if y:
+            return f"{x[:-4]}万{y}"
+        return f"{x[:-4]}万"
+    if 100000000 <= num < 1000000000000:
+        y = int(x[-8:-4])
+        if y:
+            return f"{x[:-8]}亿{y}万"
+        return f"{x[:-8]}亿"
+    if 1000000000000 <= num:
+        y = int(x[-8:-4])
+        z = round(int(x[:-8]) / 10000, 2)
+        if y:
+            return f"{z}万亿{y}万"
+        return f"{z}万亿"

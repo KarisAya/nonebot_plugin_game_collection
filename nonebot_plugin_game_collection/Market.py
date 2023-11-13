@@ -17,6 +17,7 @@ from .utils.chart import (
     group_info_account,
     info_splicing,
 )
+from .utils.utils import format_number
 from .config import gacha_gold, max_bet_gold
 
 
@@ -547,28 +548,6 @@ async def group_info(group_id, bg_id: str = None) -> Result:
         info.insert(min(len(info), 2), linecard(msg, width=880, endline="路灯挂件"))
 
     return info_splicing(info, Manager.BG_path(bg_id), 10)
-
-
-def format_number(num) -> str:
-    """
-    格式化金币
-    """
-    if num < 10000:
-        return "{:,}".format(num if isinstance(num, int) else round(num, 2))
-    x = str(int(num))
-    if 10000 <= num < 100000000:
-        return f"{x[:-4]}万"
-    if 100000000 <= num < 1000000000000:
-        y = int(x[-8:-4])
-        if y:
-            return f"{x[:-8]}亿{y}万"
-        return f"{x[:-8]}亿"
-    if 1000000000000 <= num:
-        y = int(x[-8:-4])
-        z = round(int(x[:-8]) / 10000, 2)
-        if y:
-            return f"{z}万亿{y}万"
-        return f"{z}万亿"
 
 
 def stock_profile(company: Company) -> str:

@@ -80,55 +80,6 @@ def locate_user(event: Event) -> Tuple[UserDict, GroupAccount]:
     return user, group_account
 
 
-def locate_group(group_id: str) -> GroupDict:
-    """
-    定位群账户
-    """
-    return group_data.get(group_id)
-
-
-def locate_user_at(user_id: str, group_id: str) -> Tuple[UserDict, GroupAccount]:
-    """
-    定位at账户
-    """
-    user = user_data.setdefault(user_id, UserDict(user_id=user_id, nickname=""))
-    group = group_data.setdefault(group_id, GroupDict(group_id=group_id))
-    namelist = group.namelist
-    if user_id not in namelist:
-        namelist.add(user_id)
-        data.save()
-    group_account = user.group_accounts.setdefault(
-        group_id, GroupAccount(group_id=group_id, nickname=user.nickname)
-    )
-    return user, group_account
-
-
-def locate_user_all(group_id: str) -> List[Tuple[UserDict, GroupAccount]]:
-    """
-    定位本群全部账户
-    """
-    group = locate_group(group_id)
-    if not group:
-        return []
-    users = []
-    for user_id in group.namelist:
-        user = user_data[user_id]
-        users.append((user, user.group_accounts[group_id]))
-
-
-def get_user(user_id: str) -> UserDict:
-    return user_data.get(user_id)
-
-
-def pay_tax(locate: Tuple[UserDict, GroupAccount], group: GroupDict, tax: int):
-    """
-    上税
-    """
-    locate[0].gold -= tax
-    locate[1].gold -= tax
-    group.company.bank += tax
-
-
 def account_connect(event: Event, group_id: str = None):
     """
     关联账户
@@ -140,15 +91,6 @@ def account_connect(event: Event, group_id: str = None):
     user = get_user(event.user_id)
     if group_id in user.group_accounts:
         user.connect = group_id
-
-
-def BG_path(user_id: str) -> Path:
-    my_BG = BG_image / f"{user_id}.png"
-    if my_BG.exists():
-        return my_BG
-    else:
-        return default_BG
-
 
 def PropsCard_list(locate: Tuple[UserDict, GroupAccount]):
     """

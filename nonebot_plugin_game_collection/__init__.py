@@ -2,7 +2,7 @@ from nonebot import require, on_message, on_command, on_fullmatch
 from nonebot.permission import SUPERUSER
 from nonebot.matcher import Matcher
 from nonebot.log import logger
-
+import nonebot_plugin_apscheduler
 import time
 import datetime
 import shutil
@@ -91,9 +91,7 @@ async def _():
 
 
 # 数据验证
-DataVerif = on_command(
-    "数据验证", aliases={"数据校验"}, permission=SUPERUSER, priority=20, block=True
-)
+DataVerif = on_command("数据验证", aliases={"数据校验"}, permission=SUPERUSER, priority=20, block=True)
 
 
 @DataVerif.handle()
@@ -103,9 +101,7 @@ async def _():
 
 
 # 数据备份
-Backup = on_command(
-    "Backup", aliases={"数据备份", "游戏备份"}, permission=SUPERUSER, priority=20, block=True
-)
+Backup = on_command("Backup", aliases={"数据备份", "游戏备份"}, permission=SUPERUSER, priority=20, block=True)
 
 
 @Backup.handle()
@@ -117,16 +113,12 @@ async def _():
     if not backup_today.exists():
         backup_today.mkdir()
     Manager.data.save()
-    shutil.copy(
-        f"{path}/russian_data.json", f"{backup_today}/russian_data {now[1]}.json"
-    )
+    shutil.copy(f"{path}/russian_data.json", f"{backup_today}/russian_data {now[1]}.json")
     logger.info(f"russian_data.json 备份成功！")
 
 
 # 刷新每日
-Newday = on_command(
-    "Newday", aliases={"刷新每日", "刷新签到"}, permission=SUPERUSER, priority=20, block=True
-)
+Newday = on_command("Newday", aliases={"刷新每日", "刷新签到"}, permission=SUPERUSER, priority=20, block=True)
 
 
 @Newday.handle()
@@ -152,9 +144,7 @@ async def _():
 
 
 # 保存数据
-DataSave = on_command(
-    "DataSave", aliases={"保存数据", "保存游戏"}, permission=SUPERUSER, priority=20, block=True
-)
+DataSave = on_command("DataSave", aliases={"保存数据", "保存游戏"}, permission=SUPERUSER, priority=20, block=True)
 
 
 @DataSave.handle()

@@ -589,8 +589,8 @@ class MultiplayerGame(AROF):
         return "游戏已重置。"
 
 
-from .HorseRace.start import load_dlcs
-from .HorseRace.race_group import race_group as RaceWorld
+from .horse_race.start import load_dlcs
+from .horse_race.race_group import race_group as RaceWorld
 
 
 class HorseRace(MultiplayerGame):

@@ -6,7 +6,7 @@ authors = ["KarisAya <1048827424@qq.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.10"
 clovers = "^0.1.1"
 nonebot-plugin-clovers = "^0.1.0"
 clovers-leafgame = "^0.1.0"

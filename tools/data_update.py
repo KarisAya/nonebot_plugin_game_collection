@@ -9,8 +9,8 @@ from collections import Counter
 resource_file = Path(os.path.dirname(__file__))
 
 
-with open(resource_file / "props_library.json", "r", encoding="utf8") as f:
-    props_library: dict = json.load(f)
+# with open(resource_file / "props_library.json", "r", encoding="utf8") as f:
+#     props_library: dict = json.load(f)
 
 Bank = dict[str, int]
 

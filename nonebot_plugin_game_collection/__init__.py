@@ -12,11 +12,16 @@ __plugin_meta__ = PluginMetadata(
 )
 
 
-plugin = PluginLoader.load("clovers_leafgame")
-if plugin is None:
-    logger.error(f"未找到clovers_leafgame")
-elif plugin not in adapter.plugins:
-    adapter.plugins.append(plugin)
-    logger.success(f"clovers_leafgame加载成功")
-else:
-    logger.success(f"clovers_leafgame已存在")
+def load_plugin(name: str):
+    plugin = PluginLoader.load(name)
+    if plugin is None:
+        logger.error(f"未找到{name}")
+    elif plugin not in adapter.plugins:
+        adapter.plugins.append(plugin)
+        logger.success(f"{name}加载成功")
+    else:
+        logger.success(f"{name}已存在")
+
+
+load_plugin("clovers_apscheduler")
+load_plugin("clovers_leafgame")

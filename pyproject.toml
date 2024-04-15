@@ -7,6 +7,9 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
+clovers = "^0.1.1"
+nonebot-plugin-clovers = "^0.1.0"
+clovers-leafgame = "^0.1.0"
 
 
 [build-system]

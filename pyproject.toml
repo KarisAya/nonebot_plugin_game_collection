@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nonebot-plugin-game-collection"
-version = "3.0.1"
+version = "3.0.2"
 description = ""
 authors = ["KarisAya <1048827424@qq.com>"]
 readme = "README.md"

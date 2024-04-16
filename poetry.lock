@@ -97,13 +97,13 @@ tools = ["httpx (>=0.27.0,<0.28.0)", "numpy (>=1.26.4,<2.0.0)"]
 
 [[package]]
 name = "clovers-apscheduler"
-version = "0.1.2"
+version = "0.1.3"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "clovers_apscheduler-0.1.2-py3-none-any.whl", hash = "sha256:599d470bc240b97825cd5b578256f5880dff41e53eaaa1526b3e5f31ae2e52d9"},
-    {file = "clovers_apscheduler-0.1.2.tar.gz", hash = "sha256:c8df1edaa6c5819a2445fffcd6ffd0283a84d79f99659420fa0d249491ed29e4"},
+    {file = "clovers_apscheduler-0.1.3-py3-none-any.whl", hash = "sha256:0379cb154c444d5b880ce122d8ed6bc988f54227bf2fd1838edc06747dea8e71"},
+    {file = "clovers_apscheduler-0.1.3.tar.gz", hash = "sha256:32aacd928d1870d4aa881a14e96eed73169c59a256fffcdbc223127ab53bd7af"},
 ]
 
 [package.dependencies]
@@ -113,18 +113,18 @@ pydantic = ">=2.7.0,<3.0.0"
 
 [[package]]
 name = "clovers-leafgame"
-version = "0.1.1"
+version = "0.1.2"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "clovers_leafgame-0.1.1-py3-none-any.whl", hash = "sha256:f335b4007a838f5aa38d2d20910f55d7af252f694910ab92555b43fab6afab3e"},
-    {file = "clovers_leafgame-0.1.1.tar.gz", hash = "sha256:c815b1e2ea9040ec99a58ac681296c1054fe4348b69ed292487799192250bcb5"},
+    {file = "clovers_leafgame-0.1.2-py3-none-any.whl", hash = "sha256:c0c2122606d97f6e018186fd2e45667e0593c8bc63bd54790a97c31cd5f920f7"},
+    {file = "clovers_leafgame-0.1.2.tar.gz", hash = "sha256:1aa6e3698705a57e5e825c00eca35bbff196613826c8e117f57a86abf34671a0"},
 ]
 
 [package.dependencies]
 clovers = {version = ">=0.1.2,<0.2.0", extras = ["linecard", "tools"]}
-clovers-apscheduler = ">=0.1.2,<0.2.0"
+clovers-apscheduler = ">=0.1.3,<0.2.0"
 mplfinance = ">=0.12.10b0,<0.13.0"
 pydantic = ">=2.7.0,<3.0.0"
 
@@ -757,13 +757,13 @@ yarl = ">=1.9.0,<2.0.0"
 
 [[package]]
 name = "nonebot-plugin-clovers"
-version = "0.1.2"
+version = "0.1.2.post1"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "nonebot_plugin_clovers-0.1.2-py3-none-any.whl", hash = "sha256:c1313e1e3d74897fdba75547a859edc429f2f4aed0cdcc0b722e7b2639904115"},
-    {file = "nonebot_plugin_clovers-0.1.2.tar.gz", hash = "sha256:616556197b7dceafb0f19fd1bcf860db23d9359cc513c32ac0b396c159ab6e52"},
+    {file = "nonebot_plugin_clovers-0.1.2.post1-py3-none-any.whl", hash = "sha256:051287f37b79de7680ae1491b5fdb5daaef2f91808c136c396bc4efbaff988d1"},
+    {file = "nonebot_plugin_clovers-0.1.2.post1.tar.gz", hash = "sha256:e50c9f244293aeb92dec508e01249158e866af0f9991358913ecc1ae639d2be5"},
 ]
 
 [package.dependencies]
@@ -1390,4 +1390,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "77f368c2d339764a256b1bc287e162721b76b7c8e3280e1a2275b2abf0ea68de"
+content-hash = "84eeb146c8b3aefcdb04a4f15340d9469c8128a9a652865c1b013cbb560826bb"

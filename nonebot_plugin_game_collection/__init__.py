@@ -1,5 +1,5 @@
 from clovers.core.plugin import PluginLoader
-from nonebot_plugin_clovers import adapter
+from nonebot_plugin_clovers import adapter, __plugin_meta__ as nonebot_plugin_clovers_plugin_meta
 from nonebot.log import logger
 from nonebot.plugin import PluginMetadata
 
@@ -9,6 +9,7 @@ __plugin_meta__ = PluginMetadata(
     usage="金币签到",
     type="application",
     homepage="https://github.com/KarisAya/nonebot_plugin_game_collection",
+    supported_adapters=nonebot_plugin_clovers_plugin_meta.supported_adapters,
 )
 
 

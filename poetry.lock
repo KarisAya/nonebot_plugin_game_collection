@@ -658,13 +658,13 @@ files = [
 
 [[package]]
 name = "nonebot-plugin-clovers"
-version = "0.1.3.post1"
+version = "0.1.4"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "nonebot_plugin_clovers-0.1.3.post1-py3-none-any.whl", hash = "sha256:33013e6621543d02f9893d441444130115501bc919801d25e46e9c70d34d101f"},
-    {file = "nonebot_plugin_clovers-0.1.3.post1.tar.gz", hash = "sha256:67e92e1b128684cafd7489317a50abc961f61fb46dad556f9141a4edd197e501"},
+    {file = "nonebot_plugin_clovers-0.1.4-py3-none-any.whl", hash = "sha256:24c673edede186dce946c7cc8ac6a4cf565206f67b9dd28c40564e71d5618762"},
+    {file = "nonebot_plugin_clovers-0.1.4.tar.gz", hash = "sha256:f6fa0318846d69a06780a881fb0a7aeedd04ebcc191175febdae6c8c9abe026e"},
 ]
 
 [package.dependencies]
@@ -1294,4 +1294,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "8c39959e4651ef2a0bb324905cc85def9be73dc4ba2e76850bbad428aca8c898"
+content-hash = "19dfc3506f68fe48cef8863525346890bf76d3306377901ac6df7a8cc80479f0"

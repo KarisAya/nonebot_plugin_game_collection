@@ -8,7 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 clovers-leafgame = "^0.1.4"
-nonebot-plugin-clovers = {extras = ["nonebot"], version = "^0.1.3"}
+nonebot-plugin-clovers = {extras = ["nonebot"], version = "^0.1.4"}
 
 [build-system]
 requires = ["poetry-core"]

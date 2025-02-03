@@ -1,5 +1,12 @@
+from nonebot import on_message, get_driver
+from nonebot.matcher import Matcher
 from nonebot.plugin import PluginMetadata
-from nonebot_plugin_clovers import clovers
+from nonebot.adapters.onebot.v11 import Bot, MessageEvent
+from clovers import Leaf
+from nonebot_plugin_clovers import extract_command
+from nonebot_plugin_clovers.adapters.onebot.v11 import __adapter__ as onebot_v11
+from clovers_apscheduler import __plugin__ as apscheduler
+from clovers_leafgame import __plugin__ as leafgame
 
 __plugin_meta__ = PluginMetadata(
     name="小游戏合集",
@@ -10,5 +17,19 @@ __plugin_meta__ = PluginMetadata(
     supported_adapters={"nonebot.adapters.onebot.v11"},
 )
 
-clovers.load_plugin("clovers_apscheduler")
-clovers.load_plugin("clovers_leafgame")
+leaf = Leaf(onebot_v11)
+
+leaf.plugins.append(apscheduler)
+leaf.plugins.append(leafgame)
+
+driver = get_driver()
+driver.on_startup(leaf.startup)
+driver.on_shutdown(leaf.shutdown)
+
+main = on_message(priority=20, block=False)
+
+
+@main.handle()
+async def _(bot: Bot, event: MessageEvent, matcher: Matcher):
+    if await leaf.response(extract_command(event.get_plaintext()), bot=bot, event=event):
+        matcher.stop_propagation()

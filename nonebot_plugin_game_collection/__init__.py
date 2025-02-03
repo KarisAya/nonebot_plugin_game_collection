@@ -22,7 +22,17 @@ leaf = Leaf(onebot_v11)
 leaf.plugins.append(apscheduler)
 leaf.plugins.append(leafgame)
 
+
 driver = get_driver()
+
+Bot_NICKNAME = Bot_NICKNAMEs[0] if (Bot_NICKNAMEs := list(driver.config.nickname)) else "bot"
+
+
+@leaf.adapter.property_method("Bot_Nickname")
+async def _():
+    return Bot_NICKNAME
+
+
 driver.on_startup(leaf.startup)
 driver.on_shutdown(leaf.shutdown)
 
